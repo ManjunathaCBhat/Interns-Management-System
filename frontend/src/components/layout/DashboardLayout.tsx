@@ -43,8 +43,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const internLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Home' },
     { to: '/dashboard/profile', icon: User, label: 'Profile' },
-    { to: '/dashboard/tasks', icon: FileText, label: 'Tasks' },
-    { to: '/dashboard/dsu', icon: Calendar, label: 'Daily Updates' },
+    // { to: '/dashboard/tasks', icon: FileText, label: 'Tasks' },
+     { to: '/daily-updates', icon: Calendar, label: 'Daily Updates' },
     { to: '/dashboard/settings', icon: Settings, label: 'Settings' },
   ];
 

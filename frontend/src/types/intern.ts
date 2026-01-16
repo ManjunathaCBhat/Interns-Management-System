@@ -45,7 +45,10 @@ export interface DSUEntry {
   reviewedBy?: string;
   reviewedAt?: string;
   feedback?: string;
+  created_at?: string;
+  updated_at?: string;
 }
+
 
 export interface Task {
   _id: string;
@@ -53,13 +56,19 @@ export interface Task {
   title: string;
   description?: string;
   project: string;
-  priority: string;
+  priority?: string;              // Made optional
   status: string;
-  assignedBy: string;
-  dueDate: string;
+  assignedBy?: string;            // Made optional
+  dueDate?: string;               // Made optional
   completedAt?: string;
-  tags: string[];
+  tags?: string[];                // Made optional
+  date?: string;                  // Made optional (for API response)
+  task_date?: string;             // Added for backend alias support
+  comments?: string;
+  created_at?: string;
+  updated_at?: string;
 }
+
 
 export interface Project {
   _id: string;
@@ -72,3 +81,8 @@ export interface Project {
   internIds: string[];
   mentor: string;
 }
+
+
+
+
+

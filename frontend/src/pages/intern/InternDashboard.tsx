@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sun,
   CheckCircle,
@@ -16,13 +16,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import StatusBadge from '@/components/shared/StatusBadge';
 import StatCard from '@/components/shared/StatCard';
-import { mockTasks, mockDSUEntries } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
+import { taskService } from '@/services/taskService';
+import { dsuService } from '@/services/dsuService';
+import { Task } from '@/types/intern';
 
 const InternDashboard: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [todaysDSU, setTodaysDSU] = useState<any>(null);
+  
   const [dsuForm, setDsuForm] = useState({
     yesterday: '',
     today: '',
@@ -33,29 +39,83 @@ const InternDashboard: React.FC = () => {
   const currentHour = new Date().getHours();
   const greeting =
     currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
+  
+  const today = new Date().toISOString().split('T')[0];
 
-  const todaysDSU = mockDSUEntries.find(
-    (dsu) => dsu.date === new Date().toISOString().split('T')[0] && dsu.status === 'submitted'
-  );
+  // ✅ Fetch real data
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [tasksData, dsuData] = await Promise.all([
+        taskService.getAll(user?.id),
+        dsuService.getByDate(user?.id || '', today),
+      ]);
+      
+      setTasks(tasksData);
+      setTodaysDSU(dsuData);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDSUSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!dsuForm.yesterday || !dsuForm.today) {
+      toast({
+        title: 'Missing fields',
+        description: 'Please fill in yesterday and today fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    toast({
-      title: 'DSU Submitted!',
-      description: 'Your daily standup has been recorded.',
-    });
-    
-    setDsuForm({ yesterday: '', today: '', blockers: '' });
-    setIsSubmitting(false);
+    try {
+      await dsuService.create({
+        internId: user?.id || '',
+        date: today,
+        ...dsuForm,
+      });
+      
+      toast({
+        title: 'DSU Submitted!',
+        description: 'Your daily standup has been recorded.',
+      });
+      
+      setDsuForm({ yesterday: '', today: '', blockers: '' });
+      fetchData(); // Refresh data
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to submit DSU',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const activeTasks = mockTasks.filter((t) => t.status !== 'completed').slice(0, 3);
-  const completedTasks = mockTasks.filter((t) => t.status === 'completed').length;
+  // ✅ Calculate stats from real data
+  const activeTasks = tasks.filter((t) => t.status !== 'DONE' && t.status !== 'completed').slice(0, 3);
+  const completedTasks = tasks.filter((t) => t.status === 'DONE' || t.status === 'completed').length;
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -218,7 +278,7 @@ const InternDashboard: React.FC = () => {
                 Active Tasks
               </CardTitle>
               <Button variant="ghost" size="sm" asChild>
-                <Link to="/dashboard/tasks">
+                <Link to="/daily-updates">
                   View All
                   <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
@@ -233,19 +293,16 @@ const InternDashboard: React.FC = () => {
                 <div className="divide-y">
                   {activeTasks.map((task) => (
                     <div
-                      key={task.id}
+                      key={task._id}
                       className="flex items-start gap-4 p-4 hover:bg-muted/30 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium truncate">{task.title}</h4>
                         <p className="text-sm text-muted-foreground truncate">
-                          {task.projectName}
+                          {task.project}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm text-muted-foreground">
-                          {task.hours}h
-                        </span>
                         <StatusBadge status={task.status} />
                       </div>
                     </div>
@@ -264,7 +321,7 @@ const InternDashboard: React.FC = () => {
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Button variant="outline" className="justify-start h-auto py-4" asChild>
-                <Link to="/dashboard/tasks">
+                <Link to="/daily-updates">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
                       <CheckCircle className="h-5 w-5 text-accent" />
@@ -294,30 +351,30 @@ const InternDashboard: React.FC = () => {
                 </Link>
               </Button>
               <Button variant="outline" className="justify-start h-auto py-4" asChild>
-                <Link to="/dashboard/dsu">
+                <Link to="/daily-updates">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
                       <Calendar className="h-5 w-5 text-accent" />
                     </div>
                     <div className="text-left">
-                      <p className="font-medium">DSU History</p>
+                      <p className="font-medium">Daily Updates</p>
                       <p className="text-xs text-muted-foreground">
-                        Past updates
+                        Track today's work
                       </p>
                     </div>
                   </div>
                 </Link>
               </Button>
               <Button variant="outline" className="justify-start h-auto py-4" asChild>
-                <Link to="/dashboard/settings">
+                <Link to="/dashboard/profile">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
                       <AlertTriangle className="h-5 w-5 text-accent" />
                     </div>
                     <div className="text-left">
-                      <p className="font-medium">Report Issue</p>
+                      <p className="font-medium">View Profile</p>
                       <p className="text-xs text-muted-foreground">
-                        Get help
+                        Check details
                       </p>
                     </div>
                   </div>

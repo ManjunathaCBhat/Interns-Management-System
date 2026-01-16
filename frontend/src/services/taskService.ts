@@ -19,5 +19,11 @@ export const taskService = {
   async update(id: string, data: Partial<Task>) {
     const response = await apiClient.patch(`/tasks/${id}`, data);
     return response.data;
+  },
+
+  async delete(id: string) {
+    await apiClient.delete(`/tasks/${id}`);
   }
 };
+
+

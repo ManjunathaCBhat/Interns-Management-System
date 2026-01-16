@@ -311,7 +311,6 @@ async def update_dsu(
     result["_id"] = str(result["_id"])
     return result
 
-
 # ==================== TASK ROUTES ====================
 @app.post("/api/v1/tasks/", status_code=201)
 async def create_task(
@@ -320,8 +319,12 @@ async def create_task(
     current_user: User = Depends(get_current_active_user)
 ):
     """Create new task"""
-    task_dict = task_data.model_dump()
-    task_dict["status"] = "todo"
+    # ✅ Use by_alias=False to get internal field names for database
+    task_dict = task_data.model_dump(by_alias=False)
+    
+    if "status" not in task_dict or not task_dict["status"]:
+        task_dict["status"] = "NOT_STARTED"
+    
     task_dict["created_at"] = datetime.now(timezone.utc)
     task_dict["updated_at"] = datetime.now(timezone.utc)
     
@@ -333,8 +336,15 @@ async def create_task(
         {"$inc": {"taskCount": 1}}
     )
     
+    # ✅ Prepare response with alias conversion
     task_dict["_id"] = str(result.inserted_id)
+    
+    # Convert task_date to date for response
+    if "task_date" in task_dict and task_dict["task_date"]:
+        task_dict["date"] = task_dict["task_date"]
+    
     return task_dict
+
 
 @app.get("/api/v1/tasks/")
 async def list_tasks(
@@ -351,11 +361,17 @@ async def list_tasks(
         query["status"] = status
     
     tasks = []
-    async for task in db.tasks.find(query).sort("dueDate", 1):
+    async for task in db.tasks.find(query).sort("created_at", -1):
         task["_id"] = str(task["_id"])
+        
+        # ✅ Convert task_date to date for frontend
+        if "task_date" in task and task["task_date"]:
+            task["date"] = task["task_date"]
+        
         tasks.append(task)
     
     return tasks
+
 
 @app.patch("/api/v1/tasks/{task_id}")
 async def update_task(
@@ -365,7 +381,8 @@ async def update_task(
     current_user: User = Depends(get_current_active_user)
 ):
     """Update task"""
-    update_data = task_update.model_dump(exclude_unset=True)
+    # ✅ Use by_alias=False to get internal field names
+    update_data = task_update.model_dump(exclude_unset=True, by_alias=False)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
     
@@ -373,7 +390,8 @@ async def update_task(
     if not current_task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    if update_data.get("status") == "completed" and current_task["status"] != "completed":
+    # ✅ Check for DONE status and update completion
+    if update_data.get("status") == "DONE" and current_task.get("status") != "DONE":
         update_data["completedAt"] = datetime.now(timezone.utc)
         await db.interns.update_one(
             {"_id": ObjectId(current_task["internId"])},
@@ -389,7 +407,39 @@ async def update_task(
     )
     
     result["_id"] = str(result["_id"])
+    
+    # ✅ Convert task_date to date for response
+    if "task_date" in result and result["task_date"]:
+        result["date"] = result["task_date"]
+    
     return result
+
+
+@app.delete("/api/v1/tasks/{task_id}", status_code=204)
+async def delete_task(
+    task_id: str,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Delete task"""
+    task = await db.tasks.find_one({"_id": ObjectId(task_id)})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Update intern's task count
+    await db.interns.update_one(
+        {"_id": ObjectId(task["internId"])},
+        {"$inc": {"taskCount": -1}}
+    )
+    
+    result = await db.tasks.delete_one({"_id": ObjectId(task_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    return None
+
+
+
 
 
 # ==================== PROJECT ROUTES ====================

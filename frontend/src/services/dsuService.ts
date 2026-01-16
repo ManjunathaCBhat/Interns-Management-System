@@ -12,6 +12,25 @@ export const dsuService = {
     return response.data;
   },
 
+  // ✅ ADD THIS METHOD
+  async getByDate(internId: string, date: string): Promise<DSUEntry | null> {
+    try {
+      const response = await apiClient.get<DSUEntry[]>('/dsu-entries/', {
+        params: {
+          intern_id: internId,
+          date_from: date,
+          date_to: date
+        }
+      });
+      
+      // Return first entry if exists, otherwise null
+      return response.data.length > 0 ? response.data[0] : null;
+    } catch (error) {
+      console.error('Error fetching DSU by date:', error);
+      return null;
+    }
+  },
+
   async create(data: Partial<DSUEntry>) {
     const response = await apiClient.post('/dsu-entries/', data);
     return response.data;

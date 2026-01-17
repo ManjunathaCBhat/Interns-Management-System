@@ -1,686 +1,1209 @@
-// import React, { useState } from 'react';
-// import {
-//   Calendar,
-//   Filter,
-//   MessageSquare,
-//   AlertTriangle,
-//   CheckCircle,
-//   Clock,
-//   Users,
-//   RefreshCw,
-// } from 'lucide-react';
-// import DashboardLayout from '@/components/layout/DashboardLayout';
-// import { Button } from '@/components/ui/button';
-// import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-// import {
-//   Select,
-//   SelectContent,
-//   SelectItem,
-//   SelectTrigger,
-//   SelectValue,
-// } from '@/components/ui/select';
-// import StatusBadge from '@/components/shared/StatusBadge';
-// import Avatar from '@/components/shared/Avatar';
-// import { mockInterns, mockDSUEntries, mockProjects } from '@/data/mockData';
-
-// const DSUBoard: React.FC = () => {
-//   const [projectFilter, setProjectFilter] = useState<string>('all');
-//   const [statusFilter, setStatusFilter] = useState<string>('all');
-
-//   const today = new Date().toISOString().split('T')[0];
-//   const activeInterns = mockInterns.filter((i) => i.status === 'active' || i.status === 'training');
-
-//   const getDSUForIntern = (internId: string) => {
-//     return mockDSUEntries.find(
-//       (dsu) => dsu.internId === internId && dsu.date === today
-//     );
-//   };
-
-//   const getStatusIndicator = (dsu: typeof mockDSUEntries[0] | undefined) => {
-//     if (!dsu || dsu.status === 'pending') {
-//       return { color: 'bg-warning', label: 'Pending' };
-//     }
-//     if (dsu.blockers && dsu.blockers.length > 0) {
-//       return { color: 'bg-error', label: 'Blocked' };
-//     }
-//     return { color: 'bg-success', label: 'Submitted' };
-//   };
-
-//   const filteredInterns = activeInterns.filter((intern) => {
-//     const dsu = getDSUForIntern(intern.id);
-//     const status = getStatusIndicator(dsu);
-
-//     const matchesProject =
-//       projectFilter === 'all' || intern.projectId === projectFilter;
-//     const matchesStatus =
-//       statusFilter === 'all' ||
-//       (statusFilter === 'submitted' && status.label === 'Submitted') ||
-//       (statusFilter === 'pending' && status.label === 'Pending') ||
-//       (statusFilter === 'blocked' && status.label === 'Blocked');
-
-//     return matchesProject && matchesStatus;
-//   });
-
-//   const stats = {
-//     submitted: activeInterns.filter((i) => {
-//       const dsu = getDSUForIntern(i.id);
-//       return dsu && dsu.status === 'submitted' && (!dsu.blockers || dsu.blockers.length === 0);
-//     }).length,
-//     pending: activeInterns.filter((i) => {
-//       const dsu = getDSUForIntern(i.id);
-//       return !dsu || dsu.status === 'pending';
-//     }).length,
-//     blocked: activeInterns.filter((i) => {
-//       const dsu = getDSUForIntern(i.id);
-//       return dsu && dsu.blockers && dsu.blockers.length > 0;
-//     }).length,
-//   };
-
-//   return (
-//     <DashboardLayout>
-//       <div className="space-y-6">
-//         {/* Header */}
-//         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-//           <div>
-//             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-//               DSU Board
-//             </h1>
-//             <p className="text-muted-foreground">
-//               Daily Standup Updates for {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-//             </p>
-//           </div>
-//           <Button variant="outline">
-//             <RefreshCw className="mr-2 h-4 w-4" />
-//             Refresh
-//           </Button>
-//         </div>
-
-//         {/* Stats */}
-//         <div className="grid gap-4 sm:grid-cols-3">
-//           <Card className="border-l-4 border-l-success">
-//             <CardContent className="p-4">
-//               <div className="flex items-center gap-4">
-//                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-success/10">
-//                   <CheckCircle className="h-6 w-6 text-success" />
-//                 </div>
-//                 <div>
-//                   <p className="text-2xl font-bold">{stats.submitted}</p>
-//                   <p className="text-sm text-muted-foreground">Submitted</p>
-//                 </div>
-//               </div>
-//             </CardContent>
-//           </Card>
-//           <Card className="border-l-4 border-l-warning">
-//             <CardContent className="p-4">
-//               <div className="flex items-center gap-4">
-//                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-warning/10">
-//                   <Clock className="h-6 w-6 text-warning" />
-//                 </div>
-//                 <div>
-//                   <p className="text-2xl font-bold">{stats.pending}</p>
-//                   <p className="text-sm text-muted-foreground">Pending</p>
-//                 </div>
-//               </div>
-//             </CardContent>
-//           </Card>
-//           <Card className="border-l-4 border-l-error">
-//             <CardContent className="p-4">
-//               <div className="flex items-center gap-4">
-//                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-error/10">
-//                   <AlertTriangle className="h-6 w-6 text-error" />
-//                 </div>
-//                 <div>
-//                   <p className="text-2xl font-bold">{stats.blocked}</p>
-//                   <p className="text-sm text-muted-foreground">Blocked</p>
-//                 </div>
-//               </div>
-//             </CardContent>
-//           </Card>
-//         </div>
-
-//         {/* Filters */}
-//         <Card>
-//           <CardContent className="p-4">
-//             <div className="flex flex-wrap gap-4">
-//               <Select value={projectFilter} onValueChange={setProjectFilter}>
-//                 <SelectTrigger className="w-[180px]">
-//                   <SelectValue placeholder="Filter by Project" />
-//                 </SelectTrigger>
-//                 <SelectContent>
-//                   <SelectItem value="all">All Projects</SelectItem>
-//                   {mockProjects.map((project) => (
-//                     <SelectItem key={project.id} value={project.id}>
-//                       {project.name}
-//                     </SelectItem>
-//                   ))}
-//                 </SelectContent>
-//               </Select>
-//               <Select value={statusFilter} onValueChange={setStatusFilter}>
-//                 <SelectTrigger className="w-[180px]">
-//                   <SelectValue placeholder="Filter by Status" />
-//                 </SelectTrigger>
-//                 <SelectContent>
-//                   <SelectItem value="all">All Status</SelectItem>
-//                   <SelectItem value="submitted">Submitted</SelectItem>
-//                   <SelectItem value="pending">Pending</SelectItem>
-//                   <SelectItem value="blocked">Blocked</SelectItem>
-//                 </SelectContent>
-//               </Select>
-//             </div>
-//           </CardContent>
-//         </Card>
-
-//         {/* DSU Grid */}
-//         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-//           {filteredInterns.map((intern) => {
-//             const dsu = getDSUForIntern(intern.id);
-//             const status = getStatusIndicator(dsu);
-
-//             return (
-//               <Card key={intern.id} className="overflow-hidden">
-//                 <CardHeader className="border-b bg-muted/30 p-4">
-//                   <div className="flex items-center justify-between">
-//                     <div className="flex items-center gap-3">
-//                       <Avatar name={intern.name} size="md" />
-//                       <div>
-//                         <p className="font-medium">{intern.name}</p>
-//                         <p className="text-sm text-muted-foreground">
-//                           {intern.currentProject}
-//                         </p>
-//                       </div>
-//                     </div>
-//                     <div className="flex items-center gap-2">
-//                       <span
-//                         className={`h-3 w-3 rounded-full ${status.color}`}
-//                         title={status.label}
-//                       />
-//                     </div>
-//                   </div>
-//                 </CardHeader>
-//                 <CardContent className="p-4">
-//                   {dsu && dsu.status === 'submitted' ? (
-//                     <div className="space-y-3 text-sm">
-//                       <div>
-//                         <p className="font-medium text-muted-foreground mb-1">
-//                           Yesterday
-//                         </p>
-//                         <p className="line-clamp-2">{dsu.yesterday}</p>
-//                       </div>
-//                       <div>
-//                         <p className="font-medium text-muted-foreground mb-1">
-//                           Today
-//                         </p>
-//                         <p className="line-clamp-2">{dsu.today}</p>
-//                       </div>
-//                       {dsu.blockers && (
-//                         <div className="rounded-lg bg-error/10 p-2">
-//                           <p className="font-medium text-error mb-1 flex items-center gap-1">
-//                             <AlertTriangle className="h-4 w-4" />
-//                             Blocker
-//                           </p>
-//                           <p className="text-error/80">{dsu.blockers}</p>
-//                         </div>
-//                       )}
-//                       {dsu.mentorComment && (
-//                         <div className="rounded-lg bg-accent/10 p-2 mt-2">
-//                           <p className="font-medium text-accent mb-1 flex items-center gap-1">
-//                             <MessageSquare className="h-4 w-4" />
-//                             Mentor Feedback
-//                           </p>
-//                           <p className="text-muted-foreground">
-//                             {dsu.mentorComment}
-//                           </p>
-//                         </div>
-//                       )}
-//                     </div>
-//                   ) : (
-//                     <div className="flex flex-col items-center justify-center py-6 text-center">
-//                       <Clock className="h-10 w-10 text-muted-foreground/50 mb-2" />
-//                       <p className="text-muted-foreground">
-//                         No DSU submitted yet
-//                       </p>
-//                       <Button variant="outline" size="sm" className="mt-3">
-//                         Send Reminder
-//                       </Button>
-//                     </div>
-//                   )}
-//                 </CardContent>
-//                 {dsu && dsu.status === 'submitted' && (
-//                   <div className="border-t p-3 bg-muted/20">
-//                     <div className="flex gap-2">
-//                       <Button variant="outline" size="sm" className="flex-1">
-//                         <MessageSquare className="mr-1 h-4 w-4" />
-//                         Comment
-//                       </Button>
-//                       <Button variant="outline" size="sm">
-//                         View Details
-//                       </Button>
-//                     </div>
-//                   </div>
-//                 )}
-//               </Card>
-//             );
-//           })}
-//         </div>
-
-//         {filteredInterns.length === 0 && (
-//           <Card>
-//             <CardContent className="flex flex-col items-center justify-center py-12">
-//               <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
-//               <h3 className="text-lg font-medium">No interns found</h3>
-//               <p className="text-muted-foreground">
-//                 Try adjusting your filters
-//               </p>
-//             </CardContent>
-//           </Card>
-//         )}
-//       </div>
-//     </DashboardLayout>
-//   );
-// };
-
-// export default DSUBoard;
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Calendar,
-  Filter,
-  Users,
+  RefreshCw,
+  Download,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle,
+  XCircle,
   Clock,
   AlertTriangle,
-  Download,
-  RefreshCw,
-} from 'lucide-react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { taskService } from '@/services/taskService';
-import { internService } from '@/services/internService';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import Avatar from '@/components/shared/Avatar';
-import { Task, Intern } from '@/types/intern';
+  Users,
+  Calendar,
+  Shield,
+  Lock,
+  X,
+  LayoutDashboard,
+  ClipboardList,
+  Settings,
+  LogOut,
+  Menu,
+  Home,
+  FolderKanban,
+  UserCircle,
+  MessageSquare,
+} from "lucide-react";
 
-const STATUS_COLORS: Record<string, string> = {
-  NOT_STARTED: 'bg-gray-100 text-gray-800',
-  ON_HOLD: 'bg-yellow-100 text-yellow-800',
-  IN_PROGRESS: 'bg-blue-100 text-blue-800',
-  BLOCKED: 'bg-red-100 text-red-800',
-  DONE: 'bg-green-100 text-green-800',
+/* ================= TYPES ================= */
+interface Intern {
+  _id: string;
+  name: string;
+  email: string;
+  domain: string;
+  status: string;
+  currentProject: string;
+  mentor: string;
+}
+
+interface Task {
+  _id: string;
+  internId: string;
+  title: string;
+  description: string;
+  project: string;
+  priority: string;
+  status: string;
+  dueDate: string;
+  created_at: string;
+}
+
+interface DSU {
+  _id: string;
+  internId: string;
+  date: string;
+  yesterday: string;
+  today: string;
+  blockers: string;
+  learnings: string;
+}
+
+interface Project {
+  _id: string;
+  name: string;
+  status: string;
+}
+
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: "admin" | "scrum_master" | "user";
+}
+
+/* ================= MOCK DATA ================= */
+const MOCK_CURRENT_USER: User = {
+  _id: "u1",
+  name: "Admin User",
+  email: "admin@interns360.com",
+  role: "admin",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  NOT_STARTED: 'Not Started',
-  ON_HOLD: 'On Hold',
-  IN_PROGRESS: 'In Progress',
-  BLOCKED: 'Blocked',
-  DONE: 'Done',
+const MOCK_INTERNS: Intern[] = [
+  { _id: "i1", name: "Alice Johnson", email: "alice@test.com", domain: "Frontend", status: "active", currentProject: "Interns360", mentor: "John" },
+  { _id: "i2", name: "Bob Smith", email: "bob@test.com", domain: "Backend", status: "active", currentProject: "HR Portal", mentor: "Jane" },
+  { _id: "i3", name: "Charlie Brown", email: "charlie@test.com", domain: "Full Stack", status: "active", currentProject: "Interns360", mentor: "John" },
+  { _id: "i4", name: "Diana Prince", email: "diana@test.com", domain: "DevOps", status: "active", currentProject: "Cloud Migration", mentor: "Mike" },
+  { _id: "i5", name: "Ethan Hunt", email: "ethan@test.com", domain: "Backend", status: "active", currentProject: "HR Portal", mentor: "Jane" },
+  { _id: "i6", name: "Fiona Green", email: "fiona@test.com", domain: "Frontend", status: "active", currentProject: "Interns360", mentor: "John" },
+  { _id: "i7", name: "George Wilson", email: "george@test.com", domain: "Full Stack", status: "active", currentProject: "Cloud Migration", mentor: "Mike" },
+];
+
+const MOCK_PROJECTS: Project[] = [
+  { _id: "p1", name: "Interns360", status: "active" },
+  { _id: "p2", name: "HR Portal", status: "active" },
+  { _id: "p3", name: "Cloud Migration", status: "active" },
+];
+
+const MOCK_TASKS: Task[] = [
+  { _id: "t1", internId: "i1", title: "Build DSU Dashboard", description: "Create the main DSU board", project: "Interns360", priority: "high", status: "in_progress", dueDate: "2026-01-17", created_at: "2026-01-17" },
+  { _id: "t2", internId: "i1", title: "API Integration", description: "Connect to backend APIs", project: "Interns360", priority: "medium", status: "open", dueDate: "2026-01-18", created_at: "2026-01-17" },
+  { _id: "t3", internId: "i2", title: "Database Schema Design", description: "Design MongoDB schema", project: "HR Portal", priority: "high", status: "completed", dueDate: "2026-01-16", created_at: "2026-01-16" },
+  { _id: "t4", internId: "i2", title: "REST API Endpoints", description: "Create CRUD endpoints", project: "HR Portal", priority: "high", status: "in_progress", dueDate: "2026-01-17", created_at: "2026-01-17" },
+  { _id: "t5", internId: "i3", title: "User Authentication", description: "Implement JWT auth", project: "Interns360", priority: "high", status: "in_progress", dueDate: "2026-01-15", created_at: "2026-01-17" },
+  { _id: "t6", internId: "i4", title: "Docker Setup", description: "Containerize application", project: "Cloud Migration", priority: "medium", status: "open", dueDate: "2026-01-19", created_at: "2026-01-17" },
+  { _id: "t7", internId: "i5", title: "Payment Integration", description: "Stripe API integration", project: "HR Portal", priority: "high", status: "blocked", dueDate: "2026-01-14", created_at: "2026-01-17" },
+  { _id: "t8", internId: "i6", title: "Responsive Design", description: "Mobile-first approach", project: "Interns360", priority: "medium", status: "in_progress", dueDate: "2026-01-18", created_at: "2026-01-17" },
+  { _id: "t9", internId: "i7", title: "CI/CD Pipeline", description: "GitHub Actions setup", project: "Cloud Migration", priority: "high", status: "open", dueDate: "2026-01-20", created_at: "2026-01-17" },
+];
+
+const MOCK_DSUS: DSU[] = [
+  { _id: "d1", internId: "i1", date: "2026-01-17", yesterday: "Completed initial UI mockups for the DSU dashboard", today: "Working on implementing the carousel component and filter functionality", blockers: "None", learnings: "Learned about React state management patterns" },
+  { _id: "d2", internId: "i2", date: "2026-01-17", yesterday: "Finished database schema design and documentation", today: "Implementing REST API endpoints for CRUD operations", blockers: "", learnings: "FastAPI automatic documentation is amazing" },
+  { _id: "d3", internId: "i3", date: "2026-01-17", yesterday: "Set up project structure", today: "JWT authentication implementation", blockers: "Waiting for secret keys from admin", learnings: "" },
+  { _id: "d4", internId: "i5", date: "2026-01-17", yesterday: "Research on Stripe API", today: "Started payment integration", blockers: "API keys not available yet", learnings: "" },
+  { _id: "d5", internId: "i1", date: "2026-01-16", yesterday: "Sprint planning meeting", today: "Created UI mockups", blockers: "", learnings: "Figma prototyping tips" },
+  { _id: "d6", internId: "i2", date: "2026-01-16", yesterday: "Requirements gathering", today: "Database schema design", blockers: "", learnings: "MongoDB best practices" },
+];
+
+/* ================= MOCK API FUNCTIONS ================= */
+const fetchInterns = (): Promise<Intern[]> =>
+  new Promise((resolve) => setTimeout(() => resolve(MOCK_INTERNS), 500));
+
+const fetchProjects = (): Promise<Project[]> =>
+  new Promise((resolve) => setTimeout(() => resolve(MOCK_PROJECTS), 300));
+
+const fetchTasks = (): Promise<Task[]> =>
+  new Promise((resolve) => setTimeout(() => resolve(MOCK_TASKS), 400));
+
+const fetchDSUs = (): Promise<DSU[]> =>
+  new Promise((resolve) => setTimeout(() => resolve(MOCK_DSUS), 350));
+
+const fetchCurrentUser = (): Promise<User> =>
+  new Promise((resolve) => setTimeout(() => resolve(MOCK_CURRENT_USER), 200));
+
+/* ================= HELPER FUNCTIONS ================= */
+const getTaskAging = (task: Task) => {
+  if (!task.dueDate || task.status === "completed") return null;
+  const today = new Date();
+  const due = new Date(task.dueDate);
+  const diff = Math.ceil((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diff > 0 && task.priority === "high") {
+    return { text: `🔴 High priority overdue by ${diff} days`, color: "#dc2626" };
+  }
+  if (diff > 0) {
+    return { text: `⚠️ Overdue by ${diff} days`, color: "#ea580c" };
+  }
+  if (diff === 0) {
+    return { text: "⏳ Due today", color: "#ca8a04" };
+  }
+  return null;
 };
 
-const DSUBoard: React.FC = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
+const getInitials = (name: string) => {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+const getAvatarColor = (name: string) => {
+  const colors = [
+    "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899",
+    "#f43f5e", "#ef4444", "#f97316", "#eab308", "#84cc16",
+    "#22c55e", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6",
+  ];
+  const index = name.charCodeAt(0) % colors.length;
+  return colors[index];
+};
+
+const getStatusBadge = (status: string) => {
+  const styles: Record<string, { bg: string; color: string }> = {
+    open: { bg: "#dbeafe", color: "#2563eb" },
+    in_progress: { bg: "#fef9c3", color: "#ca8a04" },
+    completed: { bg: "#dcfce7", color: "#16a34a" },
+    blocked: { bg: "#fef2f2", color: "#dc2626" },
+  };
+  return styles[status] || { bg: "#f3f4f6", color: "#6b7280" };
+};
+
+/* ================= SIDEBAR MENU ================= */
+const sidebarMenu = [
+  { id: "dashboard", label: "Overview", icon: LayoutDashboard, path: "/admin" },
+  { id: "interns", label: "Interns", icon: Users, path: "/admin/interns" },
+  { id: "dsu-board", label: "DSU Board", icon: ClipboardList, path: "/admin/dsu-board" },
+  { id: "feedback", label: "Feedback", icon: MessageSquare, path: "/admin/feedback" },
+  { id: "settings", label: "Settings", icon: Settings, path: "/admin/settings" },
+];
+
+/* ================= MAIN COMPONENT ================= */
+const Index: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [interns, setInterns] = useState<Intern[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [dsus, setDsus] = useState<DSU[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [internFilter, setInternFilter] = useState<string>('all');
+
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [internFilter, setInternFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
+
+  const [startIndex, setStartIndex] = useState(0);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const CARDS_VISIBLE = 3;
 
   useEffect(() => {
-    fetchData();
-  }, [selectedDate]);
+    loadData();
+  }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [tasksData, internsData] = await Promise.all([
-        taskService.getAll(),
-        internService.getAll('active'),
-      ]);
-      setTasks(tasksData);
-      setInterns(internsData);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    } finally {
-      setLoading(false);
-    }
+  const loadData = async () => {
+    setLoading(true);
+    const [user, internList, projectList, taskList, dsuList] = await Promise.all([
+      fetchCurrentUser(),
+      fetchInterns(),
+      fetchProjects(),
+      fetchTasks(),
+      fetchDSUs(),
+    ]);
+    setCurrentUser(user);
+    setInterns(internList.sort((a, b) => a.name.localeCompare(b.name)));
+    setProjects(projectList);
+    setTasks(taskList);
+    setDsus(dsuList);
+    setLoading(false);
   };
 
-  // Filter tasks by selected date and filters
-  const filteredTasks = tasks.filter((task) => {
-    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-    const matchesIntern = internFilter === 'all' || task.internId === internFilter;
-    const taskDate = task.date;
-    const matchesDate = taskDate === selectedDate;
-    return matchesStatus && matchesIntern && matchesDate;
+  const isAuthorized = currentUser?.role === "admin" || currentUser?.role === "scrum_master";
+  const isAdmin = currentUser?.role === "admin";
+
+  const yesterday = new Date(selectedDate);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+  const filteredInterns = interns.filter((i) => {
+    if (internFilter !== "all" && i._id !== internFilter) return false;
+    if (projectFilter !== "all" && i.currentProject !== projectFilter) return false;
+    return true;
   });
 
-  // Group tasks by intern
-  const tasksByIntern = filteredTasks.reduce((acc, task) => {
-    if (!acc[task.internId]) {
-      acc[task.internId] = [];
-    }
-    acc[task.internId].push(task);
-    return acc;
-  }, {} as Record<string, Task[]>);
+  const paddedInterns: (Intern | null)[] = [];
 
-  // Calculate stats
+  if (filteredInterns.length === 1) {
+    paddedInterns.push(null, filteredInterns[0], null);
+  } else if (filteredInterns.length === 2) {
+    paddedInterns.push(null, filteredInterns[0], filteredInterns[1]);
+  } else {
+    for (let i = 0; i < filteredInterns.length; i++) {
+      paddedInterns.push(filteredInterns[i]);
+    }
+  }
+
+  const displayInterns = paddedInterns.slice(startIndex, startIndex + CARDS_VISIBLE);
+
+  while (displayInterns.length < CARDS_VISIBLE) {
+    displayInterns.push(null);
+  }
+
+  const getTasks = (internId: string, date: string) =>
+    tasks.filter(
+      (t) =>
+        t.internId === internId &&
+        t.created_at?.startsWith(date) &&
+        (statusFilter === "all" || t.status === statusFilter)
+    );
+
+  const internsWithDSU = new Set(
+    dsus.filter((d) => d.date?.startsWith(selectedDate)).map((d) => d.internId)
+  );
+
   const stats = {
-    totalInterns: interns.length,
-    totalTasks: filteredTasks.length,
-    completed: filteredTasks.filter(t => t.status === 'DONE' || t.status === 'completed').length,
-    inProgress: filteredTasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'in-progress').length,
-    blocked: filteredTasks.filter(t => t.status === 'BLOCKED').length,
-    submitted: Object.keys(tasksByIntern).length, // Interns who submitted
+    total: interns.length,
+    submitted: internsWithDSU.size,
+    notSubmitted: interns.length - internsWithDSU.size,
+    blocked: tasks.filter((t) => t.status === "blocked").length,
   };
 
-  const exportToCSV = () => {
-    const headers = ['Intern', 'Email', 'Task', 'Project', 'Status', 'Comments', 'Date'];
-    const rows = filteredTasks.map(task => {
-      const intern = interns.find(i => i._id === task.internId);
+  const exportCSV = () => {
+    const filteredTasks = tasks.filter((t) => {
+      if (fromDate && new Date(t.created_at) < new Date(fromDate)) return false;
+      if (toDate && new Date(t.created_at) > new Date(toDate)) return false;
+      if (internFilter !== "all" && t.internId !== internFilter) return false;
+      if (projectFilter !== "all" && t.project !== projectFilter) return false;
+      if (statusFilter !== "all" && t.status !== statusFilter) return false;
+      return true;
+    });
+
+    const headers = ["Intern", "Task", "Project", "Status", "Priority", "Due Date", "Created"];
+    const rows = filteredTasks.map((t) => {
+      const intern = interns.find((i) => i._id === t.internId);
       return [
-        intern?.name || 'Unknown',
-        intern?.email || '',
-        task.title,
-        task.project,
-        STATUS_LABELS[task.status] || task.status,
-        task.description || task.comments || '',
-        task.date || task.createdAt?.split('T')[0] || '',
+        intern?.name || "Unknown",
+        t.title,
+        t.project,
+        t.status,
+        t.priority,
+        t.dueDate,
+        t.created_at,
       ];
     });
 
-    const csv = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+    const csv =
+      headers.join(",") +
+      "\n" +
+      rows.map((r) => r.map((v) => `"${v ?? ""}"`).join(",")).join("\n");
 
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dsu-report-${selectedDate}.csv`;
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `DSU_Report_${selectedDate}.csv`;
     a.click();
+    setExportOpen(false);
+  };
+
+  const canGoLeft = startIndex > 0;
+  const canGoRight = startIndex + CARDS_VISIBLE < paddedInterns.length;
+
+  /* ================= INLINE STYLES ================= */
+  const containerStyle: React.CSSProperties = {
+    display: "flex",
+    minHeight: "100vh",
+    background: "#f8fafc",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  };
+
+  const sidebarStyle: React.CSSProperties = {
+    width: sidebarOpen ? "240px" : "0px",
+    minWidth: sidebarOpen ? "240px" : "0px",
+    background: "linear-gradient(180deg, #1e1145 0%, #2d1b69 100%)",
+    transition: "all 0.3s ease",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "4px 0 20px rgba(0,0,0,0.1)",
+  };
+
+  const sidebarHeaderStyle: React.CSSProperties = {
+    padding: "20px",
+    borderBottom: "1px solid rgba(255,255,255,0.1)",
+  };
+
+  const logoStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+  };
+
+  const logoTextStyle: React.CSSProperties = {
+    fontSize: "22px",
+    fontWeight: 700,
+    color: "#ffffff",
+  };
+
+  const logoAccentStyle: React.CSSProperties = {
+    color: "#a855f7",
+  };
+
+  const sidebarNavStyle: React.CSSProperties = {
+    flex: 1,
+    padding: "16px 12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  };
+
+  const menuItemStyle = (isActive: boolean): React.CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "12px 16px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: 500,
+    color: isActive ? "#ffffff" : "rgba(255,255,255,0.7)",
+    background: isActive ? "rgba(168, 85, 247, 0.3)" : "transparent",
+    transition: "all 0.2s ease",
+    border: "none",
+    width: "100%",
+    textAlign: "left" as const,
+  });
+
+  const mainContentStyle: React.CSSProperties = {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+  };
+
+  const topBarStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "12px 24px",
+    background: "#ffffff",
+    borderBottom: "1px solid #e2e8f0",
+    gap: "16px",
+  };
+
+  const menuToggleStyle: React.CSSProperties = {
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
+    background: "linear-gradient(135deg, #1e1145, #2d1b69)",
+    border: "none",
+    color: "white",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+
+  const pageTitleStyle: React.CSSProperties = {
+    fontSize: "20px",
+    fontWeight: 700,
+    color: "#1e1145",
+    flex: 1,
+  };
+
+  const headerActionsStyle: React.CSSProperties = {
+    display: "flex",
+    gap: "10px",
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "8px 16px",
+    borderRadius: "8px",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: 500,
+    transition: "all 0.2s ease",
+  };
+
+  const primaryButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    background: "linear-gradient(135deg, #1e1145, #2d1b69)",
+    color: "white",
+  };
+
+  const outlineButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    background: "#ffffff",
+    color: "#1e1145",
+    border: "1px solid #e2e8f0",
+  };
+
+  const contentAreaStyle: React.CSSProperties = {
+    flex: 1,
+    padding: "16px 24px",
+    overflowY: "auto",
+  };
+
+  const statsGridStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: "12px",
+    marginBottom: "16px",
+  };
+
+  const statCardStyle: React.CSSProperties = {
+    background: "#ffffff",
+    borderRadius: "12px",
+    padding: "14px",
+    border: "1px solid #e2e8f0",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  };
+
+  const statIconStyle = (bg: string): React.CSSProperties => ({
+    width: "40px",
+    height: "40px",
+    borderRadius: "10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: bg,
+  });
+
+  const statValueStyle: React.CSSProperties = {
+    fontSize: "22px",
+    fontWeight: 700,
+    color: "#1e1145",
+  };
+
+  const statLabelStyle: React.CSSProperties = {
+    fontSize: "12px",
+    color: "#64748b",
+  };
+
+  const filtersCardStyle: React.CSSProperties = {
+    background: "#ffffff",
+    borderRadius: "12px",
+    padding: "14px",
+    marginBottom: "16px",
+    border: "1px solid #e2e8f0",
+  };
+
+  const filtersGridStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: "12px",
+  };
+
+  const filterGroupStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  };
+
+  const filterLabelStyle: React.CSSProperties = {
+    fontSize: "11px",
+    fontWeight: 600,
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  };
+
+  const inputStyle: React.CSSProperties = {
+    padding: "10px 12px",
+    borderRadius: "8px",
+    border: "1px solid #e2e8f0",
+    background: "#ffffff",
+    color: "#1e1145",
+    fontSize: "13px",
+    outline: "none",
+  };
+
+  const selectStyle: React.CSSProperties = {
+    ...inputStyle,
+    cursor: "pointer",
+    appearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 10px center",
+    backgroundSize: "14px",
+    paddingRight: "36px",
+  };
+
+  const carouselContainerStyle: React.CSSProperties = {
+    position: "relative",
+    padding: "16px 50px",
+  };
+
+  const carouselNavStyle = (disabled: boolean): React.CSSProperties => ({
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
+    width: "40px",
+    height: "40px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, #1e1145, #2d1b69)",
+    border: "none",
+    color: "white",
+    cursor: disabled ? "not-allowed" : "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 4px 15px rgba(30, 17, 69, 0.3)",
+    zIndex: 10,
+    opacity: disabled ? 0.4 : 1,
+  });
+
+  const cardsGridStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: "20px",
+    alignItems: "start",
+  };
+
+  const internCardStyle = (isCenter: boolean): React.CSSProperties => ({
+    background: isCenter
+      ? "linear-gradient(135deg, #1e1145 0%, #2d1b69 100%)"
+      : "#ffffff",
+    borderRadius: "16px",
+    padding: "18px",
+    border: isCenter ? "none" : "1px solid #e2e8f0",
+    transition: "all 0.3s ease",
+    transform: isCenter ? "scale(1.02)" : "scale(1)",
+    boxShadow: isCenter
+      ? "0 15px 40px rgba(30, 17, 69, 0.25)"
+      : "0 2px 8px rgba(0,0,0,0.05)",
+    color: isCenter ? "#ffffff" : "#1e1145",
+  });
+
+  const cardHeaderStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "14px",
+  };
+
+  const avatarStyle = (bg: string): React.CSSProperties => ({
+    width: "46px",
+    height: "46px",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "white",
+    fontWeight: 700,
+    fontSize: "16px",
+    background: bg,
+  });
+
+  const cardNameStyle: React.CSSProperties = {
+    fontSize: "16px",
+    fontWeight: 600,
+    marginBottom: "2px",
+  };
+
+  const cardDomainStyle = (isCenter: boolean): React.CSSProperties => ({
+    fontSize: "12px",
+    color: isCenter ? "rgba(255,255,255,0.7)" : "#64748b",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  });
+
+  const sectionStyle: React.CSSProperties = {
+    marginBottom: "14px",
+  };
+
+  const sectionTitleStyle = (isCenter: boolean): React.CSSProperties => ({
+    fontSize: "11px",
+    fontWeight: 600,
+    color: isCenter ? "rgba(255,255,255,0.6)" : "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    marginBottom: "6px",
+  });
+
+  const sectionContentStyle = (isCenter: boolean, isToday: boolean): React.CSSProperties => ({
+    background: isCenter
+      ? isToday
+        ? "rgba(168, 85, 247, 0.2)"
+        : "rgba(255,255,255,0.1)"
+      : isToday
+        ? "#f0f9ff"
+        : "#f8fafc",
+    borderRadius: "10px",
+    padding: "10px",
+    minHeight: "50px",
+  });
+
+  const taskItemStyle: React.CSSProperties = {
+    padding: "6px 0",
+    borderBottom: "1px solid rgba(0,0,0,0.05)",
+  };
+
+  const taskTitleStyle = (isCenter: boolean): React.CSSProperties => ({
+    fontSize: "13px",
+    fontWeight: 500,
+    color: isCenter ? "#ffffff" : "#1e1145",
+  });
+
+  const taskMetaStyle: React.CSSProperties = {
+    display: "flex",
+    gap: "6px",
+    marginTop: "4px",
+    alignItems: "center",
+    flexWrap: "wrap",
+  };
+
+  const taskBadgeStyle = (bg: string, color: string): React.CSSProperties => ({
+    fontSize: "10px",
+    padding: "2px 6px",
+    borderRadius: "6px",
+    fontWeight: 500,
+    background: bg,
+    color: color,
+  });
+
+  const noDataStyle = (isCenter: boolean): React.CSSProperties => ({
+    fontSize: "12px",
+    color: isCenter ? "rgba(255,255,255,0.5)" : "#94a3b8",
+    fontStyle: "italic",
+  });
+
+  const attendanceButtonsStyle: React.CSSProperties = {
+    display: "flex",
+    gap: "8px",
+    marginTop: "12px",
+  };
+
+  const attendBtnStyle = (type: "present" | "absent"): React.CSSProperties => ({
+    flex: 1,
+    padding: "10px",
+    borderRadius: "10px",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: 600,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    background: type === "present"
+      ? "linear-gradient(135deg, #22c55e, #16a34a)"
+      : "linear-gradient(135deg, #ef4444, #dc2626)",
+    color: "white",
+  });
+
+  const emptySlotStyle: React.CSSProperties = {
+    minHeight: "350px",
+  };
+
+  const modalStyle: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0, 0, 0, 0.5)",
+    backdropFilter: "blur(4px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+    padding: "20px",
+  };
+
+  const modalContentStyle: React.CSSProperties = {
+    background: "#ffffff",
+    borderRadius: "16px",
+    padding: "24px",
+    maxWidth: "420px",
+    width: "100%",
+    boxShadow: "0 25px 50px rgba(0, 0, 0, 0.15)",
+  };
+
+  const modalHeaderStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "20px",
+  };
+
+  const modalTitleStyle: React.CSSProperties = {
+    fontSize: "18px",
+    fontWeight: 700,
+    color: "#1e1145",
+  };
+
+  const modalCloseStyle: React.CSSProperties = {
+    width: "32px",
+    height: "32px",
+    borderRadius: "8px",
+    background: "#f1f5f9",
+    border: "none",
+    color: "#64748b",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+
+  const modalBodyStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: "14px",
+    marginBottom: "20px",
+  };
+
+  const modalFooterStyle: React.CSSProperties = {
+    display: "flex",
+    gap: "10px",
+    justifyContent: "flex-end",
+  };
+
+  const restrictedContainerStyle: React.CSSProperties = {
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "linear-gradient(135deg, #1e1145 0%, #2d1b69 100%)",
+    padding: "24px",
+    textAlign: "center",
+  };
+
+  const restrictedIconStyle: React.CSSProperties = {
+    width: "100px",
+    height: "100px",
+    borderRadius: "50%",
+    background: "rgba(239, 68, 68, 0.1)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: "20px",
+    border: "2px solid rgba(239, 68, 68, 0.3)",
+  };
+
+  const loadingContainerStyle: React.CSSProperties = {
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "linear-gradient(135deg, #1e1145 0%, #2d1b69 100%)",
+    gap: "20px",
+  };
+
+  const spinnerStyle: React.CSSProperties = {
+    width: "56px",
+    height: "56px",
+    borderRadius: "50%",
+    border: "4px solid rgba(168, 85, 247, 0.2)",
+    borderTopColor: "#a855f7",
+    animation: "spin 1s linear infinite",
   };
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div style={loadingContainerStyle}>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={spinnerStyle} />
+        <p style={{ fontSize: "15px", color: "rgba(255,255,255,0.7)" }}>Loading DSU Board...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div style={restrictedContainerStyle}>
+        <div style={restrictedIconStyle}>
+          <Lock size={42} color="#ef4444" />
         </div>
-      </DashboardLayout>
+        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#ffffff", marginBottom: "10px" }}>
+          Access Restricted
+        </h1>
+        <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.7)", maxWidth: "360px", lineHeight: 1.6 }}>
+          The DSU Board is only accessible to Scrum Masters and Administrators.
+          Please contact your administrator if you need access.
+        </p>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-              Daily Standup Board
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Track all interns' daily progress and updates
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={fetchData} variant="outline" size="icon">
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button onClick={exportToCSV} variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
+    <div style={containerStyle}>
+      {/* SIDEBAR */}
+      <aside style={sidebarStyle}>
+        <div style={sidebarHeaderStyle}>
+          <div style={logoStyle}>
+            <span style={logoTextStyle}>
+              <span style={logoAccentStyle}>cirrus</span>labs
+            </span>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                  <Users className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.totalInterns}</p>
-                  <p className="text-xs text-muted-foreground">Total Interns</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <nav style={sidebarNavStyle}>
+          {sidebarMenu.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <button
+                key={item.id}
+                style={menuItemStyle(isActive)}
+                onClick={() => navigate(item.path)}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "rgba(168, 85, 247, 0.15)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "transparent";
+                  }
+                }}
+              >
+                <item.icon size={18} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
-                  <CheckCircle className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.submitted}</p>
-                  <p className="text-xs text-muted-foreground">Submitted</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div style={{ padding: "16px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+          <button
+            style={{
+              ...menuItemStyle(false),
+              color: "rgba(255,255,255,0.5)",
+            }}
+            onClick={() => {
+              localStorage.removeItem('ilm_token');
+              localStorage.removeItem('ilm_user');
+              navigate('/login');
+            }}
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
+      </aside>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
-                  <Calendar className="h-5 w-5 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.totalTasks}</p>
-                  <p className="text-xs text-muted-foreground">Total Tasks</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* MAIN CONTENT */}
+      <div style={mainContentStyle}>
+        {/* TOP BAR */}
+        <div style={topBarStyle}>
+          <button style={menuToggleStyle} onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <Menu size={20} />
+          </button>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.completed}</p>
-                  <p className="text-xs text-muted-foreground">Completed</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <h1 style={pageTitleStyle}>
+            DSU Board -{" "}
+            {new Date(selectedDate).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            })}
+          </h1>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                  <Clock className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.inProgress}</p>
-                  <p className="text-xs text-muted-foreground">In Progress</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.blocked}</p>
-                  <p className="text-xs text-muted-foreground">Blocked</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div style={headerActionsStyle}>
+            <button style={outlineButtonStyle} onClick={loadData}>
+              <RefreshCw size={14} /> Refresh
+            </button>
+            {isAdmin && (
+              <button style={primaryButtonStyle} onClick={() => setExportOpen(true)}>
+                <Download size={14} /> Export
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Date</label>
+        {/* CONTENT AREA */}
+        <div style={contentAreaStyle}>
+          {/* STATS */}
+          <div style={statsGridStyle}>
+            <div style={statCardStyle}>
+              <div style={statIconStyle("rgba(99, 102, 241, 0.15)")}>
+                <Users size={20} color="#6366f1" />
+              </div>
+              <div>
+                <div style={statValueStyle}>{stats.total}</div>
+                <div style={statLabelStyle}>Total Interns</div>
+              </div>
+            </div>
+            <div style={statCardStyle}>
+              <div style={statIconStyle("rgba(34, 197, 94, 0.15)")}>
+                <CheckCircle size={20} color="#22c55e" />
+              </div>
+              <div>
+                <div style={statValueStyle}>{stats.submitted}</div>
+                <div style={statLabelStyle}>Submitted</div>
+              </div>
+            </div>
+            <div style={statCardStyle}>
+              <div style={statIconStyle("rgba(234, 179, 8, 0.15)")}>
+                <Clock size={20} color="#eab308" />
+              </div>
+              <div>
+                <div style={statValueStyle}>{stats.notSubmitted}</div>
+                <div style={statLabelStyle}>Pending</div>
+              </div>
+            </div>
+            <div style={statCardStyle}>
+              <div style={statIconStyle("rgba(239, 68, 68, 0.15)")}>
+                <AlertTriangle size={20} color="#ef4444" />
+              </div>
+              <div>
+                <div style={statValueStyle}>{stats.blocked}</div>
+                <div style={statLabelStyle}>Blocked</div>
+              </div>
+            </div>
+          </div>
+
+          {/* FILTERS */}
+          <div style={filtersCardStyle}>
+            <div style={filtersGridStyle}>
+              <div style={filterGroupStyle}>
+                <label style={filterLabelStyle}>Date</label>
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={inputStyle}
                 />
               </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Intern</label>
-                <Select value={internFilter} onValueChange={setInternFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Interns" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Interns</SelectItem>
-                    {interns.map((intern) => (
-                      <SelectItem key={intern._id} value={intern._id}>
-                        {intern.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div style={filterGroupStyle}>
+                <label style={filterLabelStyle}>Intern</label>
+                <select
+                  value={internFilter}
+                  onChange={(e) => {
+                    setInternFilter(e.target.value);
+                    setStartIndex(0);
+                  }}
+                  style={selectStyle}
+                >
+                  <option value="all">All Interns</option>
+                  {interns.map((i) => (
+                    <option key={i._id} value={i._id}>
+                      {i.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="NOT_STARTED">Not Started</SelectItem>
-                    <SelectItem value="ON_HOLD">On Hold</SelectItem>
-                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                    <SelectItem value="BLOCKED">Blocked</SelectItem>
-                    <SelectItem value="DONE">Done</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div style={filterGroupStyle}>
+                <label style={filterLabelStyle}>Project</label>
+                <select
+                  value={projectFilter}
+                  onChange={(e) => {
+                    setProjectFilter(e.target.value);
+                    setStartIndex(0);
+                  }}
+                  style={selectStyle}
+                >
+                  <option value="all">All Projects</option>
+                  {projects.map((p) => (
+                    <option key={p._id} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={filterGroupStyle}>
+                <label style={filterLabelStyle}>Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="all">All Status</option>
+                  <option value="open">Open</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="blocked">Blocked</option>
+                </select>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Tasks by Intern */}
-        <div className="space-y-4">
-          {interns
-            .filter(intern => {
-              if (internFilter !== 'all' && intern._id !== internFilter) return false;
-              return tasksByIntern[intern._id]?.length > 0;
-            })
-            .map((intern) => {
-              const internTasks = tasksByIntern[intern._id] || [];
-              
-              return (
-                <Card key={intern._id} className="overflow-hidden">
-                  <CardHeader className="border-b bg-muted/30">
-                    <div className="flex items-center gap-4">
-                      <Avatar name={intern.name} size="md" />
-                      <div className="flex-1">
-                        <CardTitle className="text-lg font-semibold">
-                          {intern.name}
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          {intern.domain} • {intern.currentProject || 'No project'}
-                        </p>
+          {/* CAROUSEL */}
+          <div style={carouselContainerStyle}>
+            <button
+              style={{ ...carouselNavStyle(!canGoLeft), left: 0 }}
+              disabled={!canGoLeft}
+              onClick={() => setStartIndex((i) => Math.max(0, i - 1))}
+            >
+              <ChevronLeft size={20} />
+            </button>
+
+            <div style={cardsGridStyle}>
+              {displayInterns.map((intern, idx) => {
+                if (!intern) {
+                  return <div key={`empty-${idx}`} style={emptySlotStyle} />;
+                }
+
+                const todayTasks = getTasks(intern._id, selectedDate);
+                const yesterdayTasks = getTasks(intern._id, yesterdayStr);
+                const isCenter = idx === 1;
+
+                return (
+                  <div key={intern._id} style={internCardStyle(isCenter)}>
+                    <div style={cardHeaderStyle}>
+                      <div style={avatarStyle(getAvatarColor(intern.name))}>
+                        {getInitials(intern.name)}
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">
-                          {internTasks.length} task{internTasks.length !== 1 ? 's' : ''}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {internTasks.filter(t => t.status === 'DONE' || t.status === 'completed').length} completed
-                        </p>
+                      <div>
+                        <div style={cardNameStyle}>{intern.name}</div>
+                        <div style={cardDomainStyle(isCenter)}>
+                          <span
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              borderRadius: "50%",
+                              background: "#22c55e",
+                            }}
+                          />
+                          {intern.domain} • {intern.currentProject}
+                        </div>
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-muted/20">
-                          <tr className="text-left text-xs font-medium text-muted-foreground">
-                            <th className="p-3">Task</th>
-                            <th className="p-3">Project</th>
-                            <th className="p-3">Status</th>
-                            <th className="p-3">Comments</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {internTasks.map((task) => (
-                            <tr key={task._id} className="hover:bg-muted/30 transition">
-                              <td className="p-3">
-                                <div>
-                                  <p className="font-medium text-sm">{task.title}</p>
-                                  {task.description && (
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      {task.description}
-                                    </p>
+
+                    <div style={sectionStyle}>
+                      <div style={sectionTitleStyle(isCenter)}>Yesterday</div>
+                      <div style={sectionContentStyle(isCenter, false)}>
+                        {yesterdayTasks.length > 0 ? (
+                          yesterdayTasks.slice(0, 2).map((t) => (
+                            <div key={t._id} style={taskItemStyle}>
+                              <div style={taskTitleStyle(isCenter)}>{t.title}</div>
+                              <div style={taskMetaStyle}>
+                                <span style={taskBadgeStyle(getStatusBadge(t.status).bg, getStatusBadge(t.status).color)}>
+                                  {t.status.replace("_", " ")}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p style={noDataStyle(isCenter)}>No updates recorded</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={sectionStyle}>
+                      <div style={sectionTitleStyle(isCenter)}>Today</div>
+                      <div style={sectionContentStyle(isCenter, true)}>
+                        {todayTasks.length > 0 ? (
+                          todayTasks.slice(0, 3).map((t) => {
+                            const aging = getTaskAging(t);
+                            return (
+                              <div key={t._id} style={taskItemStyle}>
+                                <div style={taskTitleStyle(isCenter)}>{t.title}</div>
+                                <div style={taskMetaStyle}>
+                                  <span style={taskBadgeStyle(getStatusBadge(t.status).bg, getStatusBadge(t.status).color)}>
+                                    {t.status.replace("_", " ")}
+                                  </span>
+                                  {t.priority === "high" && (
+                                    <span style={taskBadgeStyle("#fef2f2", "#dc2626")}>High</span>
                                   )}
                                 </div>
-                              </td>
-                              <td className="p-3 text-sm">{task.project}</td>
-                              <td className="p-3">
-                                <span
-                                  className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                    STATUS_COLORS[task.status] || 'bg-gray-100 text-gray-800'
-                                  }`}
-                                >
-                                  {STATUS_LABELS[task.status] || task.status}
-                                </span>
-                              </td>
-                              <td className="p-3 text-sm text-muted-foreground max-w-xs">
-                                {task.comments || task.description || '-'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                                {aging && (
+                                  <p style={{ fontSize: "10px", color: aging.color, marginTop: "3px" }}>
+                                    {aging.text}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p style={noDataStyle(isCenter)}>No tasks for today</p>
+                        )}
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
 
-          {/* Empty State */}
-          {filteredTasks.length === 0 && (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Calendar className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No updates for this date</h3>
-                <p className="text-muted-foreground mb-4">
-                  {selectedDate === new Date().toISOString().split('T')[0]
-                    ? 'No interns have submitted their daily standup yet.'
-                    : 'Try selecting a different date or adjust your filters.'}
-                </p>
-                <Button variant="outline" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Go to Today
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+                    {/* ATTENDANCE BUTTONS - BELOW CARD CONTENT */}
+                    <div style={attendanceButtonsStyle}>
+                      <button style={attendBtnStyle("present")}>
+                        <CheckCircle size={14} /> Present
+                      </button>
+                      <button style={attendBtnStyle("absent")}>
+                        <XCircle size={14} /> Absent
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              style={{ ...carouselNavStyle(!canGoRight), right: 0 }}
+              disabled={!canGoRight}
+              onClick={() => setStartIndex((i) => Math.min(paddedInterns.length - CARDS_VISIBLE, i + 1))}
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
         </div>
       </div>
-    </DashboardLayout>
+
+      {/* EXPORT MODAL */}
+      {exportOpen && (
+        <div style={modalStyle} onClick={() => setExportOpen(false)}>
+          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
+            <div style={modalHeaderStyle}>
+              <h2 style={modalTitleStyle}>Export Report</h2>
+              <button style={modalCloseStyle} onClick={() => setExportOpen(false)}>
+                <X size={16} />
+              </button>
+            </div>
+            <div style={modalBodyStyle}>
+              <div style={filterGroupStyle}>
+                <label style={filterLabelStyle}>From Date</label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <div style={filterGroupStyle}>
+                <label style={filterLabelStyle}>To Date</label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <p style={{ fontSize: "12px", color: "#64748b" }}>
+                Current filters will be applied to the export.
+              </p>
+            </div>
+            <div style={modalFooterStyle}>
+              <button style={outlineButtonStyle} onClick={() => setExportOpen(false)}>
+                Cancel
+              </button>
+              <button style={primaryButtonStyle} onClick={exportCSV}>
+                <Download size={14} /> Download
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
-export default DSUBoard;
+export default Index;

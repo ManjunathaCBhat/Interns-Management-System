@@ -281,6 +281,7 @@
 
 // export default DSUBoard;
 
+// src/pages/admin/DSUBoard.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Calendar,
@@ -291,9 +292,14 @@ import {
   AlertTriangle,
   Download,
   RefreshCw,
+  MessageSquare,
+  FileText,
+  TrendingUp,
+  ArrowLeft,
+  X,
 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { taskService } from '@/services/taskService';
+import { dsuService } from '@/services/dsuService';
 import { internService } from '@/services/internService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -304,32 +310,55 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import Avatar from '@/components/shared/Avatar';
-import { Task, Intern } from '@/types/intern';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
-const STATUS_COLORS: Record<string, string> = {
-  NOT_STARTED: 'bg-gray-100 text-gray-800',
-  ON_HOLD: 'bg-yellow-100 text-yellow-800',
-  IN_PROGRESS: 'bg-blue-100 text-blue-800',
-  BLOCKED: 'bg-red-100 text-red-800',
-  DONE: 'bg-green-100 text-green-800',
-};
+interface DSUEntry {
+  _id: string;
+  internId: string;
+  internName?: string;
+  batch?: string;
+  date: string;
+  yesterday: string;
+  today: string;
+  blockers?: string;
+  learnings?: string;
+  status: string;
+  submittedAt?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  feedback?: string;
+  created_at: string;
+  updated_at: string;
+}
 
-const STATUS_LABELS: Record<string, string> = {
-  NOT_STARTED: 'Not Started',
-  ON_HOLD: 'On Hold',
-  IN_PROGRESS: 'In Progress',
-  BLOCKED: 'Blocked',
-  DONE: 'Done',
-};
+interface Intern {
+  _id: string;
+  name: string;
+  email: string;
+  domain: string;
+  batch?: string;
+  currentProject?: string;
+  status: string;
+}
 
 const DSUBoard: React.FC = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const [dsus, setDsus] = useState<DSUEntry[]>([]);
   const [interns, setInterns] = useState<Intern[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [internFilter, setInternFilter] = useState<string>('all');
+  const [batchFilter, setBatchFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDSU, setSelectedDSU] = useState<DSUEntry | null>(null);
+  const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -338,65 +367,119 @@ const DSUBoard: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [tasksData, internsData] = await Promise.all([
-        taskService.getAll(),
-        internService.getAll('active'),
+      const [dsusData, internsData] = await Promise.all([
+        dsuService.getAll({
+          date_from: selectedDate,
+          date_to: selectedDate,
+        }),
+        internService.getAll({ status: 'active' }),
       ]);
-      setTasks(tasksData);
-      setInterns(internsData);
-    } catch (error) {
+
+      // Handle both array and paginated response
+      const internsList = Array.isArray(internsData) ? internsData : internsData.items || [];
+
+      setDsus(dsusData);
+      setInterns(internsList);
+    } catch (error: any) {
       console.error('Failed to fetch data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load DSU entries',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter tasks by selected date and filters
-  const filteredTasks = tasks.filter((task) => {
-    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-    const matchesIntern = internFilter === 'all' || task.internId === internFilter;
-    const taskDate = task.date;
-    const matchesDate = taskDate === selectedDate;
-    return matchesStatus && matchesIntern && matchesDate;
+  const handleAddFeedback = async () => {
+    if (!selectedDSU || !feedback.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter feedback',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setSubmittingFeedback(true);
+      await dsuService.addFeedback(selectedDSU._id, feedback);
+      toast({
+        title: 'Success',
+        description: `Feedback added for ${selectedDSU.internName}`,
+      });
+      setSelectedDSU(null);
+      setFeedback('');
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.detail || 'Failed to add feedback',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  // Filter DSUs
+  const filteredDsus = dsus.filter((dsu) => {
+    const matchesStatus = statusFilter === 'all' || dsu.status === statusFilter;
+    const matchesBatch = batchFilter === 'all' || dsu.batch === batchFilter;
+    const matchesSearch =
+      !searchQuery ||
+      dsu.internName?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesBatch && matchesSearch;
   });
 
-  // Group tasks by intern
-  const tasksByIntern = filteredTasks.reduce((acc, task) => {
-    if (!acc[task.internId]) {
-      acc[task.internId] = [];
-    }
-    acc[task.internId].push(task);
-    return acc;
-  }, {} as Record<string, Task[]>);
+  // Get unique batches
+  const uniqueBatches = Array.from(new Set(dsus.map((d) => d.batch).filter(Boolean)));
+
+  // Get interns who haven't submitted
+  const submittedInternIds = new Set(dsus.map((d) => d.internId));
+  const notSubmittedInterns = interns.filter((i) => !submittedInternIds.has(i._id));
 
   // Calculate stats
   const stats = {
     totalInterns: interns.length,
-    totalTasks: filteredTasks.length,
-    completed: filteredTasks.filter(t => t.status === 'DONE' || t.status === 'completed').length,
-    inProgress: filteredTasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'in-progress').length,
-    blocked: filteredTasks.filter(t => t.status === 'BLOCKED').length,
-    submitted: Object.keys(tasksByIntern).length, // Interns who submitted
+    submitted: dsus.length,
+    pending: interns.length - dsus.length,
+    reviewed: dsus.filter((d) => d.status === 'reviewed').length,
+    withBlockers: dsus.filter((d) => d.blockers && d.blockers.trim()).length,
+    completionRate: interns.length > 0 ? Math.round((dsus.length / interns.length) * 100) : 0,
   };
 
   const exportToCSV = () => {
-    const headers = ['Intern', 'Email', 'Task', 'Project', 'Status', 'Comments', 'Date'];
-    const rows = filteredTasks.map(task => {
-      const intern = interns.find(i => i._id === task.internId);
-      return [
-        intern?.name || 'Unknown',
-        intern?.email || '',
-        task.title,
-        task.project,
-        STATUS_LABELS[task.status] || task.status,
-        task.description || task.comments || '',
-        task.date || task.createdAt?.split('T')[0] || '',
-      ];
-    });
+    const headers = [
+      'Intern',
+      'Batch',
+      'Date',
+      'Yesterday',
+      'Today',
+      'Blockers',
+      'Learnings',
+      'Status',
+      'Feedback',
+      'Submitted At',
+    ];
+
+    const rows = filteredDsus.map((dsu) => [
+      dsu.internName || 'Unknown',
+      dsu.batch || '',
+      dsu.date,
+      dsu.yesterday,
+      dsu.today,
+      dsu.blockers || '',
+      dsu.learnings || '',
+      dsu.status,
+      dsu.feedback || '',
+      dsu.submittedAt || '',
+    ]);
 
     const csv = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
     ].join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -405,13 +488,28 @@ const DSUBoard: React.FC = () => {
     a.href = url;
     a.download = `dsu-report-${selectedDate}.csv`;
     a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Success',
+      description: 'DSU report exported successfully',
+    });
   };
+
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setBatchFilter('all');
+    setSearchQuery('');
+  };
+
+  const hasActiveFilters = statusFilter !== 'all' || batchFilter !== 'all' || searchQuery;
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-muted-foreground">Loading DSU entries...</p>
         </div>
       </DashboardLayout>
     );
@@ -431,10 +529,14 @@ const DSUBoard: React.FC = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={fetchData} variant="outline" size="icon">
+            <Button variant="outline" onClick={() => navigate('/admin')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <Button onClick={fetchData} variant="outline" size="icon" title="Refresh">
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button onClick={exportToCSV} variant="outline">
+            <Button onClick={exportToCSV} variant="outline" disabled={filteredDsus.length === 0}>
               <Download className="mr-2 h-4 w-4" />
               Export
             </Button>
@@ -446,8 +548,8 @@ const DSUBoard: React.FC = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                  <Users className="h-5 w-5 text-blue-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/20">
+                  <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.totalInterns}</p>
@@ -460,8 +562,8 @@ const DSUBoard: React.FC = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
-                  <CheckCircle className="h-5 w-5 text-purple-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/20">
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.submitted}</p>
@@ -474,12 +576,12 @@ const DSUBoard: React.FC = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
-                  <Calendar className="h-5 w-5 text-gray-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/20">
+                  <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.totalTasks}</p>
-                  <p className="text-xs text-muted-foreground">Total Tasks</p>
+                  <p className="text-2xl font-bold">{stats.pending}</p>
+                  <p className="text-xs text-muted-foreground">Pending</p>
                 </div>
               </div>
             </CardContent>
@@ -488,12 +590,12 @@ const DSUBoard: React.FC = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/20">
+                  <MessageSquare className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.completed}</p>
-                  <p className="text-xs text-muted-foreground">Completed</p>
+                  <p className="text-2xl font-bold">{stats.reviewed}</p>
+                  <p className="text-xs text-muted-foreground">Reviewed</p>
                 </div>
               </div>
             </CardContent>
@@ -502,12 +604,12 @@ const DSUBoard: React.FC = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                  <Clock className="h-5 w-5 text-blue-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/20">
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.inProgress}</p>
-                  <p className="text-xs text-muted-foreground">In Progress</p>
+                  <p className="text-2xl font-bold">{stats.withBlockers}</p>
+                  <p className="text-xs text-muted-foreground">Blockers</p>
                 </div>
               </div>
             </CardContent>
@@ -516,12 +618,12 @@ const DSUBoard: React.FC = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/20">
+                  <TrendingUp className="h-5 w-5 text-teal-600 dark:text-teal-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.blocked}</p>
-                  <p className="text-xs text-muted-foreground">Blocked</p>
+                  <p className="text-2xl font-bold">{stats.completionRate}%</p>
+                  <p className="text-xs text-muted-foreground">Completion</p>
                 </div>
               </div>
             </CardContent>
@@ -531,28 +633,37 @@ const DSUBoard: React.FC = () => {
         {/* Filters */}
         <Card>
           <CardContent className="p-4">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Date</label>
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Intern</label>
-                <Select value={internFilter} onValueChange={setInternFilter}>
+                <label className="text-sm font-medium">Search</label>
+                <Input
+                  placeholder="Search intern..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Batch</label>
+                <Select value={batchFilter} onValueChange={setBatchFilter}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All Interns" />
+                    <SelectValue placeholder="All Batches" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Interns</SelectItem>
-                    {interns.map((intern) => (
-                      <SelectItem key={intern._id} value={intern._id}>
-                        {intern.name}
+                    <SelectItem value="all">All Batches</SelectItem>
+                    {uniqueBatches.map((batch) => (
+                      <SelectItem key={batch} value={batch!}>
+                        {batch}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -567,117 +678,260 @@ const DSUBoard: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="NOT_STARTED">Not Started</SelectItem>
-                    <SelectItem value="ON_HOLD">On Hold</SelectItem>
-                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                    <SelectItem value="BLOCKED">Blocked</SelectItem>
-                    <SelectItem value="DONE">Done</SelectItem>
+                    <SelectItem value="submitted">Submitted</SelectItem>
+                    <SelectItem value="reviewed">Reviewed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+            {hasActiveFilters && (
+              <div className="mt-3 flex justify-end">
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="mr-2 h-4 w-4" />
+                  Clear Filters
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Tasks by Intern */}
-        <div className="space-y-4">
-          {interns
-            .filter(intern => {
-              if (internFilter !== 'all' && intern._id !== internFilter) return false;
-              return tasksByIntern[intern._id]?.length > 0;
-            })
-            .map((intern) => {
-              const internTasks = tasksByIntern[intern._id] || [];
-              
-              return (
-                <Card key={intern._id} className="overflow-hidden">
-                  <CardHeader className="border-b bg-muted/30">
-                    <div className="flex items-center gap-4">
-                      <Avatar name={intern.name} size="md" />
-                      <div className="flex-1">
-                        <CardTitle className="text-lg font-semibold">
-                          {intern.name}
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          {intern.domain} • {intern.currentProject || 'No project'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">
-                          {internTasks.length} task{internTasks.length !== 1 ? 's' : ''}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {internTasks.filter(t => t.status === 'DONE' || t.status === 'completed').length} completed
-                        </p>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-muted/20">
-                          <tr className="text-left text-xs font-medium text-muted-foreground">
-                            <th className="p-3">Task</th>
-                            <th className="p-3">Project</th>
-                            <th className="p-3">Status</th>
-                            <th className="p-3">Comments</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {internTasks.map((task) => (
-                            <tr key={task._id} className="hover:bg-muted/30 transition">
-                              <td className="p-3">
-                                <div>
-                                  <p className="font-medium text-sm">{task.title}</p>
-                                  {task.description && (
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      {task.description}
-                                    </p>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="p-3 text-sm">{task.project}</td>
-                              <td className="p-3">
-                                <span
-                                  className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                    STATUS_COLORS[task.status] || 'bg-gray-100 text-gray-800'
-                                  }`}
-                                >
-                                  {STATUS_LABELS[task.status] || task.status}
-                                </span>
-                              </td>
-                              <td className="p-3 text-sm text-muted-foreground max-w-xs">
-                                {task.comments || task.description || '-'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+        {/* Not Submitted Interns Alert */}
+        {notSubmittedInterns.length > 0 && (
+          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-800">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                {notSubmittedInterns.length} intern{notSubmittedInterns.length > 1 ? 's' : ''}{' '}
+                haven't submitted DSU yet
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {notSubmittedInterns.slice(0, 10).map((intern) => (
+                  <Badge
+                    key={intern._id}
+                    variant="outline"
+                    className="gap-1 cursor-pointer hover:bg-orange-100"
+                    onClick={() => navigate(`/admin/interns/${intern._id}`)}
+                  >
+                    {intern.name}
+                  </Badge>
+                ))}
+                {notSubmittedInterns.length > 10 && (
+                  <Badge variant="outline">+{notSubmittedInterns.length - 10} more</Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-          {/* Empty State */}
-          {filteredTasks.length === 0 && (
+        {/* DSU Entries */}
+        <div className="space-y-4">
+          {filteredDsus.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
-                <Calendar className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No updates for this date</h3>
+                <FileText className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No DSU entries found</h3>
                 <p className="text-muted-foreground mb-4">
-                  {selectedDate === new Date().toISOString().split('T')[0]
+                  {searchQuery || hasActiveFilters
+                    ? 'Try adjusting your search or filters'
+                    : selectedDate === new Date().toISOString().split('T')[0]
                     ? 'No interns have submitted their daily standup yet.'
-                    : 'Try selecting a different date or adjust your filters.'}
+                    : 'No DSU submissions for this date.'}
                 </p>
-                <Button variant="outline" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Go to Today
-                </Button>
+                <div className="flex gap-2 justify-center">
+                  {hasActiveFilters && (
+                    <Button variant="outline" onClick={clearFilters}>
+                      Clear Filters
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Go to Today
+                  </Button>
+                </div>
               </CardContent>
             </Card>
+          ) : (
+            filteredDsus.map((dsu) => (
+              <Card key={dsu._id} className="overflow-hidden hover:shadow-md transition-shadow">
+                <CardHeader className="border-b bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={dsu.internName || 'Unknown'} size="sm" />
+                      <div>
+                        <h3 className="font-semibold">{dsu.internName || 'Unknown Intern'}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {dsu.batch && `${dsu.batch} • `}
+                          {new Date(dsu.date).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {dsu.blockers && dsu.blockers.trim() && (
+                        <Badge variant="destructive" className="gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Has Blockers
+                        </Badge>
+                      )}
+                      <Badge variant={dsu.status === 'reviewed' ? 'default' : 'secondary'}>
+                        {dsu.status}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-muted-foreground mb-1">
+                      ✅ What I did yesterday:
+                    </h4>
+                    <p className="text-sm">{dsu.yesterday}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-muted-foreground mb-1">
+                      📝 What I'll do today:
+                    </h4>
+                    <p className="text-sm">{dsu.today}</p>
+                  </div>
+                  {dsu.blockers && dsu.blockers.trim() && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-orange-600 mb-1 flex items-center gap-1">
+                        <AlertTriangle className="h-4 w-4" />
+                        Blockers:
+                      </h4>
+                      <p className="text-sm bg-orange-50 dark:bg-orange-900/20 p-3 rounded border border-orange-200 dark:border-orange-800">
+                        {dsu.blockers}
+                      </p>
+                    </div>
+                  )}
+                  {dsu.learnings && dsu.learnings.trim() && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-muted-foreground mb-1">
+                        💡 Learnings:
+                      </h4>
+                      <p className="text-sm">{dsu.learnings}</p>
+                    </div>
+                  )}
+                  {dsu.feedback && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-green-600 mb-1 flex items-center gap-1">
+                        <MessageSquare className="h-4 w-4" />
+                        Feedback {dsu.reviewedBy && `from ${dsu.reviewedBy}`}:
+                      </h4>
+                      <p className="text-sm bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800">
+                        {dsu.feedback}
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      Submitted{' '}
+                      {dsu.submittedAt
+                        ? new Date(dsu.submittedAt).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })
+                        : 'recently'}
+                    </p>
+                    {dsu.status === 'submitted' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedDSU(dsu);
+                          setFeedback('');
+                        }}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Add Feedback
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
           )}
         </div>
+
+        {/* Results Summary */}
+        {filteredDsus.length > 0 && (
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <p>
+              Showing <span className="font-medium text-foreground">{filteredDsus.length}</span> of{' '}
+              <span className="font-medium text-foreground">{dsus.length}</span> DSU entries
+            </p>
+          </div>
+        )}
+
+        {/* Feedback Modal */}
+        {selectedDSU && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-lg">
+              <CardHeader className="border-b">
+                <CardTitle>Add Feedback for {selectedDSU.internName}</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="p-3 bg-muted rounded-lg text-sm space-y-2">
+                  <p>
+                    <strong>Yesterday:</strong> {selectedDSU.yesterday}
+                  </p>
+                  <p>
+                    <strong>Today:</strong> {selectedDSU.today}
+                  </p>
+                  {selectedDSU.blockers && (
+                    <p className="text-orange-600">
+                      <strong>Blockers:</strong> {selectedDSU.blockers}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Your Feedback</label>
+                  <textarea
+                    className="w-full min-h-[120px] p-3 border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Enter your feedback..."
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedDSU(null);
+                      setFeedback('');
+                    }}
+                    disabled={submittingFeedback}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddFeedback} disabled={submittingFeedback}>
+                    {submittingFeedback ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Submit Feedback
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

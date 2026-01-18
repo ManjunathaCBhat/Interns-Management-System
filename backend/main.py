@@ -1,6 +1,494 @@
+# """
+# Intern Lifecycle Manager - Simplified Backend
+# All routes in one file
+# """
+# from fastapi import FastAPI, Depends, HTTPException, status, Query
+# from fastapi.middleware.cors import CORSMiddleware
+# from contextlib import asynccontextmanager
+# from datetime import datetime, date, timezone
+# from typing import Optional, List
+# from bson import ObjectId
+# import os
+# from dotenv import load_dotenv
+
+# # Import our modules
+# from database import connect_db, close_db, get_database
+# from auth import (
+#     get_password_hash, 
+#     verify_password, 
+#     create_access_token,
+#     get_current_active_user,
+#     get_admin_user
+# )
+# from models import (
+#     User, UserCreate, UserResponse, LoginRequest, Token,
+#     Intern, InternCreate, InternUpdate,
+#     DSUEntry, DSUCreate, DSUUpdate,
+#     Task, TaskCreate, TaskUpdate,
+#     Project, ProjectCreate, ProjectUpdate
+# )
+
+# load_dotenv()
+
+# # ==================== APP SETUP ====================
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     """Startup and shutdown"""
+#     await connect_db()
+#     yield
+#     await close_db()
+
+# app = FastAPI(
+#     title="Intern Lifecycle Manager",
+#     version="1.0.0",
+#     lifespan=lifespan
+# )
+
+# # CORS
+# CORS_ORIGINS = eval(os.getenv("BACKEND_CORS_ORIGINS", '["http://localhost:5173"]'))
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=CORS_ORIGINS,
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
+# # ==================== ROOT ROUTES ====================
+# @app.get("/")
+# async def root():
+#     return {"message": "Intern Lifecycle Manager API", "docs": "/docs"}
+
+# @app.get("/health")
+# async def health():
+#     return {"status": "healthy"}
+
+
+# # ==================== AUTH ROUTES ====================
+# @app.post("/api/v1/auth/login", response_model=Token)
+# async def login(credentials: LoginRequest, db = Depends(get_database)):
+#     """Login with email and password"""
+#     user = await db.users.find_one({"email": credentials.email})
+    
+#     if not user or not verify_password(credentials.password, user["hashed_password"]):
+#         raise HTTPException(status_code=401, detail="Incorrect email or password")
+    
+#     if not user.get("is_active", True):
+#         raise HTTPException(status_code=400, detail="Inactive user")
+    
+#     token = create_access_token(data={"sub": user["username"], "role": user["role"]})
+#     return {"access_token": token, "token_type": "bearer"}
+
+# @app.post("/api/v1/auth/register", response_model=UserResponse, status_code=201)
+# async def register(user_data: UserCreate, db = Depends(get_database)):
+#     """Register new user"""
+#     existing = await db.users.find_one(
+#         {"$or": [{"email": user_data.email}, {"username": user_data.username}]}
+#     )
+    
+#     if existing:
+#         raise HTTPException(status_code=400, detail="User already exists")
+    
+#     user_dict = user_data.model_dump()
+#     user_dict["hashed_password"] = get_password_hash(user_dict.pop("password"))
+#     user_dict["is_active"] = True
+#     user_dict["created_at"] = datetime.now(timezone.utc)
+#     user_dict["updated_at"] = datetime.now(timezone.utc)
+    
+#     result = await db.users.insert_one(user_dict)
+    
+#     return UserResponse(
+#         id=str(result.inserted_id),
+#         username=user_dict["username"],
+#         email=user_dict["email"],
+#         name=user_dict["name"],
+#         role=user_dict["role"],
+#         is_active=True
+#     )
+
+
+# # ==================== USER ROUTES ====================
+# @app.get("/api/v1/users/me", response_model=UserResponse)
+# async def get_current_user_profile(current_user: User = Depends(get_current_active_user)):
+#     """Get current user profile"""
+#     return UserResponse(
+#         id=current_user.id,
+#         username=current_user.username,
+#         email=current_user.email,
+#         name=current_user.name,
+#         role=current_user.role,
+#         is_active=current_user.is_active
+#     )
+
+
+# # ==================== INTERN ROUTES ====================
+# @app.post("/api/v1/interns/", status_code=201)
+# async def create_intern(
+#     intern_data: InternCreate,
+#     db = Depends(get_database),
+#     admin: User = Depends(get_admin_user)
+# ):
+#     """Create new intern (admin only)"""
+#     existing = await db.interns.find_one({"email": intern_data.email})
+#     if existing:
+#         raise HTTPException(status_code=400, detail="Intern already exists")
+    
+#     intern_dict = intern_data.model_dump()
+#     intern_dict["status"] = "onboarding"
+#     intern_dict["taskCount"] = 0
+#     intern_dict["completedTasks"] = 0
+#     intern_dict["dsuStreak"] = 0
+#     intern_dict["joinedDate"] = date.today()
+#     intern_dict["created_at"] = datetime.now(timezone.utc)
+#     intern_dict["updated_at"] = datetime.now(timezone.utc)
+    
+#     result = await db.interns.insert_one(intern_dict)
+#     intern_dict["_id"] = str(result.inserted_id)
+    
+#     return Intern(id=intern_dict["_id"], **intern_dict)
+
+# @app.get("/api/v1/interns/")
+# async def list_interns(
+#     status: Optional[str] = Query(None),
+#     internType: Optional[str] = Query(None),
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """List all interns with filters"""
+#     query = {}
+#     if status:
+#         query["status"] = status
+#     if internType:
+#         query["internType"] = internType
+    
+#     interns = []
+#     async for intern in db.interns.find(query):
+#         intern["_id"] = str(intern["_id"])
+#         interns.append(intern)
+    
+#     return interns
+
+# @app.get("/api/v1/interns/{intern_id}")
+# async def get_intern(
+#     intern_id: str,
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """Get intern by ID"""
+#     intern = await db.interns.find_one({"_id": ObjectId(intern_id)})
+#     if not intern:
+#         raise HTTPException(status_code=404, detail="Intern not found")
+    
+#     intern["_id"] = str(intern["_id"])
+#     return intern
+
+# @app.patch("/api/v1/interns/{intern_id}")
+# async def update_intern(
+#     intern_id: str,
+#     intern_update: InternUpdate,
+#     db = Depends(get_database),
+#     admin: User = Depends(get_admin_user)
+# ):
+#     """Update intern (admin only)"""
+#     update_data = intern_update.model_dump(exclude_unset=True)
+#     if not update_data:
+#         raise HTTPException(status_code=400, detail="No fields to update")
+    
+#     update_data["updated_at"] = datetime.now(timezone.utc)
+    
+#     result = await db.interns.find_one_and_update(
+#         {"_id": ObjectId(intern_id)},
+#         {"$set": update_data},
+#         return_document=True
+#     )
+    
+#     if not result:
+#         raise HTTPException(status_code=404, detail="Intern not found")
+    
+#     result["_id"] = str(result["_id"])
+#     return result
+
+# @app.delete("/api/v1/interns/{intern_id}", status_code=204)
+# async def delete_intern(
+#     intern_id: str,
+#     db = Depends(get_database),
+#     admin: User = Depends(get_admin_user)
+# ):
+#     """Delete intern (admin only)"""
+#     result = await db.interns.delete_one({"_id": ObjectId(intern_id)})
+#     if result.deleted_count == 0:
+#         raise HTTPException(status_code=404, detail="Intern not found")
+#     return None
+
+
+# # ==================== DSU ROUTES ====================
+# @app.post("/api/v1/dsu-entries/", status_code=201)
+# async def create_dsu(
+#     dsu_data: DSUCreate,
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """Create DSU entry"""
+#     existing = await db.dsu_entries.find_one({
+#         "internId": dsu_data.internId,
+#         "date": dsu_data.date
+#     })
+    
+#     if existing:
+#         raise HTTPException(status_code=400, detail="DSU already exists for this date")
+    
+#     dsu_dict = dsu_data.model_dump()
+#     dsu_dict["status"] = "submitted"
+#     dsu_dict["submittedAt"] = datetime.now(timezone.utc)
+#     dsu_dict["created_at"] = datetime.now(timezone.utc)
+#     dsu_dict["updated_at"] = datetime.now(timezone.utc)
+    
+#     result = await db.dsu_entries.insert_one(dsu_dict)
+    
+#     # Update intern's DSU streak
+#     await db.interns.update_one(
+#         {"_id": ObjectId(dsu_data.internId)},
+#         {"$inc": {"dsuStreak": 1}}
+#     )
+    
+#     dsu_dict["_id"] = str(result.inserted_id)
+#     return dsu_dict
+
+# @app.get("/api/v1/dsu-entries/")
+# async def list_dsu_entries(
+#     intern_id: Optional[str] = Query(None),
+#     date_from: Optional[date] = Query(None),
+#     date_to: Optional[date] = Query(None),
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """List DSU entries with filters"""
+#     query = {}
+#     if intern_id:
+#         query["internId"] = intern_id
+#     if date_from or date_to:
+#         query["date"] = {}
+#         if date_from:
+#             query["date"]["$gte"] = date_from
+#         if date_to:
+#             query["date"]["$lte"] = date_to
+    
+#     entries = []
+#     async for entry in db.dsu_entries.find(query).sort("date", -1):
+#         entry["_id"] = str(entry["_id"])
+#         entries.append(entry)
+    
+#     return entries
+
+# @app.patch("/api/v1/dsu-entries/{entry_id}")
+# async def update_dsu(
+#     entry_id: str,
+#     dsu_update: DSUUpdate,
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """Update DSU entry"""
+#     update_data = dsu_update.model_dump(exclude_unset=True)
+#     if not update_data:
+#         raise HTTPException(status_code=400, detail="No fields to update")
+    
+#     if "feedback" in update_data and current_user.role in ["admin", "mentor"]:
+#         update_data["reviewedBy"] = current_user.username
+#         update_data["reviewedAt"] = datetime.now(timezone.utc)
+#         update_data["status"] = "reviewed"
+    
+#     update_data["updated_at"] = datetime.now(timezone.utc)
+    
+#     result = await db.dsu_entries.find_one_and_update(
+#         {"_id": ObjectId(entry_id)},
+#         {"$set": update_data},
+#         return_document=True
+#     )
+    
+#     if not result:
+#         raise HTTPException(status_code=404, detail="DSU entry not found")
+    
+#     result["_id"] = str(result["_id"])
+#     return result
+
+
+
+# # ==================== TASK ROUTES ====================
+# @app.post("/api/v1/tasks/", status_code=201)
+# async def create_task(
+#     task_data: TaskCreate,
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """Create new task"""
+#     # ✅ Use by_alias=False to get internal field names for database
+#     task_dict = task_data.model_dump(by_alias=False)
+    
+#     if "status" not in task_dict or not task_dict["status"]:
+#         task_dict["status"] = "NOT_STARTED"
+    
+#     task_dict["created_at"] = datetime.now(timezone.utc)
+#     task_dict["updated_at"] = datetime.now(timezone.utc)
+    
+#     result = await db.tasks.insert_one(task_dict)
+    
+#     # Update intern's task count
+#     await db.interns.update_one(
+#         {"_id": ObjectId(task_data.internId)},
+#         {"$inc": {"taskCount": 1}}
+#     )
+    
+#     # ✅ Prepare response with alias conversion
+#     task_dict["_id"] = str(result.inserted_id)
+    
+#     # Convert task_date to date for response
+#     if "task_date" in task_dict and task_dict["task_date"]:
+#         task_dict["date"] = task_dict["task_date"]
+    
+#     return task_dict
+
+
+# @app.get("/api/v1/tasks/")
+# async def list_tasks(
+#     intern_id: Optional[str] = Query(None),
+#     status: Optional[str] = Query(None),
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """List tasks with filters"""
+#     query = {}
+#     if intern_id:
+#         query["internId"] = intern_id
+#     if status:
+#         query["status"] = status
+    
+#     tasks = []
+#     async for task in db.tasks.find(query).sort("created_at", -1):
+#         task["_id"] = str(task["_id"])
+        
+#         # ✅ Convert task_date to date for frontend
+#         if "task_date" in task and task["task_date"]:
+#             task["date"] = task["task_date"]
+        
+#         tasks.append(task)
+    
+#     return tasks
+
+
+# @app.patch("/api/v1/tasks/{task_id}")
+# async def update_task(
+#     task_id: str,
+#     task_update: TaskUpdate,
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """Update task"""
+#     # ✅ Use by_alias=False to get internal field names
+#     update_data = task_update.model_dump(exclude_unset=True, by_alias=False)
+#     if not update_data:
+#         raise HTTPException(status_code=400, detail="No fields to update")
+    
+#     current_task = await db.tasks.find_one({"_id": ObjectId(task_id)})
+#     if not current_task:
+#         raise HTTPException(status_code=404, detail="Task not found")
+    
+#     # ✅ Check for DONE status and update completion
+#     if update_data.get("status") == "DONE" and current_task.get("status") != "DONE":
+#         update_data["completedAt"] = datetime.now(timezone.utc)
+#         await db.interns.update_one(
+#             {"_id": ObjectId(current_task["internId"])},
+#             {"$inc": {"completedTasks": 1}}
+#         )
+    
+#     update_data["updated_at"] = datetime.now(timezone.utc)
+    
+#     result = await db.tasks.find_one_and_update(
+#         {"_id": ObjectId(task_id)},
+#         {"$set": update_data},
+#         return_document=True
+#     )
+    
+#     result["_id"] = str(result["_id"])
+    
+#     # ✅ Convert task_date to date for response
+#     if "task_date" in result and result["task_date"]:
+#         result["date"] = result["task_date"]
+    
+#     return result
+
+
+# @app.delete("/api/v1/tasks/{task_id}", status_code=204)
+# async def delete_task(
+#     task_id: str,
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """Delete task"""
+#     task = await db.tasks.find_one({"_id": ObjectId(task_id)})
+#     if not task:
+#         raise HTTPException(status_code=404, detail="Task not found")
+    
+#     # Update intern's task count
+#     await db.interns.update_one(
+#         {"_id": ObjectId(task["internId"])},
+#         {"$inc": {"taskCount": -1}}
+#     )
+    
+#     result = await db.tasks.delete_one({"_id": ObjectId(task_id)})
+#     if result.deleted_count == 0:
+#         raise HTTPException(status_code=404, detail="Task not found")
+    
+#     return None
+
+
+
+
+
+# # ==================== PROJECT ROUTES ====================
+# @app.post("/api/v1/projects/", status_code=201)
+# async def create_project(
+#     project_data: ProjectCreate,
+#     db = Depends(get_database),
+#     admin: User = Depends(get_admin_user)
+# ):
+#     """Create new project (admin only)"""
+#     existing = await db.projects.find_one({"name": project_data.name})
+#     if existing:
+#         raise HTTPException(status_code=400, detail="Project already exists")
+    
+#     project_dict = project_data.model_dump()
+#     project_dict["status"] = "active"
+#     project_dict["internIds"] = []
+#     project_dict["created_at"] = datetime.now(timezone.utc)
+#     project_dict["updated_at"] = datetime.now(timezone.utc)
+    
+#     result = await db.projects.insert_one(project_dict)
+#     project_dict["_id"] = str(result.inserted_id)
+    
+#     return project_dict
+
+# @app.get("/api/v1/projects/")
+# async def list_projects(
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """List all projects"""
+#     projects = []
+#     async for project in db.projects.find():
+#         project["_id"] = str(project["_id"])
+#         projects.append(project)
+    
+#     return projects
+
+
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+
 """
-Intern Lifecycle Manager - Simplified Backend
-All routes in one file
+Intern Lifecycle Manager - Complete Backend with Batch Management
+All routes in one file - Enhanced Version
 """
 from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +498,7 @@ from typing import Optional, List
 from bson import ObjectId
 import os
 from dotenv import load_dotenv
+
 
 # Import our modules
 from database import connect_db, close_db, get_database
@@ -25,10 +514,14 @@ from models import (
     Intern, InternCreate, InternUpdate,
     DSUEntry, DSUCreate, DSUUpdate,
     Task, TaskCreate, TaskUpdate,
-    Project, ProjectCreate, ProjectUpdate
+    Project, ProjectCreate, ProjectUpdate,
+    PTO, PTOCreate, PTOUpdate,
+    Batch, BatchCreate, BatchUpdate
 )
 
+
 load_dotenv()
+
 
 # ==================== APP SETUP ====================
 @asynccontextmanager
@@ -38,11 +531,13 @@ async def lifespan(app: FastAPI):
     yield
     await close_db()
 
+
 app = FastAPI(
     title="Intern Lifecycle Manager",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan
 )
+
 
 # CORS
 CORS_ORIGINS = eval(os.getenv("BACKEND_CORS_ORIGINS", '["http://localhost:5173"]'))
@@ -54,14 +549,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # ==================== ROOT ROUTES ====================
 @app.get("/")
 async def root():
-    return {"message": "Intern Lifecycle Manager API", "docs": "/docs"}
+    return {"message": "Intern Lifecycle Manager API v2.0", "docs": "/docs"}
+
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "version": "2.0.0"}
 
 
 # ==================== AUTH ROUTES ====================
@@ -78,6 +575,7 @@ async def login(credentials: LoginRequest, db = Depends(get_database)):
     
     token = create_access_token(data={"sub": user["username"], "role": user["role"]})
     return {"access_token": token, "token_type": "bearer"}
+
 
 @app.post("/api/v1/auth/register", response_model=UserResponse, status_code=201)
 async def register(user_data: UserCreate, db = Depends(get_database)):
@@ -121,6 +619,376 @@ async def get_current_user_profile(current_user: User = Depends(get_current_acti
     )
 
 
+# ==================== ADMIN DASHBOARD ROUTES ====================
+@app.get("/api/v1/admin/dashboard/stats")
+async def get_dashboard_stats(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get comprehensive admin dashboard statistics"""
+    if current_user.role not in ["admin", "mentor"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    today = date.today().isoformat()
+    
+    # Fetch all data in parallel
+    total_interns = await db.interns.count_documents({})
+    active_interns = await db.interns.count_documents({"status": "active"})
+    project_interns = await db.interns.count_documents({"internType": "project"})
+    rs_interns = await db.interns.count_documents({"internType": "rs"})
+    paid_interns = await db.interns.count_documents({"isPaid": True})
+    
+    total_tasks = await db.tasks.count_documents({})
+    completed_tasks = await db.tasks.count_documents({"status": "DONE"})
+    
+    # DSU stats for today
+    todays_dsus = await db.dsu_entries.count_documents({"date": today})
+    submitted_dsus = await db.dsu_entries.count_documents({"date": today, "status": "submitted"})
+    
+    # PTO stats
+    pending_ptos = await db.pto.count_documents({"status": "pending"})
+    approved_ptos = await db.pto.count_documents({"status": "approved"})
+    
+    # Calculate DSU completion percentage
+    dsu_completion = 0
+    if active_interns > 0:
+        dsu_completion = round((submitted_dsus / active_interns) * 100)
+    
+    # Task completion percentage
+    task_completion = 0
+    if total_tasks > 0:
+        task_completion = round((completed_tasks / total_tasks) * 100)
+    
+    # Batch stats
+    total_batches = await db.batches.count_documents({})
+    active_batches = await db.batches.count_documents({"status": "active"})
+    upcoming_batches = await db.batches.count_documents({"status": "upcoming"})
+    
+    return {
+        "totalInterns": total_interns,
+        "activeInterns": active_interns,
+        "projectInterns": project_interns,
+        "rsInterns": rs_interns,
+        "paidInterns": paid_interns,
+        "totalTasks": total_tasks,
+        "completedTasks": completed_tasks,
+        "taskCompletion": task_completion,
+        "submittedDSUs": submitted_dsus,
+        "pendingDSUs": active_interns - submitted_dsus,
+        "dsuCompletion": dsu_completion,
+        "pendingPTOs": pending_ptos,
+        "approvedPTOs": approved_ptos,
+        "totalBatches": total_batches,
+        "activeBatches": active_batches,
+        "upcomingBatches": upcoming_batches,
+    }
+
+
+@app.get("/api/v1/admin/dashboard/recent-interns")
+async def get_recent_interns(
+    limit: int = 5,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get recently added interns"""
+    if current_user.role not in ["admin", "mentor"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    interns = []
+    async for intern in db.interns.find().sort("created_at", -1).limit(limit):
+        intern["_id"] = str(intern["_id"])
+        # Convert date to ISO string if needed
+        if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
+            intern["joinedDate"] = intern["joinedDate"].isoformat()
+        interns.append(intern)
+    
+    return interns
+
+
+@app.get("/api/v1/admin/dashboard/blocked-interns")
+async def get_blocked_interns(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get interns with blockers from today's DSU"""
+    if current_user.role not in ["admin", "mentor"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    today = date.today().isoformat()
+    
+    blocked = []
+    async for dsu in db.dsu_entries.find({
+        "date": today,
+        "blockers": {"$ne": "", "$ne": None, "$exists": True}
+    }):
+        dsu["_id"] = str(dsu["_id"])
+        
+        # Get intern details
+        intern = await db.interns.find_one({"_id": ObjectId(dsu["internId"])})
+        if intern:
+            dsu["internName"] = intern.get("name", "Unknown")
+            dsu["internEmail"] = intern.get("email", "")
+            dsu["batch"] = intern.get("batch", "")
+        
+        blocked.append(dsu)
+    
+    return blocked
+
+
+@app.get("/api/v1/admin/dashboard/pending-ptos")
+async def get_pending_ptos(
+    limit: int = 5,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get pending PTO requests"""
+    if current_user.role not in ["admin", "mentor"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    ptos = []
+    async for pto in db.pto.find({"status": "pending"}).sort("created_at", -1).limit(limit):
+        pto["_id"] = str(pto["_id"])
+        
+        # Get intern details
+        intern = await db.interns.find_one({"_id": ObjectId(pto["internId"])})
+        if intern:
+            pto["internName"] = intern.get("name", "Unknown")
+            pto["batch"] = intern.get("batch", "")
+        
+        ptos.append(pto)
+    
+    return ptos
+
+
+@app.get("/api/v1/admin/analytics/batch-performance")
+async def get_batch_performance(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get performance analytics by batch"""
+    if current_user.role not in ["admin", "mentor"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    batches = []
+    async for batch in db.batches.find({"status": {"$in": ["active", "completed"]}}):
+        batch["_id"] = str(batch["_id"])
+        
+        # Get batch interns
+        batch_interns = []
+        async for intern in db.interns.find({"batch": batch["batchId"]}):
+            batch_interns.append(intern)
+        
+        if batch_interns:
+            # Calculate averages
+            avg_completion = sum(i.get("completedTasks", 0) / max(i.get("taskCount", 1), 1) * 100 for i in batch_interns) / len(batch_interns)
+            avg_streak = sum(i.get("dsuStreak", 0) for i in batch_interns) / len(batch_interns)
+            
+            batch["avgTaskCompletion"] = round(avg_completion, 2)
+            batch["avgDSUStreak"] = round(avg_streak, 1)
+        else:
+            batch["avgTaskCompletion"] = 0
+            batch["avgDSUStreak"] = 0
+        
+        batches.append(batch)
+    
+    return batches
+
+
+# ==================== BATCH ROUTES ====================
+@app.post("/api/v1/batches/", status_code=201)
+async def create_batch(
+    batch_data: BatchCreate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Create a new batch"""
+    if current_user.role not in ["admin", "mentor"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Check if batch ID already exists
+    existing = await db.batches.find_one({"batchId": batch_data.batchId})
+    if existing:
+        raise HTTPException(status_code=400, detail="Batch ID already exists")
+    
+    # Determine status based on start date
+    start_date = datetime.fromisoformat(batch_data.startDate.replace('Z', '+00:00'))
+    today = datetime.now(timezone.utc)
+    
+    if start_date > today:
+        status = "upcoming"
+    else:
+        end_date = datetime.fromisoformat(batch_data.endDate.replace('Z', '+00:00'))
+        if end_date < today:
+            status = "completed"
+        else:
+            status = "active"
+    
+    batch_dict = batch_data.model_dump()
+    batch_dict["status"] = status
+    batch_dict["totalInterns"] = 0
+    batch_dict["activeInterns"] = 0
+    batch_dict["completedInterns"] = 0
+    batch_dict["droppedInterns"] = 0
+    batch_dict["averageRating"] = 0.0
+    batch_dict["averageTaskCompletion"] = 0.0
+    batch_dict["averageDSUStreak"] = 0
+    batch_dict["created_at"] = datetime.now(timezone.utc)
+    batch_dict["updated_at"] = datetime.now(timezone.utc)
+    batch_dict["createdBy"] = current_user.username
+    
+    result = await db.batches.insert_one(batch_dict)
+    batch_dict["_id"] = str(result.inserted_id)
+    
+    return batch_dict
+
+
+@app.get("/api/v1/batches/")
+async def list_batches(
+    status: Optional[str] = Query(None),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List all batches with stats"""
+    query = {}
+    if status:
+        query["status"] = status
+    
+    batches = []
+    async for batch in db.batches.find(query).sort("startDate", -1):
+        batch["_id"] = str(batch["_id"])
+        
+        # Update intern counts
+        batch_interns = await db.interns.count_documents({"batch": batch["batchId"]})
+        active_interns = await db.interns.count_documents({
+            "batch": batch["batchId"],
+            "status": "active"
+        })
+        completed_interns = await db.interns.count_documents({
+            "batch": batch["batchId"],
+            "status": "completed"
+        })
+        dropped_interns = await db.interns.count_documents({
+            "batch": batch["batchId"],
+            "status": "dropped"
+        })
+        
+        batch["totalInterns"] = batch_interns
+        batch["activeInterns"] = active_interns
+        batch["completedInterns"] = completed_interns
+        batch["droppedInterns"] = dropped_interns
+        
+        batches.append(batch)
+    
+    return batches
+
+
+@app.get("/api/v1/batches/{batch_id}")
+async def get_batch(
+    batch_id: str,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get batch by ID with intern details"""
+    batch = await db.batches.find_one({"batchId": batch_id})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    batch["_id"] = str(batch["_id"])
+    
+    # Get detailed stats
+    interns = []
+    async for intern in db.interns.find({"batch": batch_id}).sort("name", 1):
+        intern["_id"] = str(intern["_id"])
+        if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
+            intern["joinedDate"] = intern["joinedDate"].isoformat()
+        interns.append(intern)
+    
+    batch["interns"] = interns
+    batch["totalInterns"] = len(interns)
+    batch["activeInterns"] = len([i for i in interns if i["status"] == "active"])
+    batch["completedInterns"] = len([i for i in interns if i["status"] == "completed"])
+    batch["droppedInterns"] = len([i for i in interns if i["status"] == "dropped"])
+    
+    # Calculate performance metrics
+    if interns:
+        avg_completion = sum(i.get("completedTasks", 0) / max(i.get("taskCount", 1), 1) * 100 for i in interns) / len(interns)
+        avg_streak = sum(i.get("dsuStreak", 0) for i in interns) / len(interns)
+        batch["averageTaskCompletion"] = round(avg_completion, 2)
+        batch["averageDSUStreak"] = round(avg_streak, 1)
+    
+    return batch
+
+
+@app.patch("/api/v1/batches/{batch_id}")
+async def update_batch(
+    batch_id: str,
+    batch_update: BatchUpdate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update batch"""
+    if current_user.role not in ["admin", "mentor"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    batch = await db.batches.find_one({"batchId": batch_id})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    update_data = batch_update.model_dump(exclude_unset=True)
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
+    result = await db.batches.find_one_and_update(
+        {"batchId": batch_id},
+        {"$set": update_data},
+        return_document=True
+    )
+    
+    result["_id"] = str(result["_id"])
+    return result
+
+
+@app.delete("/api/v1/batches/{batch_id}", status_code=204)
+async def delete_batch(
+    batch_id: str,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Delete batch (only if no interns)"""
+    if current_user.role not in ["admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Check if batch has interns
+    intern_count = await db.interns.count_documents({"batch": batch_id})
+    if intern_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete batch with {intern_count} interns. Remove interns first."
+        )
+    
+    result = await db.batches.delete_one({"batchId": batch_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    return None
+
+
+@app.get("/api/v1/batches/{batch_id}/interns")
+async def get_batch_interns(
+    batch_id: str,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get all interns in a batch"""
+    interns = []
+    async for intern in db.interns.find({"batch": batch_id}).sort("name", 1):
+        intern["_id"] = str(intern["_id"])
+        if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
+            intern["joinedDate"] = intern["joinedDate"].isoformat()
+        interns.append(intern)
+    
+    return interns
+
+
 # ==================== INTERN ROUTES ====================
 @app.post("/api/v1/interns/", status_code=201)
 async def create_intern(
@@ -133,6 +1001,17 @@ async def create_intern(
     if existing:
         raise HTTPException(status_code=400, detail="Intern already exists")
     
+    # Validate batch exists if provided
+    if intern_data.batch:
+        batch = await db.batches.find_one({"batchId": intern_data.batch})
+        if not batch:
+            raise HTTPException(status_code=404, detail="Batch not found")
+        
+        # Check max capacity
+        current_count = await db.interns.count_documents({"batch": intern_data.batch})
+        if current_count >= batch.get("maxInterns", 50):
+            raise HTTPException(status_code=400, detail="Batch is full")
+    
     intern_dict = intern_data.model_dump()
     intern_dict["status"] = "onboarding"
     intern_dict["taskCount"] = 0
@@ -144,29 +1023,46 @@ async def create_intern(
     
     result = await db.interns.insert_one(intern_dict)
     intern_dict["_id"] = str(result.inserted_id)
+    intern_dict["joinedDate"] = intern_dict["joinedDate"].isoformat()
     
-    return Intern(id=intern_dict["_id"], **intern_dict)
+    return intern_dict
+
 
 @app.get("/api/v1/interns/")
 async def list_interns(
     status: Optional[str] = Query(None),
     internType: Optional[str] = Query(None),
+    batch: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """List all interns with filters"""
+    """List all interns with filters and pagination"""
     query = {}
     if status:
         query["status"] = status
     if internType:
         query["internType"] = internType
+    if batch:
+        query["batch"] = batch
+    
+    total = await db.interns.count_documents(query)
     
     interns = []
-    async for intern in db.interns.find(query):
+    async for intern in db.interns.find(query).skip(skip).limit(limit):
         intern["_id"] = str(intern["_id"])
+        if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
+            intern["joinedDate"] = intern["joinedDate"].isoformat()
         interns.append(intern)
     
-    return interns
+    return {
+        "items": interns,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
 
 @app.get("/api/v1/interns/{intern_id}")
 async def get_intern(
@@ -180,7 +1076,11 @@ async def get_intern(
         raise HTTPException(status_code=404, detail="Intern not found")
     
     intern["_id"] = str(intern["_id"])
+    if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
+        intern["joinedDate"] = intern["joinedDate"].isoformat()
+    
     return intern
+
 
 @app.patch("/api/v1/interns/{intern_id}")
 async def update_intern(
@@ -206,7 +1106,11 @@ async def update_intern(
         raise HTTPException(status_code=404, detail="Intern not found")
     
     result["_id"] = str(result["_id"])
+    if "joinedDate" in result and isinstance(result["joinedDate"], date):
+        result["joinedDate"] = result["joinedDate"].isoformat()
+    
     return result
+
 
 @app.delete("/api/v1/interns/{intern_id}", status_code=204)
 async def delete_intern(
@@ -254,9 +1158,11 @@ async def create_dsu(
     dsu_dict["_id"] = str(result.inserted_id)
     return dsu_dict
 
+
 @app.get("/api/v1/dsu-entries/")
 async def list_dsu_entries(
     intern_id: Optional[str] = Query(None),
+    batch: Optional[str] = Query(None),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     db = Depends(get_database),
@@ -266,19 +1172,33 @@ async def list_dsu_entries(
     query = {}
     if intern_id:
         query["internId"] = intern_id
+    if batch:
+        # Get all interns in batch first
+        intern_ids = []
+        async for intern in db.interns.find({"batch": batch}):
+            intern_ids.append(str(intern["_id"]))
+        query["internId"] = {"$in": intern_ids}
     if date_from or date_to:
         query["date"] = {}
         if date_from:
-            query["date"]["$gte"] = date_from
+            query["date"]["$gte"] = str(date_from)
         if date_to:
-            query["date"]["$lte"] = date_to
+            query["date"]["$lte"] = str(date_to)
     
     entries = []
     async for entry in db.dsu_entries.find(query).sort("date", -1):
         entry["_id"] = str(entry["_id"])
+        
+        # Add intern details
+        intern = await db.interns.find_one({"_id": ObjectId(entry["internId"])})
+        if intern:
+            entry["internName"] = intern.get("name", "Unknown")
+            entry["batch"] = intern.get("batch", "")
+        
         entries.append(entry)
     
     return entries
+
 
 @app.patch("/api/v1/dsu-entries/{entry_id}")
 async def update_dsu(
@@ -311,6 +1231,7 @@ async def update_dsu(
     result["_id"] = str(result["_id"])
     return result
 
+
 # ==================== TASK ROUTES ====================
 @app.post("/api/v1/tasks/", status_code=201)
 async def create_task(
@@ -319,7 +1240,6 @@ async def create_task(
     current_user: User = Depends(get_current_active_user)
 ):
     """Create new task"""
-    # ✅ Use by_alias=False to get internal field names for database
     task_dict = task_data.model_dump(by_alias=False)
     
     if "status" not in task_dict or not task_dict["status"]:
@@ -327,6 +1247,7 @@ async def create_task(
     
     task_dict["created_at"] = datetime.now(timezone.utc)
     task_dict["updated_at"] = datetime.now(timezone.utc)
+    task_dict["createdBy"] = current_user.username
     
     result = await db.tasks.insert_one(task_dict)
     
@@ -336,10 +1257,8 @@ async def create_task(
         {"$inc": {"taskCount": 1}}
     )
     
-    # ✅ Prepare response with alias conversion
     task_dict["_id"] = str(result.inserted_id)
     
-    # Convert task_date to date for response
     if "task_date" in task_dict and task_dict["task_date"]:
         task_dict["date"] = task_dict["task_date"]
     
@@ -364,7 +1283,6 @@ async def list_tasks(
     async for task in db.tasks.find(query).sort("created_at", -1):
         task["_id"] = str(task["_id"])
         
-        # ✅ Convert task_date to date for frontend
         if "task_date" in task and task["task_date"]:
             task["date"] = task["task_date"]
         
@@ -381,7 +1299,6 @@ async def update_task(
     current_user: User = Depends(get_current_active_user)
 ):
     """Update task"""
-    # ✅ Use by_alias=False to get internal field names
     update_data = task_update.model_dump(exclude_unset=True, by_alias=False)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -390,7 +1307,6 @@ async def update_task(
     if not current_task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    # ✅ Check for DONE status and update completion
     if update_data.get("status") == "DONE" and current_task.get("status") != "DONE":
         update_data["completedAt"] = datetime.now(timezone.utc)
         await db.interns.update_one(
@@ -408,7 +1324,6 @@ async def update_task(
     
     result["_id"] = str(result["_id"])
     
-    # ✅ Convert task_date to date for response
     if "task_date" in result and result["task_date"]:
         result["date"] = result["task_date"]
     
@@ -426,7 +1341,6 @@ async def delete_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
-    # Update intern's task count
     await db.interns.update_one(
         {"_id": ObjectId(task["internId"])},
         {"$inc": {"taskCount": -1}}
@@ -439,7 +1353,86 @@ async def delete_task(
     return None
 
 
+# ==================== PTO ROUTES ====================
+@app.post("/api/v1/pto/", status_code=201)
+async def create_pto(
+    pto_data: PTOCreate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Create PTO request"""
+    pto_dict = pto_data.model_dump()
+    pto_dict["status"] = "pending"
+    pto_dict["created_at"] = datetime.now(timezone.utc)
+    pto_dict["updated_at"] = datetime.now(timezone.utc)
+    
+    result = await db.pto.insert_one(pto_dict)
+    pto_dict["_id"] = str(result.inserted_id)
+    
+    return pto_dict
 
+
+@app.get("/api/v1/pto/")
+async def list_ptos(
+    status: Optional[str] = Query(None),
+    intern_id: Optional[str] = Query(None),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List PTO requests"""
+    query = {}
+    if status:
+        query["status"] = status
+    if intern_id:
+        query["internId"] = intern_id
+    
+    ptos = []
+    async for pto in db.pto.find(query).sort("created_at", -1):
+        pto["_id"] = str(pto["_id"])
+        
+        # Add intern details
+        intern = await db.interns.find_one({"_id": ObjectId(pto["internId"])})
+        if intern:
+            pto["internName"] = intern.get("name", "Unknown")
+            pto["batch"] = intern.get("batch", "")
+        
+        ptos.append(pto)
+    
+    return ptos
+
+
+@app.patch("/api/v1/pto/{pto_id}")
+async def update_pto(
+    pto_id: str,
+    pto_update: PTOUpdate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update PTO request (approve/reject)"""
+    if current_user.role not in ["admin", "mentor"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    update_data = pto_update.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    if "status" in update_data and update_data["status"] in ["approved", "rejected"]:
+        update_data["approvedBy"] = current_user.username
+        update_data["approvedAt"] = datetime.now(timezone.utc)
+    
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
+    result = await db.pto.find_one_and_update(
+        {"_id": ObjectId(pto_id)},
+        {"$set": update_data},
+        return_document=True
+    )
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="PTO not found")
+    
+    result["_id"] = str(result["_id"])
+    return result
 
 
 # ==================== PROJECT ROUTES ====================
@@ -464,6 +1457,7 @@ async def create_project(
     project_dict["_id"] = str(result.inserted_id)
     
     return project_dict
+
 
 @app.get("/api/v1/projects/")
 async def list_projects(

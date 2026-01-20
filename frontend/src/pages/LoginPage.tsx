@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { getAzureLoginUrl } from '@/config/azure';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -31,7 +32,7 @@ const LoginPage: React.FC = () => {
       const stored = localStorage.getItem('ilm_user');
       if (stored) {
         const user = JSON.parse(stored);
-        navigate(user.role === 'admin' ? '/admin' : '/dashboard');
+        navigate(user.role === 'admin' ? '/admin' : '/intern');
       }
     } else {
       toast({
@@ -133,6 +134,42 @@ const LoginPage: React.FC = () => {
               )}
             </Button>
           </form>
+
+          {/* Microsoft SSO */}
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full h-11 mt-4"
+              onClick={() => {
+                window.location.href = getAzureLoginUrl();
+              }}
+            >
+              <svg
+                className="mr-2 h-4 w-4"
+                viewBox="0 0 23 23"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M11.5 0h11v11.5h-11V0zm0 11.5h11V23h-11v-11.5zM0 0h10.5v10.5H0V0zm0 11.5h10.5V22H0v-10.5z"
+                  fill="currentColor"
+                />
+              </svg>
+              Sign in with Microsoft
+            </Button>
+          </div>
 
           {/* Demo Login Options */}
           <div className="mt-6">

@@ -221,6 +221,7 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import NotFound from '@/pages/NotFound';
+import AzureAuthCallback from '@/pages/AzureAuthCallback';
 
 // Admin Pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
@@ -257,6 +258,7 @@ const AppRoutes: React.FC = () => {
           </PublicRoute>
         }
       />
+      <Route path="/auth/azure-callback" element={<AzureAuthCallback />} />
 
       {/* ========== Admin Routes ========== */}
       <Route
@@ -320,7 +322,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/intern"
         element={
-          <ProtectedRoute allowedRoles={['intern']}>
+          <ProtectedRoute allowedRoles={['intern', 'admin']}>
             <InternDashboard />
           </ProtectedRoute>
         }

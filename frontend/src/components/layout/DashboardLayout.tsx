@@ -40,15 +40,26 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { to: '/admin/settings', icon: Settings, label: 'Settings' },
   ];
 
+  const scrumMasterLinks = [
+    { to: '/scrum-master', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/scrum-master/dsu-board', icon: ClipboardList, label: 'DSU Board' },
+    { to: '/scrum-master/projects', icon: FileText, label: 'Projects' },
+    { to: '/scrum-master/interns', icon: Users, label: 'Interns' },
+    { to: '/scrum-master/settings', icon: Settings, label: 'Settings' },
+  ];
+
   const internLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Home' },
     { to: '/dashboard/profile', icon: User, label: 'Profile' },
     // { to: '/dashboard/tasks', icon: FileText, label: 'Tasks' },
-     { to: '/daily-updates', icon: Calendar, label: 'Daily Updates' },
+    { to: '/daily-updates', icon: Calendar, label: 'Daily Updates' },
     { to: '/dashboard/settings', icon: Settings, label: 'Settings' },
   ];
 
-  const links = isAdmin ? adminLinks : internLinks;
+  const links =
+    user?.role === 'admin' ? adminLinks :
+      user?.role === 'scrum_master' ? scrumMasterLinks :
+        internLinks;
 
   const handleLogout = () => {
     logout();

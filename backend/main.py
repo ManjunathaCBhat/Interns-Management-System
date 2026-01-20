@@ -616,6 +616,140 @@ async def register(user_data: UserCreate, db = Depends(get_database)):
     )
 
 
+@app.post("/api/v1/auth/sso/azure", response_model=Token)
+async def azure_sso(azure_token: dict, db = Depends(get_database)):
+    """
+    Azure SSO authentication endpoint.
+    Expects: { "access_token": "azure_token_string" }
+    """
+    from azure_auth import validate_azure_token, get_or_create_azure_user
+    
+    if not azure_token.get("access_token"):
+        raise HTTPException(status_code=400, detail="Missing access_token")
+    
+    # Validate Azure token and get user info
+    azure_user = await validate_azure_token(azure_token["access_token"])
+    
+    # Get or create user in our database
+    user_doc = await get_or_create_azure_user(azure_user, db)
+    
+    # Create our own JWT token for the user
+    our_token = create_access_token(
+        data={"sub": user_doc["username"], "role": user_doc.get("role", "user")}
+    )
+    
+    # Prepare user response
+    user_response = UserResponse(
+        id=str(user_doc["_id"]),
+        username=user_doc["username"],
+        email=user_doc["email"],
+        name=user_doc.get("name", ""),
+        role=user_doc.get("role", "user"),
+        is_active=user_doc.get("is_active", True),
+        created_at=user_doc.get("created_at", datetime.now(timezone.utc))
+    )
+    
+    return {
+        "access_token": our_token,
+        "token_type": "bearer",
+        "user": user_response
+    }
+
+
+@app.post("/api/v1/auth/sso/azure/callback", response_model=Token)
+async def azure_sso_callback(request: dict, db = Depends(get_database)):
+    """
+    Handle Azure SSO callback with authorization code.
+    Expects: { "code": "authorization_code_from_azure" }
+    
+    Note: In production, exchange the code for a token on the backend.
+    For now, we expect the frontend to send us the token after getting it.
+    """
+    import httpx
+    import os
+    from dotenv import load_dotenv
+    
+    load_dotenv()
+    
+    code = request.get("code")
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+    
+    try:
+        # Exchange authorization code for token
+        tenant_id = os.getenv("tenant_id")
+        client_id = os.getenv("client_id")
+        secret_key = os.getenv("AZURE_SECRET_KEY")
+        
+        if not all([tenant_id, client_id, secret_key]):
+            raise HTTPException(status_code=500, detail="Azure configuration incomplete")
+        
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(
+                f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+                data={
+                    "client_id": client_id,
+                    "client_secret": secret_key,
+                    "code": code,
+                    "redirect_uri": os.getenv("AZURE_REDIRECT_URI", "http://localhost:5173/auth/azure-callback"),
+                    "grant_type": "authorization_code",
+                    "scope": "User.Read"
+                },
+                timeout=10.0
+            )
+            
+            if token_response.status_code != 200:
+                error_text = token_response.text
+                print(f"[Azure SSO] Token exchange error: {error_text}")
+                print(f"[Azure SSO] Status code: {token_response.status_code}")
+                print(f"[Azure SSO] Redirect URI used: {os.getenv('AZURE_REDIRECT_URI', 'http://localhost:5173/auth/azure-callback')}")
+                try:
+                    error_data = token_response.json()
+                    print(f"[Azure SSO] Error response: {error_data}")
+                except:
+                    pass
+                raise HTTPException(status_code=401, detail=f"Failed to exchange code for token: {error_text}")
+            
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+            
+            if not access_token:
+                raise HTTPException(status_code=401, detail="No access token in response")
+        
+        # Validate token and get/create user
+        from azure_auth import validate_azure_token, get_or_create_azure_user
+        
+        azure_user = await validate_azure_token(access_token)
+        user_doc = await get_or_create_azure_user(azure_user, db)
+        
+        # Create our JWT token
+        our_token = create_access_token(
+            data={"sub": user_doc["username"], "role": user_doc.get("role", "user")}
+        )
+        
+        user_response = UserResponse(
+            id=str(user_doc["_id"]),
+            username=user_doc["username"],
+            email=user_doc["email"],
+            name=user_doc.get("name", ""),
+            role=user_doc.get("role", "user"),
+            is_active=user_doc.get("is_active", True),
+            created_at=user_doc.get("created_at", datetime.now(timezone.utc))
+        )
+        
+        return {
+            "access_token": our_token,
+            "token_type": "bearer",
+            "user": user_response
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Azure callback error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
+
+
 # ==================== USER ROUTES ====================
 @app.get("/api/v1/users/me", response_model=UserResponse)
 async def get_current_user_profile(current_user: User = Depends(get_current_active_user)):

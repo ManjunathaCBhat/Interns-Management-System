@@ -1,6 +1,5 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
-import { getStatusColor } from '@/data/mockData';
+import { cn, getStatusColor } from '@/lib/utils';
 
 interface StatusBadgeProps {
   status: string;
@@ -9,7 +8,7 @@ interface StatusBadgeProps {
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) => {
   const colorType = getStatusColor(status);
-  
+
   const colorClasses = {
     success: 'bg-success-light text-success border-success/20',
     warning: 'bg-warning-light text-warning border-warning/20',

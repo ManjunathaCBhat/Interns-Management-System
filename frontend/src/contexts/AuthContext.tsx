@@ -9,6 +9,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  setAuthUser: (user: User, token: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -84,6 +85,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     window.location.href = '/login';
   };
 
+  const setAuthUser = (userData: User, token: string) => {
+    localStorage.setItem('ilm_token', token);
+    localStorage.setItem('ilm_user', JSON.stringify(userData));
+    setUser(userData);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -92,6 +99,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading,
         login,
         logout,
+        setAuthUser,
       }}
     >
       {children}

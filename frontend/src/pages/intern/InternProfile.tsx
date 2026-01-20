@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   User,
   Mail,
@@ -16,13 +16,60 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Avatar from '@/components/shared/Avatar';
 import StatusBadge from '@/components/shared/StatusBadge';
-import { mockInterns, formatCurrency } from '@/data/mockData';
+import { formatCurrency } from '@/lib/utils';
+import { internService } from '@/services/internService';
+import { Intern } from '@/types/intern';
 
 const InternProfile: React.FC = () => {
   const { user } = useAuth();
-  
-  // Get intern profile - using first intern for demo
-  const intern = user?.internProfile || mockInterns[0];
+  const [internData, setInternData] = useState<Intern | null>(user?.internProfile || null);
+  const [loading, setLoading] = useState(!user?.internProfile);
+
+  useEffect(() => {
+    const fetchInternProfile = async () => {
+      if (!internData && user?.email) {
+        try {
+          const allInterns = await internService.getAll({ limit: 100 });
+          const items = Array.isArray(allInterns) ? allInterns : allInterns.items;
+          const found = items.find(i => i.email === user.email);
+          if (found) {
+            setInternData(found);
+          }
+        } catch (error) {
+          console.error("Failed to fetch intern profile", error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    };
+
+    fetchInternProfile();
+  }, [user, internData]);
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[50vh]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!internData) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
+          <h2 className="text-xl font-semibold">Intern Profile Not Found</h2>
+          <p className="text-muted-foreground">Could not find an intern profile associated with your account.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const intern = internData;
 
   const timeline = [
     {
@@ -196,17 +243,16 @@ const InternProfile: React.FC = () => {
             <div className="relative">
               {/* Timeline line */}
               <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-              
+
               <div className="space-y-6">
                 {timeline.map((item, index) => (
                   <div key={index} className="relative flex gap-4 pl-10">
                     {/* Timeline dot */}
                     <div
-                      className={`absolute left-2 w-5 h-5 rounded-full border-2 ${
-                        item.status === 'completed'
+                      className={`absolute left-2 w-5 h-5 rounded-full border-2 ${item.status === 'completed'
                           ? 'bg-accent border-accent'
                           : 'bg-background border-border'
-                      }`}
+                        }`}
                     >
                       {item.status === 'completed' && (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -214,17 +260,17 @@ const InternProfile: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="flex-1 pb-4">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                         <h4 className="font-medium">{item.title}</h4>
                         <span className="text-sm text-muted-foreground">
                           {typeof item.date === 'string' && item.date !== 'TBD'
                             ? new Date(item.date).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })
                             : item.date}
                         </span>
                       </div>

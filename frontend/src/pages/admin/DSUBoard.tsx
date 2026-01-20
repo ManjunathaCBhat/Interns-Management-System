@@ -10,18 +10,12 @@ import {
   AlertTriangle,
   Users,
   Calendar,
-  Shield,
   Lock,
   X,
-  LayoutDashboard,
-  ClipboardList,
-  Settings,
-  LogOut,
-  Menu,
-  Home,
-  FolderKanban,
-  UserCircle,
 } from "lucide-react";
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { useAuth } from '@/contexts/AuthContext';
+import apiClient from '@/lib/api';
 
 /* ================= TYPES ================= */
 interface Intern {
@@ -130,6 +124,7 @@ const fetchDSUs = (): Promise<DSU[]> =>
 const fetchCurrentUser = (): Promise<User> =>
   new Promise((resolve) => setTimeout(() => resolve(MOCK_CURRENT_USER), 200));
 
+
 /* ================= HELPER FUNCTIONS ================= */
 const getTaskAging = (task: Task) => {
   if (!task.dueDate || task.status === "completed") return null;
@@ -179,22 +174,43 @@ const getStatusBadge = (status: string) => {
 };
 
 /* ================= SIDEBAR MENU ================= */
-const sidebarMenu = [
-  { id: "dashboard", label: "Dashboard", icon: Home },
-  { id: "dsu-board", label: "DSU Board", icon: ClipboardList },
-  { id: "projects", label: "Projects", icon: FolderKanban },
-  { id: "interns", label: "Interns", icon: Users },
-  { id: "settings", label: "Settings", icon: Settings },
-];
+// Sidebar menu removed - now using DashboardLayout
 
 /* ================= MAIN COMPONENT ================= */
 const Index: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [interns, setInterns] = useState<Intern[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [dsus, setDsus] = useState<DSU[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  const isAdmin = user?.role === 'admin';
+  const isAuthorized = user?.role === 'admin' || user?.role === 'mentor' || user?.role === 'scrum_master';
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [internsRes, projectsRes, tasksRes, dsusRes] = await Promise.all([
+        fetchInterns(),
+        fetchProjects(),
+        fetchTasks(),
+        fetchDSUs()
+      ]);
+      setInterns(internsRes);
+      setProjects(projectsRes);
+      setTasks(tasksRes);
+      setDsus(dsusRes);
+    } catch (error) {
+      console.error("Failed to load data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [internFilter, setInternFilter] = useState("all");
@@ -206,34 +222,9 @@ const Index: React.FC = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeMenu, setActiveMenu] = useState("dsu-board");
+  // Sidebar state removed - now using DashboardLayout
 
   const CARDS_VISIBLE = 3;
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    setLoading(true);
-    const [user, internList, projectList, taskList, dsuList] = await Promise.all([
-      fetchCurrentUser(),
-      fetchInterns(),
-      fetchProjects(),
-      fetchTasks(),
-      fetchDSUs(),
-    ]);
-    setCurrentUser(user);
-    setInterns(internList.sort((a, b) => a.name.localeCompare(b.name)));
-    setProjects(projectList);
-    setTasks(taskList);
-    setDsus(dsuList);
-    setLoading(false);
-  };
-
-  const isAuthorized = currentUser?.role === "admin" || currentUser?.role === "scrum_master";
-  const isAdmin = currentUser?.role === "admin";
 
   const yesterday = new Date(selectedDate);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -330,62 +321,7 @@ const Index: React.FC = () => {
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   };
 
-  const sidebarStyle: React.CSSProperties = {
-    width: sidebarOpen ? "240px" : "0px",
-    minWidth: sidebarOpen ? "240px" : "0px",
-    background: "linear-gradient(180deg, #1e1145 0%, #2d1b69 100%)",
-    transition: "all 0.3s ease",
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-    boxShadow: "4px 0 20px rgba(0,0,0,0.1)",
-  };
-
-  const sidebarHeaderStyle: React.CSSProperties = {
-    padding: "20px",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
-  };
-
-  const logoStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-  };
-
-  const logoTextStyle: React.CSSProperties = {
-    fontSize: "22px",
-    fontWeight: 700,
-    color: "#ffffff",
-  };
-
-  const logoAccentStyle: React.CSSProperties = {
-    color: "#a855f7",
-  };
-
-  const sidebarNavStyle: React.CSSProperties = {
-    flex: 1,
-    padding: "16px 12px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  };
-
-  const menuItemStyle = (isActive: boolean): React.CSSProperties => ({
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    padding: "12px 16px",
-    borderRadius: "10px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: 500,
-    color: isActive ? "#ffffff" : "rgba(255,255,255,0.7)",
-    background: isActive ? "rgba(168, 85, 247, 0.3)" : "transparent",
-    transition: "all 0.2s ease",
-    border: "none",
-    width: "100%",
-    textAlign: "left" as const,
-  });
+  // Sidebar styles removed - now using DashboardLayout
 
   const mainContentStyle: React.CSSProperties = {
     flex: 1,
@@ -404,18 +340,7 @@ const Index: React.FC = () => {
     gap: "16px",
   };
 
-  const menuToggleStyle: React.CSSProperties = {
-    width: "40px",
-    height: "40px",
-    borderRadius: "10px",
-    background: "linear-gradient(135deg, #1e1145, #2d1b69)",
-    border: "none",
-    color: "white",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  };
+  // Menu toggle style removed - now using DashboardLayout
 
   const pageTitleStyle: React.CSSProperties = {
     fontSize: "20px",
@@ -846,61 +771,11 @@ const Index: React.FC = () => {
   }
 
   return (
-    <div style={containerStyle}>
-      {/* SIDEBAR */}
-      <aside style={sidebarStyle}>
-        <div style={sidebarHeaderStyle}>
-          <div style={logoStyle}>
-            <span style={logoTextStyle}>
-              <span style={logoAccentStyle}>cirrus</span>labs
-            </span>
-          </div>
-        </div>
-
-        <nav style={sidebarNavStyle}>
-          {sidebarMenu.map((item) => (
-            <button
-              key={item.id}
-              style={menuItemStyle(activeMenu === item.id)}
-              onClick={() => setActiveMenu(item.id)}
-              onMouseEnter={(e) => {
-                if (activeMenu !== item.id) {
-                  e.currentTarget.style.background = "rgba(168, 85, 247, 0.15)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeMenu !== item.id) {
-                  e.currentTarget.style.background = "transparent";
-                }
-              }}
-            >
-              <item.icon size={18} />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-
-        <div style={{ padding: "16px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-          <button
-            style={{
-              ...menuItemStyle(false),
-              color: "rgba(255,255,255,0.5)",
-            }}
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
-        </div>
-      </aside>
-
+    <DashboardLayout>
       {/* MAIN CONTENT */}
       <div style={mainContentStyle}>
         {/* TOP BAR */}
         <div style={topBarStyle}>
-          <button style={menuToggleStyle} onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <Menu size={20} />
-          </button>
-
           <h1 style={pageTitleStyle}>
             DSU Board -{" "}
             {new Date(selectedDate).toLocaleDateString("en-US", {
@@ -1191,7 +1066,7 @@ const Index: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </DashboardLayout>
   );
 };
 

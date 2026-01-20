@@ -1,6 +1,5 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
-import { getInitials } from '@/data/mockData';
+import { cn, getInitials } from '@/lib/utils';
 
 interface AvatarProps {
   name: string;

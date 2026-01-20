@@ -574,7 +574,18 @@ async def login(credentials: LoginRequest, db = Depends(get_database)):
         raise HTTPException(status_code=400, detail="Inactive user")
     
     token = create_access_token(data={"sub": user["username"], "role": user["role"]})
-    return {"access_token": token, "token_type": "bearer"}
+    
+    user_response = UserResponse(
+        id=str(user["_id"]),
+        username=user["username"],
+        email=user["email"],
+        name=user["name"],
+        role=user["role"],
+        is_active=user.get("is_active", True),
+        created_at=user.get("created_at", datetime.now(timezone.utc))
+    )
+    
+    return {"access_token": token, "token_type": "bearer", "user": user_response}
 
 
 @app.post("/api/v1/auth/register", response_model=UserResponse, status_code=201)

@@ -46,20 +46,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await apiClient.post('/auth/login', { email, password });
-      const { access_token } = response.data;
+      const { access_token, user } = response.data;
       
-      // Store token
+      // Store token and user data
       localStorage.setItem('ilm_token', access_token);
-      
-      // Fetch user profile
-      await fetchCurrentUser();
+      localStorage.setItem('ilm_user', JSON.stringify(user));
+      setUser(user);
       
       return { success: true };
     } catch (error: any) {
       console.error('Login error:', error);
+      
+      // Extract error message properly
+      let errorMessage = 'Invalid email or password';
+      
+      if (error.response?.data) {
+        const data = error.response.data;
+        // Handle Pydantic validation errors
+        if (Array.isArray(data.detail)) {
+          errorMessage = data.detail.map((err: any) => err.msg).join(', ');
+        } else if (typeof data.detail === 'string') {
+          errorMessage = data.detail;
+        }
+      }
+      
       return { 
         success: false, 
-        error: error.response?.data?.detail || 'Invalid email or password' 
+        error: errorMessage
       };
     }
   };

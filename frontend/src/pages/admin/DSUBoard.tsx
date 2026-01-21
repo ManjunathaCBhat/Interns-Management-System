@@ -273,6 +273,7 @@ const Index: React.FC = () => {
     blocked: tasks.filter((t) => t.status === "blocked").length,
   };
 
+<<<<<<< HEAD
   const exportCSV = () => {
     const filteredTasks = tasks.filter((t) => {
       if (fromDate && new Date(t.created_at) < new Date(fromDate)) return false;
@@ -795,8 +796,52 @@ const Index: React.FC = () => {
               </button>
             )}
           </div>
+=======
+  // --- Inline Styles ---
+  const styles: Record<string, React.CSSProperties> = {
+    container: { padding: '24px', maxWidth: '1400px', margin: '0 auto', fontFamily: 'Inter, sans-serif', backgroundColor: '#f8fafc', minHeight: '100vh' },
+    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', gap: '20px', flexWrap: 'wrap' },
+    title: { fontSize: '28px', fontWeight: 800, color: '#2D0B59', margin: 0 },
+    statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' },
+    statCard: { background: 'white', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '4px solid #7C3AED' },
+    filterBar: { background: 'white', padding: '20px', borderRadius: '16px', marginBottom: '32px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' },
+    inputGroup: { display: 'flex', flexDirection: 'column', gap: '8px' },
+    label: { fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' },
+    input: { padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', minWidth: '180px' },
+    internCard: { background: 'white', borderRadius: '16px', overflow: 'hidden', marginBottom: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' },
+    cardHeader: { padding: '20px', background: '#fcfcfd', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    table: { width: '100%', borderCollapse: 'collapse' },
+    th: { textAlign: 'left', padding: '12px 20px', fontSize: '12px', color: '#94a3b8', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' },
+    td: { padding: '16px 20px', fontSize: '14px', borderBottom: '1px solid #f1f5f9' },
+  };
+
+  if (loading) return <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}><RefreshCw className="animate-spin" size={40} color="#7C3AED"/></div>;
+
+  return (
+    <div style={styles.container}>
+      {/* Header */}
+      <header style={styles.header}>
+        <div>
+          <h1 style={styles.title}>Daily Standup Board</h1>
+          <p style={{ color: '#64748b', marginTop: '4px' }}>Managing progress for {interns.length} active members</p>
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button onClick={loadData} style={{ padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer' }}><RefreshCw size={18}/></button>
+          <button style={{ padding: '10px 20px', borderRadius: '8px', background: '#7C3AED', color: 'white', border: 'none', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Download size={18}/> Export CSV
+          </button>
+        </div>
+      </header>
+
+      {/* Quick Stats */}
+      <div style={styles.statsGrid}>
+        <div style={styles.statCard}>
+          <div style={{ background: '#eff6ff', padding: '12px', borderRadius: '12px' }}><Users color="#7C3AED"/></div>
+          <div><div style={{ fontSize: '24px', fontWeight: 800 }}>{stats.total}</div><div style={{ fontSize: '12px', color: '#64748b' }}>Interns</div></div>
+>>>>>>> a7f0f5b (Fix registration flow and sidebar updates)
         </div>
 
+<<<<<<< HEAD
         {/* CONTENT AREA */}
         <div style={contentAreaStyle}>
           {/* STATS */}
@@ -808,6 +853,51 @@ const Index: React.FC = () => {
               <div>
                 <div style={statValueStyle}>{stats.total}</div>
                 <div style={statLabelStyle}>Total Interns</div>
+=======
+      {/* Filters */}
+      <div style={styles.filterBar}>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Select Date</label>
+          <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={styles.input} />
+        </div>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Intern</label>
+          <select value={internFilter} onChange={(e) => setInternFilter(e.target.value)} style={styles.input}>
+            <option value="all">All Interns</option>
+            {interns.map(i => <option key={i._id} value={i._id}>{i.name}</option>)}
+          </select>
+        </div>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Status</label>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={styles.input}>
+            <option value="all">All Status</option>
+            <option value="DONE">Done</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="BLOCKED">Blocked</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Intern Section */}
+      {interns.filter(i => internFilter === 'all' || i._id === internFilter).map(intern => {
+        const internTasks = tasksByIntern[intern._id] || [];
+        if (internTasks.length === 0 && internFilter === 'all') return null;
+
+        return (
+          <div key={intern._id} style={styles.internCard}>
+            <div style={styles.cardHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', background: '#9333EA', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700 }}>
+                  {intern.name[0]}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>{intern.name}</h3>
+                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>{intern.domain} • {intern.currentProject}</span>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#5B1AA6' }}>{internTasks.length} UPDATES</span>
+>>>>>>> a7f0f5b (Fix registration flow and sidebar updates)
               </div>
             </div>
             <div style={statCardStyle}>

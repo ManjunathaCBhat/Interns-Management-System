@@ -8,7 +8,6 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import date, datetime, timezone
 from enum import Enum
 
-
 # =========================
 # ENUMS
 # =========================
@@ -196,6 +195,7 @@ class Leave(BaseModel):
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+<<<<<<< HEAD
 
 # =========================
 # USER SCHEMAS
@@ -207,16 +207,30 @@ class UserCreate(BaseModel):
     name: str
     password: str
     role: UserRole = UserRole.user
+=======
+class UserCreate(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    role: UserRole
+>>>>>>> a7f0f5b (Fix registration flow and sidebar updates)
 
 
 class UserResponse(BaseModel):
     id: str
+<<<<<<< HEAD
     username: str
     email: EmailStr
     name: str
     role: UserRole
     is_active: bool
     created_at: datetime
+=======
+    name: str
+    email: EmailStr
+    role: UserRole
+    is_active: bool = True
+>>>>>>> a7f0f5b (Fix registration flow and sidebar updates)
 
 
 class LoginRequest(BaseModel):
@@ -226,6 +240,7 @@ class LoginRequest(BaseModel):
 
 class Token(BaseModel):
     access_token: str
+<<<<<<< HEAD
     token_type: str
     user: UserResponse
 
@@ -421,3 +436,6 @@ class BatchUpdate(BaseModel):
     scrumMaster: Optional[str] = None
     internIds: Optional[List[str]] = None
     status: Optional[str] = None
+=======
+    token_type: str = "bearer"
+>>>>>>> a7f0f5b (Fix registration flow and sidebar updates)

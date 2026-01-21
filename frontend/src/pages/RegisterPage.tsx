@@ -52,11 +52,11 @@ const RegisterPage: React.FC = () => {
   return (
     <div className="flex min-h-screen">
       {/* Left Side - Branding */}
-      <div className="relative hidden flex-1 lg:flex hero-gradient">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
-        <div className="relative flex flex-col items-center justify-center p-12 text-center text-white">
+      <div className="relative hidden flex-1 lg:flex bg-[#2D0B59]">
+        <div className="absolute inset-0 bg-[#FF4DA6]/15" />
+        <div className="relative flex flex-col items-center justify-center p-12 text-center text-white/85">
           <div className="max-w-md">
-            <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
+            <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#7C3AED]/30 backdrop-blur">
               <span className="text-3xl font-bold">IL</span>
             </div>
             <h1 className="mb-4 text-3xl font-bold">
@@ -75,8 +75,8 @@ const RegisterPage: React.FC = () => {
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div className="mb-10">
             <Link to="/" className="flex items-center gap-2 mb-8">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-                <span className="text-lg font-bold text-primary-foreground">IL</span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#7C3AED]">
+                <span className="text-lg font-bold text-white">IL</span>
               </div>
               <span className="text-xl font-semibold">Intern Lifecycle</span>
             </Link>
@@ -98,7 +98,7 @@ const RegisterPage: React.FC = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="h-11"
+                className="h-11 border border-white/35 focus:border-[#FF4DA6] focus:ring-[#FF4DA6]"
               />
             </div>
 
@@ -111,7 +111,7 @@ const RegisterPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-11"
+                className="h-11 border border-white/35 focus:border-[#FF4DA6] focus:ring-[#FF4DA6]"
               />
             </div>
 
@@ -131,7 +131,7 @@ const RegisterPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7C3AED] hover:text-[#FF4DA6]"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -151,7 +151,7 @@ const RegisterPage: React.FC = () => {
                 value={role}
                 onValueChange={(value) => setRole(value as UserRole)}
               >
-                <SelectTrigger className="h-11">
+                <SelectTrigger className="h-11 border border-white/35 focus:border-[#FF4DA6]">
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -163,10 +163,10 @@ const RegisterPage: React.FC = () => {
 
             <Button
               type="submit"
-              className="w-full h-11"
-              variant="accent"
+              className="w-full h-11 bg-[#7C3AED] hover:bg-[#5B1AA6] text-white shadow-[0_0_20px_rgba(255,77,166,0.35)]"
               disabled={isLoading}
             >
+
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -180,14 +180,14 @@ const RegisterPage: React.FC = () => {
 
           <p className="mt-8 text-center text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Link to="/login" className="font-medium text-accent hover:text-accent/80">
+            <Link to="/login" className="font-medium text-[#FF4DA6] hover:text-[#FF4DA6]/80">
               Sign in
             </Link>
           </p>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
             By creating an account, you agree to our{' '}
-            <Link to="/terms" className="underline hover:text-foreground">
+            <Link to="/terms" className="underline hover:text-[#FF4DA6]">
               Terms of Service
             </Link>{' '}
             and{' '}

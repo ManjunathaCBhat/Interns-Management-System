@@ -8,6 +8,12 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    role: 'intern' | 'admin'
+  ) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   setAuthUser: (user: User, token: string) => void;
 }
@@ -56,6 +62,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       return { success: true };
     } catch (error: any) {
+<<<<<<< HEAD
       console.error('Login error:', error);
       
       // Extract error message properly
@@ -77,6 +84,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
     }
   };
+=======
+  console.error('Register error:', error.response?.data);
+
+  return {
+    success: false,
+    error:
+      error.response?.data?.detail ||
+      error.response?.data?.message ||
+      'Backend registration failed',
+     };
+  }
+};
+
+  const register = async (
+  name: string,
+  email: string,
+  password: string,
+  role: 'intern' | 'admin'
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const response = await apiClient.post('/auth/register', {
+  full_name: name,
+  email,
+  password,
+  role: role.toUpperCase(), // INTERN | ADMIN
+});
+    return { success: true };
+  } catch (error: any) {
+    console.error('Register error:', error);
+    return {
+      success: false,
+      error: error.response?.data?.detail || 'Registration failed',
+    };
+  }
+};
+>>>>>>> a7f0f5b (Fix registration flow and sidebar updates)
 
   const logout = () => {
     localStorage.removeItem('ilm_token');
@@ -93,6 +136,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <AuthContext.Provider
+<<<<<<< HEAD
       value={{
         user,
         isAuthenticated: !!user,
@@ -102,6 +146,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setAuthUser,
       }}
     >
+=======
+  value={{
+    user,
+    isAuthenticated: !!user,
+    loading,
+    login,
+    register,
+    logout,
+  }}
+>
+
+>>>>>>> a7f0f5b (Fix registration flow and sidebar updates)
       {children}
     </AuthContext.Provider>
   );

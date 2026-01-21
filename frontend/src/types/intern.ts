@@ -81,8 +81,4 @@ export interface Project {
   internIds: string[];
   mentor: string;
 }
-
-
-
-
-
+export type UserRole = 'intern' | 'admin';

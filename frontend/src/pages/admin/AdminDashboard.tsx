@@ -74,11 +74,42 @@ const AdminDashboard: React.FC = () => {
   if (loading) return <div className="flex h-screen items-center justify-center bg-[#1e1145] text-white">Loading...</div>;
 
   return (
+<<<<<<< HEAD
     <DashboardLayout>
       <div className="flex flex-col space-y-6">
         {/* Top Bar */}
         <header className="bg-white border-b p-4 flex items-center justify-between shadow-sm rounded-lg">
           <h1 className="text-xl font-bold text-[#1e1145]">Admin Dashboard</h1>
+=======
+    <div className="flex min-h-screen bg-slate-50 font-sans">
+      {/* Sidebar */}
+      <aside className={`${sidebarOpen ? 'w-60' : 'w-0'} transition-all duration-300 overflow-hidden bg-[#2D0B59] text-white flex flex-col`}>
+        <div className="p-6 border-b border-white/35 font-bold text-xl">cirruslabs</div>
+        <nav className="flex-1 p-4 space-y-2">
+          {[
+            { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, path: '/admin' },
+            { id: 'interns', label: 'Interns', icon: Users, path: '/admin/interns' },
+            { id: 'dsu', label: 'DSU Board', icon: ClipboardList, path: '/admin/dsu-board' },
+          ].map((item) => (
+            <Link key={item.id} to={item.path} className={`flex items-center gap-3 p-3 rounded-lg transition-all text-white/85 hover:bg-[#5B1AA6] ${location.pathname === item.path ? 'bg-[#7C3AED]' : ''}`}>
+              <item.icon size={18} /> {item.label}
+            </Link>
+          ))}
+        </nav>
+        <button className="p-6 flex items-center gap-3 text-white/70 hover:bg-[#5B1AA6] hover:text-white border-t border-white/35 transition-all">
+          <LogOut size={18} /> Logout
+        </button>
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Bar */}
+        <header className="bg-white border-b p-4 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 bg-[#7C3AED] hover:bg-[#5B1AA6] text-white rounded-lg transition-all"></button>
+            <h1 className="text-xl font-bold text-[#1e1145]">Admin Dashboard</h1>
+          </div>
+>>>>>>> a7f0f5b (Fix registration flow and sidebar updates)
           <button className="flex items-center gap-2 bg-purple-500/10 text-purple-600 px-4 py-2 rounded-lg font-semibold hover:bg-purple-500/20 transition-all">
             <RefreshCw size={16} /> Refresh
           </button>

@@ -1,230 +1,110 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { getAzureLoginUrl } from '@/config/azure';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setLoading(true);
 
     const result = await login(email, password);
 
     if (result.success) {
-      toast({
-        title: 'Welcome back!',
-        description: 'You have successfully logged in.',
-      });
-      // Navigate based on role (handled in AuthContext)
-      const stored = localStorage.getItem('ilm_user');
+      const stored = localStorage.getItem("ilm_user");
       if (stored) {
         const user = JSON.parse(stored);
-        navigate(user.role === 'admin' ? '/admin' : '/intern');
+        navigate(user.role === "admin" ? "/admin" : "/intern");
       }
     } else {
-      toast({
-        title: 'Login failed',
-        description: result.error || 'Invalid credentials',
-        variant: 'destructive',
-      });
+      alert(result.error || "Invalid credentials");
     }
 
-    setIsLoading(false);
+    setLoading(false);
   };
 
-  const demoLogins = [
-    { label: 'Admin Demo', email: 'vikram.singh@company.com' },
-    { label: 'Intern Demo', email: 'priya.sharma@example.com' },
-  ];
-
   return (
-    <div className="flex min-h-screen">
-      {/* Left Side - Form */}
-      <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
-        <div className="mx-auto w-full max-w-sm lg:w-96">
-          <div className="mb-10">
-            <Link to="/" className="flex items-center gap-2 mb-8">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-                <span className="text-lg font-bold text-primary-foreground">IL</span>
-              </div>
-              <span className="text-xl font-semibold">Intern Lifecycle</span>
-            </Link>
-            <h2 className="text-2xl font-bold tracking-tight">
-              Welcome back
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Sign in to your account to continue
-            </p>
-          </div>
+    <div className="min-h-screen flex flex-col lg:flex-row">
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-11"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  to="/forgot-password"
-                  className="text-sm text-accent hover:text-accent/80"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="h-11 pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full h-11"
-              variant="accent"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign in'
-              )}
-            </Button>
-          </form>
-
-          {/* Microsoft SSO */}
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
-                </span>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-11 mt-4"
-              onClick={() => {
-                window.location.href = getAzureLoginUrl();
-              }}
-            >
-              <svg
-                className="mr-2 h-4 w-4"
-                viewBox="0 0 23 23"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M11.5 0h11v11.5h-11V0zm0 11.5h11V23h-11v-11.5zM0 0h10.5v10.5H0V0zm0 11.5h10.5V22H0v-10.5z"
-                  fill="currentColor"
-                />
-              </svg>
-              Sign in with Microsoft
-            </Button>
-          </div>
-
-          {/* Demo Login Options */}
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or try demo
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              {demoLogins.map((demo) => (
-                <Button
-                  key={demo.email}
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEmail(demo.email)}
-                  className="text-sm"
-                >
-                  {demo.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            Don't have an account?{' '}
-            <Link to="/register" className="font-medium text-accent hover:text-accent/80">
-              Create one
-            </Link>
-          </p>
-        </div>
+      {/* LEFT */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#2D0B59] via-[#5B1AA6] to-[#7C3AED] text-white p-16 flex-col justify-center">
+        <img src="../cirrus-logo.png" className="w-36 mb-10" />
+        <h1 className="text-5xl font-bold">
+          Interns<span className="text-pink-400">360</span>
+        </h1>
+        <p className="mt-6 max-w-md text-lg text-white/90">
+          Manage interns, attendance, standups and performance in one platform.
+        </p>
       </div>
 
-      {/* Right Side - Branding */}
-      <div className="relative hidden flex-1 lg:flex hero-gradient">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
-        <div className="relative flex flex-col items-center justify-center p-12 text-center text-white">
-          <div className="max-w-md">
-            <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
-              <span className="text-3xl font-bold">IL</span>
-            </div>
-            <h1 className="mb-4 text-3xl font-bold">
-              Intern Lifecycle Manager
-            </h1>
-            <p className="text-lg text-white/80">
-              The complete platform for managing your internship program.
-              Track progress, collect daily updates, and nurture talent.
-            </p>
+      {/* RIGHT */}
+      <div className="flex flex-1 items-center justify-center bg-gray-50 px-4">
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-sm bg-white p-8 rounded-xl shadow-lg"
+        >
+          <h2 className="text-2xl font-semibold text-center mb-6">Login</h2>
+
+          {/* Email */}
+          <div className="mb-4">
+            <label className="text-sm font-medium">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-purple-500"
+            />
           </div>
-        </div>
+
+          {/* Password */}
+          <div className="mb-6">
+            <label className="text-sm font-medium">Password</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          {/* Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-purple-800 hover:bg-purple-700 text-white py-2.5 rounded-lg font-medium"
+          >
+            {loading ? "Logging in..." : "Login"}
+          </button>
+
+          {/* Divider */}
+          <div className="my-5 flex items-center">
+            <div className="flex-1 h-px bg-gray-300" />
+            <span className="px-3 text-xs text-gray-500">OR</span>
+            <div className="flex-1 h-px bg-gray-300" />
+          </div>
+
+          {/* Microsoft */}
+          <button
+            type="button"
+            className="w-full h-11 border rounded-lg flex items-center justify-center gap-2 hover:bg-gray-100"
+            onClick={() => {
+              window.location.href = "/auth/azure";
+            }}
+          >
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg"
+              className="w-4 h-4"
+            />
+            Sign in with Microsoft
+          </button>
+        </form>
       </div>
     </div>
   );

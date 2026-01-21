@@ -65,7 +65,7 @@ const DailyUpdates: React.FC = () => {
 
       const [tasksData, projectsData, dsuResponse] = await Promise.all([
         // ✅ FIXED: pass object, not string
-        taskService.getAll({ intern_id,}),
+        taskService.getAll({ intern_id, }),
         projectService.getAll(),
         dsuService.getByDate(intern_id, today),
       ]);

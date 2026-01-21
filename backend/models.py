@@ -16,6 +16,7 @@ class UserRole(str, Enum):
     admin = "admin"
     scrum_master = "scrum_master"
     user = "user"
+    intern = "intern"
 
 
 class TaskStatus(str, Enum):

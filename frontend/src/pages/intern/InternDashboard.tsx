@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Activity,
 } from 'lucide-react';
+
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import StatusBadge from '@/components/shared/StatusBadge';
@@ -13,33 +14,39 @@ import Avatar from '@/components/shared/Avatar';
 import { mockInterns } from '@/data/mockData';
 
 const InternDashboard: React.FC = () => {
-  // ✅ Use mock data (same pattern as Admin & Profile)
+  // Mock intern
   const intern = mockInterns[0];
+
+  // ✅ SAFE mock stats (because MockIntern doesn't have task fields)
+  const totalTasks = 12;
+  const completedTasks = 7;
+  const pendingTasks = totalTasks - completedTasks;
+  const dsuStreak = 5;
 
   const stats = [
     {
       title: 'Total Tasks',
-      value: intern.taskCount,
+      value: totalTasks,
       icon: ClipboardList,
-      color: 'bg-[#7C3AED]/15 text-[#7C3AED]',
+      color: 'bg-blue-100 text-blue-600',
     },
     {
       title: 'Completed',
-      value: intern.completedTasks,
+      value: completedTasks,
       icon: CheckCircle,
-      color: 'bg-[#9333EA]/15 text-[#9333EA]',
+      color: 'bg-green-100 text-green-600',
     },
     {
       title: 'Pending',
-      value: intern.taskCount - intern.completedTasks,
+      value: pendingTasks,
       icon: Clock,
-      color: 'bg-[#5B1AA6]/15 text-[#5B1AA6]',
+      color: 'bg-yellow-100 text-yellow-600',
     },
     {
       title: 'DSU Streak',
-      value: intern.dsuStreak,
+      value: dsuStreak,
       icon: Activity,
-      color: 'bg-[#3B0F6F]/15 text-[#3B0F6F]',
+      color: 'bg-purple-100 text-purple-600',
     },
   ];
 
@@ -64,11 +71,8 @@ const InternDashboard: React.FC = () => {
 
         {/* Stats */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat, i) => (
-            <Card
-              key={i}
-              className="hover:shadow-lg transition-shadow"
-            >
+          {stats.map((stat, index) => (
+            <Card key={index}>
               <CardContent className="p-4 flex items-center gap-4">
                 <div
                   className={`h-10 w-10 flex items-center justify-center rounded-lg ${stat.color}`}
@@ -95,19 +99,19 @@ const InternDashboard: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-3">
-              <CheckCircle className="text-[#7C3AED] h-5 w-5" />
+              <CheckCircle className="h-5 w-5 text-green-500" />
               <span className="text-sm">
                 Completed <strong>API Integration</strong>
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <Clock className="text-[#9333EA] h-5 w-5" />
+              <Clock className="h-5 w-5 text-yellow-500" />
               <span className="text-sm">
                 Pending <strong>UI Review</strong>
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <AlertTriangle className="text-[#FF4DA6] h-5 w-5" />
+              <AlertTriangle className="h-5 w-5 text-red-500" />
               <span className="text-sm">
                 Blocker: <strong>Waiting for credentials</strong>
               </span>

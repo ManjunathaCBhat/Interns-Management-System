@@ -15,7 +15,6 @@ interface AuthContextType {
     role: 'intern' | 'admin'
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-  setAuthUser: (user: User, token: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -53,38 +52,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await apiClient.post('/auth/login', { email, password });
-      const { access_token, user } = response.data;
+      const { access_token } = response.data;
       
-      // Store token and user data
+      // Store token
       localStorage.setItem('ilm_token', access_token);
-      localStorage.setItem('ilm_user', JSON.stringify(user));
-      setUser(user);
+      
+      // Fetch user profile
+      await fetchCurrentUser();
       
       return { success: true };
     } catch (error: any) {
-<<<<<<< HEAD
-      console.error('Login error:', error);
-      
-      // Extract error message properly
-      let errorMessage = 'Invalid email or password';
-      
-      if (error.response?.data) {
-        const data = error.response.data;
-        // Handle Pydantic validation errors
-        if (Array.isArray(data.detail)) {
-          errorMessage = data.detail.map((err: any) => err.msg).join(', ');
-        } else if (typeof data.detail === 'string') {
-          errorMessage = data.detail;
-        }
-      }
-      
-      return { 
-        success: false, 
-        error: errorMessage
-      };
-    }
-  };
-=======
   console.error('Register error:', error.response?.data);
 
   return {
@@ -119,7 +96,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }
 };
->>>>>>> a7f0f5b (Fix registration flow and sidebar updates)
 
   const logout = () => {
     localStorage.removeItem('ilm_token');
@@ -128,25 +104,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     window.location.href = '/login';
   };
 
-  const setAuthUser = (userData: User, token: string) => {
-    localStorage.setItem('ilm_token', token);
-    localStorage.setItem('ilm_user', JSON.stringify(userData));
-    setUser(userData);
-  };
-
   return (
     <AuthContext.Provider
-<<<<<<< HEAD
-      value={{
-        user,
-        isAuthenticated: !!user,
-        loading,
-        login,
-        logout,
-        setAuthUser,
-      }}
-    >
-=======
   value={{
     user,
     isAuthenticated: !!user,
@@ -157,7 +116,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }}
 >
 
->>>>>>> a7f0f5b (Fix registration flow and sidebar updates)
       {children}
     </AuthContext.Provider>
   );

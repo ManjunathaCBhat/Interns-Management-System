@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import apiClient from '@/services/apiClient';
 
 /* ================= TYPES ================= */
 interface Intern {
@@ -61,66 +62,26 @@ interface User {
   role: "admin" | "scrum_master" | "user";
 }
 
-/* ================= MOCK DATA ================= */
-const MOCK_CURRENT_USER: User = {
-  _id: "u1",
-  name: "Admin User",
-  email: "admin@interns360.com",
-  role: "admin",
+/* ================= API FUNCTIONS ================= */
+const fetchInterns = async (): Promise<Intern[]> => {
+  const response = await apiClient.get('/interns/');
+  return response.data;
 };
 
-const MOCK_INTERNS: Intern[] = [
-  { _id: "i1", name: "Alice Johnson", email: "alice@test.com", domain: "Frontend", status: "active", currentProject: "Interns360", mentor: "John" },
-  { _id: "i2", name: "Bob Smith", email: "bob@test.com", domain: "Backend", status: "active", currentProject: "HR Portal", mentor: "Jane" },
-  { _id: "i3", name: "Charlie Brown", email: "charlie@test.com", domain: "Full Stack", status: "active", currentProject: "Interns360", mentor: "John" },
-  { _id: "i4", name: "Diana Prince", email: "diana@test.com", domain: "DevOps", status: "active", currentProject: "Cloud Migration", mentor: "Mike" },
-  { _id: "i5", name: "Ethan Hunt", email: "ethan@test.com", domain: "Backend", status: "active", currentProject: "HR Portal", mentor: "Jane" },
-  { _id: "i6", name: "Fiona Green", email: "fiona@test.com", domain: "Frontend", status: "active", currentProject: "Interns360", mentor: "John" },
-  { _id: "i7", name: "George Wilson", email: "george@test.com", domain: "Full Stack", status: "active", currentProject: "Cloud Migration", mentor: "Mike" },
-];
+const fetchProjects = async (): Promise<Project[]> => {
+  const response = await apiClient.get('/projects/');
+  return response.data;
+};
 
-const MOCK_PROJECTS: Project[] = [
-  { _id: "p1", name: "Interns360", status: "active" },
-  { _id: "p2", name: "HR Portal", status: "active" },
-  { _id: "p3", name: "Cloud Migration", status: "active" },
-];
+const fetchTasks = async (): Promise<Task[]> => {
+  const response = await apiClient.get('/tasks/');
+  return response.data;
+};
 
-const MOCK_TASKS: Task[] = [
-  { _id: "t1", internId: "i1", title: "Build DSU Dashboard", description: "Create the main DSU board", project: "Interns360", priority: "high", status: "in_progress", dueDate: "2026-01-17", created_at: "2026-01-17" },
-  { _id: "t2", internId: "i1", title: "API Integration", description: "Connect to backend APIs", project: "Interns360", priority: "medium", status: "open", dueDate: "2026-01-18", created_at: "2026-01-17" },
-  { _id: "t3", internId: "i2", title: "Database Schema Design", description: "Design MongoDB schema", project: "HR Portal", priority: "high", status: "completed", dueDate: "2026-01-16", created_at: "2026-01-16" },
-  { _id: "t4", internId: "i2", title: "REST API Endpoints", description: "Create CRUD endpoints", project: "HR Portal", priority: "high", status: "in_progress", dueDate: "2026-01-17", created_at: "2026-01-17" },
-  { _id: "t5", internId: "i3", title: "User Authentication", description: "Implement JWT auth", project: "Interns360", priority: "high", status: "in_progress", dueDate: "2026-01-15", created_at: "2026-01-17" },
-  { _id: "t6", internId: "i4", title: "Docker Setup", description: "Containerize application", project: "Cloud Migration", priority: "medium", status: "open", dueDate: "2026-01-19", created_at: "2026-01-17" },
-  { _id: "t7", internId: "i5", title: "Payment Integration", description: "Stripe API integration", project: "HR Portal", priority: "high", status: "blocked", dueDate: "2026-01-14", created_at: "2026-01-17" },
-  { _id: "t8", internId: "i6", title: "Responsive Design", description: "Mobile-first approach", project: "Interns360", priority: "medium", status: "in_progress", dueDate: "2026-01-18", created_at: "2026-01-17" },
-  { _id: "t9", internId: "i7", title: "CI/CD Pipeline", description: "GitHub Actions setup", project: "Cloud Migration", priority: "high", status: "open", dueDate: "2026-01-20", created_at: "2026-01-17" },
-];
-
-const MOCK_DSUS: DSU[] = [
-  { _id: "d1", internId: "i1", date: "2026-01-17", yesterday: "Completed initial UI mockups for the DSU dashboard", today: "Working on implementing the carousel component and filter functionality", blockers: "None", learnings: "Learned about React state management patterns" },
-  { _id: "d2", internId: "i2", date: "2026-01-17", yesterday: "Finished database schema design and documentation", today: "Implementing REST API endpoints for CRUD operations", blockers: "", learnings: "FastAPI automatic documentation is amazing" },
-  { _id: "d3", internId: "i3", date: "2026-01-17", yesterday: "Set up project structure", today: "JWT authentication implementation", blockers: "Waiting for secret keys from admin", learnings: "" },
-  { _id: "d4", internId: "i5", date: "2026-01-17", yesterday: "Research on Stripe API", today: "Started payment integration", blockers: "API keys not available yet", learnings: "" },
-  { _id: "d5", internId: "i1", date: "2026-01-16", yesterday: "Sprint planning meeting", today: "Created UI mockups", blockers: "", learnings: "Figma prototyping tips" },
-  { _id: "d6", internId: "i2", date: "2026-01-16", yesterday: "Requirements gathering", today: "Database schema design", blockers: "", learnings: "MongoDB best practices" },
-];
-
-/* ================= MOCK API FUNCTIONS ================= */
-const fetchInterns = (): Promise<Intern[]> =>
-  new Promise((resolve) => setTimeout(() => resolve(MOCK_INTERNS), 500));
-
-const fetchProjects = (): Promise<Project[]> =>
-  new Promise((resolve) => setTimeout(() => resolve(MOCK_PROJECTS), 300));
-
-const fetchTasks = (): Promise<Task[]> =>
-  new Promise((resolve) => setTimeout(() => resolve(MOCK_TASKS), 400));
-
-const fetchDSUs = (): Promise<DSU[]> =>
-  new Promise((resolve) => setTimeout(() => resolve(MOCK_DSUS), 350));
-
-const fetchCurrentUser = (): Promise<User> =>
-  new Promise((resolve) => setTimeout(() => resolve(MOCK_CURRENT_USER), 200));
+const fetchDSUs = async (): Promise<DSU[]> => {
+  const response = await apiClient.get('/dsu-entries/');
+  return response.data;
+};
 
 
 /* ================= HELPER FUNCTIONS ================= */
@@ -196,6 +157,59 @@ const Index: React.FC = () => {
   // Sidebar state removed - now using DashboardLayout
 
   const CARDS_VISIBLE = 3;
+
+  // Check if user is authorized (scrum_master or admin)
+  const isAuthorized = currentUser?.role === 'scrum_master' || currentUser?.role === 'admin';
+
+  // Fetch data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [internsData, projectsData, tasksData, dsusData] = await Promise.all([
+          fetchInterns(),
+          fetchProjects(),
+          fetchTasks(),
+          fetchDSUs(),
+        ]);
+        setInterns(internsData);
+        setProjects(projectsData);
+        setTasks(tasksData);
+        setDsus(dsusData);
+        
+        // Get current user from local storage or API
+        const storedUser = localStorage.getItem('ilm_user');
+        if (storedUser) {
+          setCurrentUser(JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.error('Error loading DSU board data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+      const [internsData, projectsData, tasksData, dsusData] = await Promise.all([
+        fetchInterns(),
+        fetchProjects(),
+        fetchTasks(),
+        fetchDSUs(),
+      ]);
+      setInterns(internsData);
+      setProjects(projectsData);
+      setTasks(tasksData);
+      setDsus(dsusData);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const yesterday = new Date(selectedDate);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -757,10 +771,10 @@ const Index: React.FC = () => {
           </h1>
 
           <div style={headerActionsStyle}>
-            <button style={outlineButtonStyle} onClick={loadData}>
+            <button style={outlineButtonStyle} onClick={refreshData}>
               <RefreshCw size={14} /> Refresh
             </button>
-            {isAdmin && (
+            {isAuthorized && (
               <button style={primaryButtonStyle} onClick={() => setExportOpen(true)}>
                 <Download size={14} /> Export
               </button>

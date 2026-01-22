@@ -174,7 +174,7 @@ import React from 'react';
 // ============= Protected Route Component =============
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
-  allowedRoles?: ('admin' | 'intern' | 'mentor')[];
+  allowedRoles?: ('admin' | 'intern' | 'scrum_master')[];
 }> = ({ children, allowedRoles }) => {
   const { isAuthenticated, user, loading } = useAuth();
   const location = useLocation();
@@ -195,7 +195,20 @@ const ProtectedRoute: React.FC<{
 
   // Check role access
   if (allowedRoles && !allowedRoles.includes(user.role as any)) {
-    const redirectPath = user.role === 'admin' || user.role === 'mentor' ? '/admin' : '/intern';
+    // Redirect to appropriate dashboard based on role
+    let redirectPath = '/intern';
+    switch (user.role) {
+      case 'admin':
+        redirectPath = '/admin';
+        break;
+      case 'scrum_master':
+        redirectPath = '/scrum-master';
+        break;
+      case 'intern':
+      default:
+        redirectPath = '/intern';
+        break;
+    }
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -206,9 +219,21 @@ const ProtectedRoute: React.FC<{
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
 
-  // If already logged in, redirect to dashboard
+  // If already logged in, redirect to dashboard based on role
   if (isAuthenticated && user) {
-    const redirectPath = user.role === 'admin' || user.role === 'mentor' ? '/admin' : '/intern';
+    let redirectPath = '/intern';
+    switch (user.role) {
+      case 'admin':
+        redirectPath = '/admin';
+        break;
+      case 'scrum_master':
+        redirectPath = '/scrum-master';
+        break;
+      case 'intern':
+      default:
+        redirectPath = '/intern';
+        break;
+    }
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -219,7 +244,6 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 // Public Pages
 import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
-import RegisterPage from '@/pages/RegisterPage';
 import NotFound from '@/pages/NotFound';
 import AzureAuthCallback from '@/pages/AzureAuthCallback';
 
@@ -230,6 +254,10 @@ import InternDetails from '@/pages/admin/InternDetails';
 import DSUBoard from '@/pages/admin/DSUBoard';
 import TasksOverview from '@/pages/admin/TasksOverview';
 import PTOApproval from '@/pages/admin/PTOApproval';
+
+// Scrum Master Pages
+import ScrumMasterDashboard from '@/pages/scrum_master/ScrumMasterDashboard';
+import ScrumMasterDSUBoard from '@/pages/scrum_master/DSUboard';
 
 // Intern Pages
 import InternDashboard from '@/pages/intern/InternDashboard';
@@ -250,21 +278,13 @@ const AppRoutes: React.FC = () => {
           </PublicRoute>
         }
       />
-      <Route
-        path="/register"
-        element={
-          <PublicRoute>
-            <RegisterPage />
-          </PublicRoute>
-        }
-      />
       <Route path="/auth/azure-callback" element={<AzureAuthCallback />} />
 
       {/* ========== Admin Routes ========== */}
       <Route
         path="/admin"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'mentor']}>
+          <ProtectedRoute allowedRoles={['admin']}>
             <AdminDashboard />
           </ProtectedRoute>
         }
@@ -272,7 +292,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/admin/interns"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'mentor']}>
+          <ProtectedRoute allowedRoles={['admin']}>
             <InternManagement />
           </ProtectedRoute>
         }
@@ -280,7 +300,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/admin/interns/:id"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'mentor']}>
+          <ProtectedRoute allowedRoles={['admin']}>
             <InternDetails />
           </ProtectedRoute>
         }
@@ -288,7 +308,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/admin/interns/:id/edit"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'mentor']}>
+          <ProtectedRoute allowedRoles={['admin']}>
             <InternDetails />
           </ProtectedRoute>
         }
@@ -296,7 +316,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/admin/dsu-board"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'mentor']}>
+          <ProtectedRoute allowedRoles={['admin']}>
             <DSUBoard />
           </ProtectedRoute>
         }
@@ -304,7 +324,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/admin/tasks"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'mentor']}>
+          <ProtectedRoute allowedRoles={['admin']}>
             <TasksOverview />
           </ProtectedRoute>
         }
@@ -312,8 +332,42 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/admin/pto"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'mentor']}>
+          <ProtectedRoute allowedRoles={['admin']}>
             <PTOApproval />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ========== Scrum Master Routes ========== */}
+      <Route
+        path="/scrum-master"
+        element={
+          <ProtectedRoute allowedRoles={['scrum_master', 'admin']}>
+            <ScrumMasterDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/scrum-master/dsu-board"
+        element={
+          <ProtectedRoute allowedRoles={['scrum_master', 'admin']}>
+            <ScrumMasterDSUBoard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/scrum-master/projects"
+        element={
+          <ProtectedRoute allowedRoles={['scrum_master', 'admin']}>
+            <ScrumMasterDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/scrum-master/interns"
+        element={
+          <ProtectedRoute allowedRoles={['scrum_master', 'admin']}>
+            <InternManagement />
           </ProtectedRoute>
         }
       />

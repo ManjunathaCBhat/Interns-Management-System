@@ -69,20 +69,25 @@ const AzureAuthCallback: React.FC = () => {
           description: `Signed in as ${user.email}`,
         });
 
-        // Navigate to dashboard based on role
-        let dashboardPath = '/admin';
-        if (user.role === 'admin' || user.role === 'mentor' || user.role === 'scrum_master') {
-          dashboardPath = '/admin';
-        } else {
-          dashboardPath = '/intern';
+        // Navigate to dashboard based on role (admin, scrum_master, intern)
+        let dashboardPath = '/intern';
+        switch (user.role) {
+          case 'admin':
+            dashboardPath = '/admin';
+            break;
+          case 'scrum_master':
+            dashboardPath = '/scrum-master';
+            break;
+          case 'intern':
+          default:
+            dashboardPath = '/intern';
+            break;
         }
 
         console.log('Navigating to:', dashboardPath, 'User role:', user.role);
 
-        // Small delay to ensure state is updated
-        setTimeout(() => {
-          navigate(dashboardPath, { replace: true });
-        }, 100);
+        // Use window.location for a full page navigation to ensure state is updated
+        window.location.href = dashboardPath;
       } catch (error: any) {
         console.error('Azure SSO callback error:', error);
         toast({

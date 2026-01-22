@@ -1,6 +1,6 @@
 """
 Interns360 – Backend Models (Normalized & Clean)
-Roles: admin, scrum_master, user
+Roles: admin, scrum_master, intern
 """
 
 from typing import Optional, List
@@ -16,7 +16,7 @@ from enum import Enum
 class UserRole(str, Enum):
     admin = "admin"
     scrum_master = "scrum_master"
-    user = "user"
+    intern = "intern"
 
 
 class TaskStatus(str, Enum):
@@ -62,8 +62,10 @@ class User(BaseModel):
     email: EmailStr
     name: str
     role: UserRole
-    hashed_password: str
+    hashed_password: Optional[str] = None  # Optional for SSO users
     is_active: bool = True
+    azure_oid: Optional[str] = None  # Azure AD Object ID for SSO users
+    auth_provider: Optional[str] = None  # 'azure_ad' or None for password auth
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -206,7 +208,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     name: str
     password: str
-    role: UserRole = UserRole.user
+    role: UserRole = UserRole.intern
 
 
 class UserResponse(BaseModel):
@@ -216,7 +218,7 @@ class UserResponse(BaseModel):
     name: str
     role: UserRole
     is_active: bool
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
 
 class LoginRequest(BaseModel):

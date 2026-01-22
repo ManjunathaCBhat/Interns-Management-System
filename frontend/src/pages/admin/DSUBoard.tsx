@@ -186,7 +186,7 @@ const Index: React.FC = () => {
   const { user } = useAuth();
 
   const isAdmin = user?.role === 'admin';
-  const isAuthorized = user?.role === 'admin' || user?.role === 'mentor' || user?.role === 'scrum_master';
+  const isAuthorized = user?.role === 'admin' || user?.role === 'scrum_master';
 
   const loadData = async () => {
     setLoading(true);

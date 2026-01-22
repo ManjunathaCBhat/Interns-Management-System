@@ -292,7 +292,7 @@
 #     if not update_data:
 #         raise HTTPException(status_code=400, detail="No fields to update")
     
-#     if "feedback" in update_data and current_user.role in ["admin", "mentor"]:
+#     if "feedback" in update_data and current_user.role in ["admin", "scrum_master"]:
 #         update_data["reviewedBy"] = current_user.username
 #         update_data["reviewedAt"] = datetime.now(timezone.utc)
 #         update_data["status"] = "reviewed"
@@ -497,7 +497,19 @@ from datetime import datetime, date, timezone
 from typing import Optional, List
 from bson import ObjectId
 import os
+from pathlib import Path
 from dotenv import load_dotenv
+
+# Load .env from backend folder first, then from root folder
+env_path = Path(__file__).parent / '.env'
+root_env_path = Path(__file__).parent.parent / '.env'
+
+if env_path.exists():
+    load_dotenv(env_path)
+elif root_env_path.exists():
+    load_dotenv(root_env_path)
+else:
+    load_dotenv()  # Try default locations
 
 
 # Import our modules
@@ -518,9 +530,6 @@ from models import (
     PTO, PTOCreate, PTOUpdate,
     Batch, BatchCreate, BatchUpdate
 )
-
-
-load_dotenv()
 
 
 # ==================== APP SETUP ====================
@@ -633,9 +642,20 @@ async def azure_sso(azure_token: dict, db = Depends(get_database)):
     # Get or create user in our database
     user_doc = await get_or_create_azure_user(azure_user, db)
     
+    # Normalize role - convert any invalid roles to 'intern'
+    valid_roles = ["admin", "scrum_master", "intern"]
+    user_role = user_doc.get("role", "intern")
+    if user_role not in valid_roles:
+        user_role = "intern"
+        # Update the user's role in the database
+        await db.users.update_one(
+            {"_id": user_doc["_id"]},
+            {"$set": {"role": "intern"}}
+        )
+    
     # Create our own JWT token for the user
     our_token = create_access_token(
-        data={"sub": user_doc["username"], "role": user_doc.get("role", "user")}
+        data={"sub": user_doc["username"], "role": user_role}
     )
     
     # Prepare user response
@@ -644,7 +664,7 @@ async def azure_sso(azure_token: dict, db = Depends(get_database)):
         username=user_doc["username"],
         email=user_doc["email"],
         name=user_doc.get("name", ""),
-        role=user_doc.get("role", "user"),
+        role=user_role,
         is_active=user_doc.get("is_active", True),
         created_at=user_doc.get("created_at", datetime.now(timezone.utc))
     )
@@ -680,9 +700,19 @@ async def azure_sso_callback(request: dict, db = Depends(get_database)):
         tenant_id = os.getenv("tenant_id")
         client_id = os.getenv("client_id")
         secret_key = os.getenv("AZURE_SECRET_KEY")
+        redirect_uri = os.getenv("AZURE_REDIRECT_URI", "http://localhost:5173/auth/azure-callback")
+        
+        print(f"[Azure SSO] tenant_id: {tenant_id}")
+        print(f"[Azure SSO] client_id: {client_id}")
+        print(f"[Azure SSO] secret_key present: {bool(secret_key)}")
+        print(f"[Azure SSO] redirect_uri: {redirect_uri}")
         
         if not all([tenant_id, client_id, secret_key]):
-            raise HTTPException(status_code=500, detail="Azure configuration incomplete")
+            missing = []
+            if not tenant_id: missing.append("tenant_id")
+            if not client_id: missing.append("client_id")
+            if not secret_key: missing.append("AZURE_SECRET_KEY")
+            raise HTTPException(status_code=500, detail=f"Azure configuration incomplete. Missing: {', '.join(missing)}")
         
         async with httpx.AsyncClient() as client:
             token_response = await client.post(
@@ -691,9 +721,9 @@ async def azure_sso_callback(request: dict, db = Depends(get_database)):
                     "client_id": client_id,
                     "client_secret": secret_key,
                     "code": code,
-                    "redirect_uri": os.getenv("AZURE_REDIRECT_URI", "http://localhost:5173/auth/azure-callback"),
+                    "redirect_uri": redirect_uri,
                     "grant_type": "authorization_code",
-                    "scope": "User.Read"
+                    "scope": "User.Read openid profile email"
                 },
                 timeout=10.0
             )
@@ -723,8 +753,19 @@ async def azure_sso_callback(request: dict, db = Depends(get_database)):
         user_doc = await get_or_create_azure_user(azure_user, db)
         
         # Create our JWT token
+        # Normalize role - convert any invalid roles to 'intern'
+        valid_roles = ["admin", "scrum_master", "intern"]
+        user_role = user_doc.get("role", "intern")
+        if user_role not in valid_roles:
+            user_role = "intern"
+            # Update the user's role in the database
+            await db.users.update_one(
+                {"_id": user_doc["_id"]},
+                {"$set": {"role": "intern"}}
+            )
+        
         our_token = create_access_token(
-            data={"sub": user_doc["username"], "role": user_doc.get("role", "user")}
+            data={"sub": user_doc["username"], "role": user_role}
         )
         
         user_response = UserResponse(
@@ -732,7 +773,7 @@ async def azure_sso_callback(request: dict, db = Depends(get_database)):
             username=user_doc["username"],
             email=user_doc["email"],
             name=user_doc.get("name", ""),
-            role=user_doc.get("role", "user"),
+            role=user_role,
             is_active=user_doc.get("is_active", True),
             created_at=user_doc.get("created_at", datetime.now(timezone.utc))
         )
@@ -760,7 +801,8 @@ async def get_current_user_profile(current_user: User = Depends(get_current_acti
         email=current_user.email,
         name=current_user.name,
         role=current_user.role,
-        is_active=current_user.is_active
+        is_active=current_user.is_active,
+        created_at=current_user.created_at
     )
 
 
@@ -771,7 +813,7 @@ async def get_dashboard_stats(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get comprehensive admin dashboard statistics"""
-    if current_user.role not in ["admin", "mentor"]:
+    if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     today = date.today().isoformat()
@@ -836,7 +878,7 @@ async def get_recent_interns(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get recently added interns"""
-    if current_user.role not in ["admin", "mentor"]:
+    if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     interns = []
@@ -856,7 +898,7 @@ async def get_blocked_interns(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get interns with blockers from today's DSU"""
-    if current_user.role not in ["admin", "mentor"]:
+    if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     today = date.today().isoformat()
@@ -880,6 +922,65 @@ async def get_blocked_interns(
     return blocked
 
 
+@app.get("/api/v1/admin/dashboard/blocked-dsus")
+async def get_blocked_dsus(
+    limit: int = 5,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get DSUs with blockers from today - alias for blocked-interns"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    today = date.today().isoformat()
+    
+    blocked = []
+    async for dsu in db.dsu_entries.find({
+        "date": today,
+        "blockers": {"$nin": ["", None]}
+    }).limit(limit):
+        dsu["_id"] = str(dsu["_id"])
+        
+        # Get intern details
+        try:
+            intern = await db.interns.find_one({"_id": ObjectId(dsu["internId"])})
+            if intern:
+                dsu["internName"] = intern.get("name", "Unknown")
+        except:
+            dsu["internName"] = "Unknown"
+        
+        blocked.append(dsu)
+    
+    return blocked
+
+
+@app.get("/api/v1/admin/dashboard/recent-dsus")
+async def get_recent_dsus(
+    limit: int = 5,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get recently submitted DSU entries"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    dsus = []
+    async for dsu in db.dsu_entries.find().sort("submittedAt", -1).limit(limit):
+        dsu["_id"] = str(dsu["_id"])
+        
+        # Get intern details
+        try:
+            intern = await db.interns.find_one({"_id": ObjectId(dsu["internId"])})
+            if intern:
+                dsu["internName"] = intern.get("name", "Unknown")
+        except:
+            dsu["internName"] = "Unknown"
+        
+        dsus.append(dsu)
+    
+    return dsus
+
+
 @app.get("/api/v1/admin/dashboard/pending-ptos")
 async def get_pending_ptos(
     limit: int = 5,
@@ -887,7 +988,7 @@ async def get_pending_ptos(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get pending PTO requests"""
-    if current_user.role not in ["admin", "mentor"]:
+    if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     ptos = []
@@ -911,7 +1012,7 @@ async def get_batch_performance(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get performance analytics by batch"""
-    if current_user.role not in ["admin", "mentor"]:
+    if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     batches = []
@@ -947,7 +1048,7 @@ async def create_batch(
     current_user: User = Depends(get_current_active_user)
 ):
     """Create a new batch"""
-    if current_user.role not in ["admin", "mentor"]:
+    if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     # Check if batch ID already exists
@@ -1072,7 +1173,7 @@ async def update_batch(
     current_user: User = Depends(get_current_active_user)
 ):
     """Update batch"""
-    if current_user.role not in ["admin", "mentor"]:
+    if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     batch = await db.batches.find_one({"batchId": batch_id})
@@ -1357,7 +1458,7 @@ async def update_dsu(
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
     
-    if "feedback" in update_data and current_user.role in ["admin", "mentor"]:
+    if "feedback" in update_data and current_user.role in ["admin", "scrum_master"]:
         update_data["reviewedBy"] = current_user.username
         update_data["reviewedAt"] = datetime.now(timezone.utc)
         update_data["status"] = "reviewed"
@@ -1554,7 +1655,7 @@ async def update_pto(
     current_user: User = Depends(get_current_active_user)
 ):
     """Update PTO request (approve/reject)"""
-    if current_user.role not in ["admin", "mentor"]:
+    if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     update_data = pto_update.model_dump(exclude_unset=True)

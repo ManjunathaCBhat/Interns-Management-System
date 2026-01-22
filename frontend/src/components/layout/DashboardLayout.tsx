@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Users,
   ClipboardList,
-  MessageSquare,
   Settings,
   LogOut,
   Menu,
@@ -30,16 +29,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isAdmin = user?.role === 'admin';
-
+  // Navigation links for Admin role
   const adminLinks = [
     { to: '/admin', icon: LayoutDashboard, label: 'Overview' },
     { to: '/admin/interns', icon: Users, label: 'Interns' },
     { to: '/admin/dsu-board', icon: ClipboardList, label: 'DSU Board' },
-    { to: '/admin/feedback', icon: MessageSquare, label: 'Feedback' },
+    { to: '/admin/tasks', icon: FileText, label: 'Tasks' },
+    { to: '/admin/pto', icon: Calendar, label: 'PTO Requests' },
     { to: '/admin/settings', icon: Settings, label: 'Settings' },
   ];
 
+  // Navigation links for Scrum Master role
   const scrumMasterLinks = [
     { to: '/scrum-master', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/scrum-master/dsu-board', icon: ClipboardList, label: 'DSU Board' },
@@ -48,22 +48,45 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { to: '/scrum-master/settings', icon: Settings, label: 'Settings' },
   ];
 
+  // Navigation links for Intern role
   const internLinks = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Home' },
-    { to: '/dashboard/profile', icon: User, label: 'Profile' },
-    // { to: '/dashboard/tasks', icon: FileText, label: 'Tasks' },
-    { to: '/daily-updates', icon: Calendar, label: 'Daily Updates' },
-    { to: '/dashboard/settings', icon: Settings, label: 'Settings' },
+    { to: '/intern', icon: LayoutDashboard, label: 'Home' },
+    { to: '/intern/profile', icon: User, label: 'Profile' },
+    { to: '/intern/daily-updates', icon: Calendar, label: 'Daily Updates' },
+    { to: '/intern/settings', icon: Settings, label: 'Settings' },
   ];
 
-  const links =
-    user?.role === 'admin' ? adminLinks :
-      user?.role === 'scrum_master' ? scrumMasterLinks :
-        internLinks;
+  // Determine links based on user role
+  const getLinksForRole = () => {
+    switch (user?.role) {
+      case 'admin':
+        return adminLinks;
+      case 'scrum_master':
+        return scrumMasterLinks;
+      case 'intern':
+      default:
+        return internLinks;
+    }
+  };
+
+  const links = getLinksForRole();
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate('/login');
+  };
+
+  // Get home route based on user role
+  const getHomeRoute = () => {
+    switch (user?.role) {
+      case 'admin':
+        return '/admin';
+      case 'scrum_master':
+        return '/scrum-master';
+      case 'intern':
+      default:
+        return '/intern';
+    }
   };
 
   const NavLink = ({
@@ -105,7 +128,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       >
         {/* Logo & Toggle */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          <Link to="/" className="flex items-center gap-2">
+          <Link to={getHomeRoute()} className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
               <span className="text-lg font-bold text-sidebar-primary-foreground">
                 IL
@@ -172,7 +195,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
       {/* Mobile Header */}
       <div className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between border-b bg-background px-4 md:hidden">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to={getHomeRoute()} className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <span className="text-sm font-bold text-primary-foreground">IL</span>
           </div>

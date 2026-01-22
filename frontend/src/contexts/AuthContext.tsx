@@ -82,7 +82,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('ilm_token');
     localStorage.removeItem('ilm_user');
     setUser(null);
-    window.location.href = '/login';
+    // Redirect to login page instead of using window.location for cleaner SPA behavior
   };
 
   const setAuthUser = (userData: User, token: string) => {

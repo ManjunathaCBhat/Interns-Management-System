@@ -175,7 +175,7 @@ async def get_or_create_azure_user(azure_user: AzureUser, db):
         "azure_oid": azure_user.oid,
         "auth_provider": "azure_ad",
         "is_active": True,
-        "role": "user",  # Default role
+        "role": "intern",  # Default role for new SSO users
         "hashed_password": None,  # No password for SSO users
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)

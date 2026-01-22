@@ -1,9 +1,12 @@
+// User roles: admin, scrum_master, intern
+export type UserRole = 'admin' | 'scrum_master' | 'intern';
+
 export interface User {
   id: string;
   username: string;
   email: string;
   name: string;
-  role: string;
+  role: UserRole;
   is_active: boolean;
 }
 

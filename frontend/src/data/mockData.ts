@@ -1,4 +1,8 @@
 // Helper functions for shared components
+
+/**
+ * Get initials from a name string
+ */
 export const getInitials = (name: string): string => {
     if (!name) return '??';
     const parts = name.trim().split(' ').filter(Boolean);
@@ -7,6 +11,9 @@ export const getInitials = (name: string): string => {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+/**
+ * Get status color based on status string
+ */
 export const getStatusColor = (status: string): string => {
     const statusMap: Record<string, string> = {
         active: 'success',
@@ -24,6 +31,9 @@ export const getStatusColor = (status: string): string => {
     return statusMap[status?.toLowerCase()] || 'muted';
 };
 
+/**
+ * Format currency in Indian Rupees
+ */
 export const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-IN', {
         style: 'currency',
@@ -32,47 +42,36 @@ export const formatCurrency = (amount: number): string => {
     }).format(amount);
 };
 
-// Mock intern data for fallback/demo purposes
-export interface MockIntern {
-    _id: string;
-    name: string;
-    email: string;
-    phone: string;
-    domain: string;
-    status: string;
-    internType: string;
-    currentProject: string;
-    mentor: string;
-    startDate: string;
-    endDate?: string;
-    degree: string;
-    college: string;
-    source: string;
-    isPaid: boolean;
-    isBillable: boolean;
-    stipendAmount?: number;
-    educationStatus: string;
-}
+/**
+ * Format date to readable string
+ */
+export const formatDate = (dateString: string): string => {
+    if (!dateString) return 'N/A';
+    try {
+        return new Date(dateString).toLocaleDateString('en-IN', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+        });
+    } catch {
+        return dateString;
+    }
+};
 
-export const mockInterns: MockIntern[] = [
-    {
-        _id: 'demo1',
-        name: 'Demo Intern',
-        email: 'demo@example.com',
-        phone: '+91 9876543210',
-        domain: 'Frontend Development',
-        status: 'active',
-        internType: 'project',
-        currentProject: 'Interns360',
-        mentor: 'John Doe',
-        startDate: '2024-01-15',
-        endDate: '2024-07-15',
-        degree: 'B.Tech Computer Science',
-        college: 'Demo University',
-        source: 'campus',
-        isPaid: true,
-        isBillable: false,
-        stipendAmount: 15000,
-        educationStatus: 'pursuing',
-    },
-];
+/**
+ * Get relative time string (e.g., "2 hours ago")
+ */
+export const getRelativeTime = (dateString: string): string => {
+    if (!dateString) return 'Unknown';
+    
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} mins ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    
+    return formatDate(dateString);
+};

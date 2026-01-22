@@ -42,7 +42,21 @@ const LoginPage: React.FC = () => {
       const stored = localStorage.getItem("ilm_user");
       if (stored) {
         const user = JSON.parse(stored);
-        navigate(user.role === "admin" ? "/admin" : "/intern");
+        // Redirect based on role (admin, scrum_master, intern)
+        let redirectPath = '/intern';
+        switch (user.role) {
+          case 'admin':
+            redirectPath = '/admin';
+            break;
+          case 'scrum_master':
+            redirectPath = '/scrum-master';
+            break;
+          case 'intern':
+          default:
+            redirectPath = '/intern';
+            break;
+        }
+        navigate(redirectPath);
       }
     } else {
       toast({

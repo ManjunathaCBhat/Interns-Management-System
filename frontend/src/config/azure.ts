@@ -1,18 +1,25 @@
 /**
  * Azure AD SSO Configuration
- * Update these values with your Azure App Registration details
+ * Set these values in your .env file with VITE_ prefix
  */
 
 export const AZURE_CONFIG = {
-  // These values from your .env or Azure Portal
-  clientId: import.meta.env.VITE_AZURE_CLIENT_ID || "dd2ad1eb-6c5e-46c9-82bf-edda71230acf",
-  tenantId: import.meta.env.VITE_AZURE_TENANT_ID || "858d9da-8dfa-4b12-9f90-d0448a34f6d1",
+  // These values should come from environment variables
+  clientId: import.meta.env.VITE_AZURE_CLIENT_ID || "",
+  tenantId: import.meta.env.VITE_AZURE_TENANT_ID || "",
   
   // Redirect URI after Azure login - must match your App Registration
-  redirectUri: `${window.location.origin}/auth/azure-callback`,
+  redirectUri: import.meta.env.VITE_AZURE_REDIRECT_URI || `${window.location.origin}/auth/azure-callback`,
   
-  // Scopes needed
-  scopes: ["User.Read"],
+  // Scopes needed - must match backend and Azure app registration
+  scopes: ["User.Read", "openid", "profile", "email"],
+};
+
+/**
+ * Check if Azure SSO is configured
+ */
+export const isAzureSSOConfigured = (): boolean => {
+  return !!(AZURE_CONFIG.clientId && AZURE_CONFIG.tenantId);
 };
 
 /**
@@ -24,7 +31,7 @@ export const getAzureLoginUrl = (): string => {
     response_type: "code",
     redirect_uri: AZURE_CONFIG.redirectUri,
     response_mode: "query",
-    scope: "User.Read",
+    scope: "User.Read openid profile email",
     state: generateState(),
   });
 

@@ -1,0 +1,27 @@
+{
+  "name": "interns_lifecycle",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "frontend": "npm run dev --prefix frontend",
+    "backend": "cd backend && set PYTHONIOENCODING=utf-8 && python main.py",
+    "dev": "concurrently -n \"frontend,backend\" -c \"blue,green\" \"npm run frontend\" \"npm run backend\" --kill-others"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karanry/Interns_lifecycle.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/karanry/Interns_lifecycle/issues"
+  },
+  "homepage": "https://github.com/karanry/Interns_lifecycle#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

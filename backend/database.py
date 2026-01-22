@@ -27,7 +27,7 @@ async def connect_db():
     db.client = AsyncIOMotorClient(MONGODB_URL)
     db.db = db.client[MONGODB_DB_NAME]
     
-    print(f"✅ Connected to MongoDB: {MONGODB_DB_NAME}")
+    print(f"Connected to MongoDB: {MONGODB_DB_NAME}")
     
     # Create indexes
     await db.db.users.create_index("email", unique=True)
@@ -40,7 +40,7 @@ async def connect_db():
     await db.db.tasks.create_index([("internId", ASCENDING)])
     await db.db.projects.create_index("name", unique=True)
     
-    print("✅ Indexes created")
+    print("Database indexes created")
 
 async def close_db():
     """Close database connection"""

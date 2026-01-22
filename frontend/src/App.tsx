@@ -13,7 +13,7 @@
 // import InternProfile from "./pages/intern/InternProfile";
 // import DailyUpdates from '@/pages/intern/DailyUpdates';
 // import AdminDashboard from "./pages/admin/AdminDashboard";
-// import InternManagement from "./pages/admin/InternManagement";
+// import UserManagement from "./pages/admin/UserManagement";
 // import DSUBoard from "./pages/admin/DSUBoard";
 // import NotFound from "./pages/NotFound";
 
@@ -115,7 +115,7 @@
 //         path="/admin/interns"
 //         element={
 //           <ProtectedRoute allowedRoles={['admin']}>
-//             <InternManagement />
+//             <UserManagement />
 //           </ProtectedRoute>
 //         }
 //       />
@@ -166,6 +166,30 @@
 
 // export default App;
 // src/App.tsx
+
+// ============= Page Imports =============
+// Public Pages
+import HomePage from '@/pages/HomePage';
+import LoginPage from '@/pages/LoginPage';
+import NotFound from '@/pages/NotFound';
+import AzureAuthCallback from '@/pages/AzureAuthCallback';
+
+// Admin Pages
+import AdminDashboard from '@/pages/admin/AdminDashboard';
+import UserManagement from '@/pages/admin/UserManagement';
+import InternDetails from '@/pages/admin/InternDetails';
+import DSUBoard from '@/pages/admin/DSUBoard';
+import TasksOverview from '@/pages/admin/TasksOverview';
+import PTOApproval from '@/pages/admin/PTOApproval';
+
+// Scrum Master Pages
+import ScrumMasterDashboard from '@/pages/scrum_master/ScrumMasterDashboard';
+import ScrumMasterDSUBoard from '@/pages/scrum_master/DSUboard';
+
+// Intern Pages
+import InternDashboard from '@/pages/intern/InternDashboard';
+import InternProfile from '@/pages/intern/InternProfile';
+import DailyUpdates from '@/pages/intern/DailyUpdates'; 
 import { Toaster } from '@/components/ui/toaster';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -240,29 +264,6 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
-// ============= Page Imports =============
-// Public Pages
-import HomePage from '@/pages/HomePage';
-import LoginPage from '@/pages/LoginPage';
-import NotFound from '@/pages/NotFound';
-import AzureAuthCallback from '@/pages/AzureAuthCallback';
-
-// Admin Pages
-import AdminDashboard from '@/pages/admin/AdminDashboard';
-import InternManagement from '@/pages/admin/InternManagement';
-import InternDetails from '@/pages/admin/InternDetails';
-import DSUBoard from '@/pages/admin/DSUBoard';
-import TasksOverview from '@/pages/admin/TasksOverview';
-import PTOApproval from '@/pages/admin/PTOApproval';
-
-// Scrum Master Pages
-import ScrumMasterDashboard from '@/pages/scrum_master/ScrumMasterDashboard';
-import ScrumMasterDSUBoard from '@/pages/scrum_master/DSUboard';
-
-// Intern Pages
-import InternDashboard from '@/pages/intern/InternDashboard';
-import InternProfile from '@/pages/intern/InternProfile';
-import DailyUpdates from '@/pages/intern/DailyUpdates';
 
 // ============= App Routes Component =============
 const AppRoutes: React.FC = () => {
@@ -293,7 +294,7 @@ const AppRoutes: React.FC = () => {
         path="/admin/interns"
         element={
           <ProtectedRoute allowedRoles={['admin']}>
-            <InternManagement />
+            <UserManagement />
           </ProtectedRoute>
         }
       />
@@ -367,7 +368,7 @@ const AppRoutes: React.FC = () => {
         path="/scrum-master/interns"
         element={
           <ProtectedRoute allowedRoles={['scrum_master', 'admin']}>
-            <InternManagement />
+            <UserManagement />
           </ProtectedRoute>
         }
       />

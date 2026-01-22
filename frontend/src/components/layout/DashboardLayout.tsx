@@ -34,26 +34,34 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { to: '/admin', icon: LayoutDashboard, label: 'Overview' },
     { to: '/admin/interns', icon: Users, label: 'Interns' },
     { to: '/admin/dsu-board', icon: ClipboardList, label: 'DSU Board' },
-    { to: '/admin/tasks', icon: FileText, label: 'Tasks' },
-    { to: '/admin/pto', icon: Calendar, label: 'PTO Requests' },
-    { to: '/admin/settings', icon: Settings, label: 'Settings' },
+    // { to: '/admin/tasks', icon: FileText, label: 'Tasks' },
+    { to: '/admin/pto', icon: Calendar, label: 'PTO/WFH Requests' },
+    { to: '/admin/UserManagement', icon: Users, label: 'User Management' },
+    { to: '/profile', icon: User, label: 'Profile' },
+    // { to: '/admin/settings', icon: Settings, label: 'Settings' },
   ];
 
   // Navigation links for Scrum Master role
   const scrumMasterLinks = [
     { to: '/scrum-master', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/scrum-master/dsu-board', icon: ClipboardList, label: 'DSU Board' },
-    { to: '/scrum-master/projects', icon: FileText, label: 'Projects' },
-    { to: '/scrum-master/interns', icon: Users, label: 'Interns' },
-    { to: '/scrum-master/settings', icon: Settings, label: 'Settings' },
+    { to: '/intern/daily-updates', icon: Calendar, label: 'Daily Updates' },
+    { to: '/scrum-master/dsu-board', icon: ClipboardList, label: 'DSU Board' },
+    { to: '/reqPTO', icon: User, label: 'PTO/WFH Requests' },
+
+    { to: '/profile', icon: User, label: 'Profile' },
+    // { to: '/scrum-master/projects', icon: FileText, label: 'Projects' },
+    // { to: '/scrum-master/interns', icon: Users, label: 'Interns' },
+    // { to: '/scrum-master/settings', icon: Settings, label: 'Settings' },
   ];
 
   // Navigation links for Intern role
   const internLinks = [
     { to: '/intern', icon: LayoutDashboard, label: 'Home' },
-    { to: '/intern/profile', icon: User, label: 'Profile' },
     { to: '/intern/daily-updates', icon: Calendar, label: 'Daily Updates' },
-    { to: '/intern/settings', icon: Settings, label: 'Settings' },
+    { to: '/reqPTO', icon: User, label: 'PTO/WFH Requests' },
+     { to: '/intern/profile', icon: User, label: 'Profile' },
+    // { to: '/intern/settings', icon: Settings, label: 'Settings' },
   ];
 
   // Determine links based on user role

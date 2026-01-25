@@ -6,8 +6,27 @@ export interface User {
   username: string;
   email: string;
   name: string;
+  employee_id?: string;
   role: UserRole;
   is_active: boolean;
+  is_approved: boolean;
+  auth_provider?: string;
+  created_at?: string;
+}
+
+export interface UserRegistration {
+  username: string;
+  email: string;
+  name: string;
+  password: string;
+  employee_id?: string;
+}
+
+export interface UserUpdate {
+  role?: UserRole;
+  is_approved?: boolean;
+  is_active?: boolean;
+  employee_id?: string;
 }
 
 export interface Intern {

@@ -171,12 +171,14 @@
 // Public Pages
 import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
+import RegisterPage from '@/pages/RegisterPage';
 import NotFound from '@/pages/NotFound';
 import AzureAuthCallback from '@/pages/AzureAuthCallback';
 
 // Admin Pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import UserManagement from '@/pages/admin/UserManagement';
+import AdminUserApproval from '@/pages/admin/AdminUserApproval';
 import InternDetails from '@/pages/admin/InternDetails';
 import DSUBoard from '@/pages/admin/DSUBoard';
 import TasksOverview from '@/pages/admin/TasksOverview';
@@ -279,6 +281,14 @@ const AppRoutes: React.FC = () => {
           </PublicRoute>
         }
       />
+      <Route
+        path="/register"
+        element={
+          <PublicRoute>
+            <RegisterPage />
+          </PublicRoute>
+        }
+      />
       <Route path="/auth/azure-callback" element={<AzureAuthCallback />} />
 
       {/* ========== Admin Routes ========== */}
@@ -335,6 +345,14 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <PTOApproval />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminUserApproval />
           </ProtectedRoute>
         }
       />

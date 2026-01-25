@@ -61,9 +61,11 @@ class User(BaseModel):
     username: str
     email: EmailStr
     name: str
-    role: UserRole
+    employee_id: Optional[str] = None  # Employee ID for registration
+    role: UserRole = UserRole.intern  # Default role is intern
     hashed_password: Optional[str] = None  # Optional for SSO users
     is_active: bool = True
+    is_approved: bool = False  # Requires admin approval
     azure_oid: Optional[str] = None  # Azure AD Object ID for SSO users
     auth_provider: Optional[str] = None  # 'azure_ad' or None for password auth
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -204,11 +206,12 @@ class Leave(BaseModel):
 # =========================
 
 class UserCreate(BaseModel):
+    """Schema for user registration - role assigned by admin after approval"""
     username: str
     email: EmailStr
     name: str
     password: str
-    role: UserRole = UserRole.intern
+    employee_id: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -216,9 +219,19 @@ class UserResponse(BaseModel):
     username: str
     email: EmailStr
     name: str
+    employee_id: Optional[str] = None
     role: UserRole
     is_active: bool
+    is_approved: bool = False
     created_at: Optional[datetime] = None
+
+
+class UserUpdate(BaseModel):
+    """Schema for admin to update user - approve and assign roles"""
+    role: Optional[UserRole] = None
+    is_approved: Optional[bool] = None
+    is_active: Optional[bool] = None
+    employee_id: Optional[str] = None
 
 
 class LoginRequest(BaseModel):

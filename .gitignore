@@ -142,3 +142,5 @@ temp/
 .turbo
 .next/
 out/
+
+.claude

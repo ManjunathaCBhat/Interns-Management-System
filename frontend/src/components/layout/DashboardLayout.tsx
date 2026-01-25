@@ -12,6 +12,7 @@ import {
   User,
   Calendar,
   FileText,
+  UserCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,7 +37,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { to: '/admin/dsu-board', icon: ClipboardList, label: 'DSU Board' },
     // { to: '/admin/tasks', icon: FileText, label: 'Tasks' },
     { to: '/admin/pto', icon: Calendar, label: 'PTO/WFH Requests' },
-    { to: '/admin/UserManagement', icon: Users, label: 'User Management' },
+    { to: '/admin/users', icon: UserCheck, label: 'User Approvals' },
     { to: '/profile', icon: User, label: 'Profile' },
     // { to: '/admin/settings', icon: Settings, label: 'Settings' },
   ];

@@ -40,40 +40,13 @@ async def seed_database():
         {
             "username": "mukund.hs",
             "email": "mukund.hs@cirruslabs.io",
-            "name": "Mukund HS",
+            "name": "Mukund Prasad H S",
+            "employee_id": "CL461",
             "role": "admin",
             "hashed_password": default_password,
             "is_active": True,
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc)
-        },
-        {
-            "username": "deekshitha.shetty",
-            "email": "deekshitha.shetty@cirruslabs.io",
-            "name": "Deekshitha Shetty",
-            "role": "admin",
-            "hashed_password": default_password,
-            "is_active": True,
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc)
-        },
-        {
-            "username": "praharsha.hv",
-            "email": "praharsha.hv@cirruslabs.io",
-            "name": "Praharsha HV",
-            "role": "admin",
-            "hashed_password": default_password,
-            "is_active": True,
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc)
-        },
-        {
-            "username": "karan.ry",
-            "email": "karan.ry@cirruslabs.io",
-            "name": "Karan RY",
-            "role": "admin",
-            "hashed_password": default_password,
-            "is_active": True,
+            "is_approved": True,
+            "auth_provider": "password",
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc)
         },
@@ -81,9 +54,25 @@ async def seed_database():
             "username": "manjunatha.bhat",
             "email": "manjunatha.bhat@cirruslabs.io",
             "name": "Manjunatha Bhat",
+            "employee_id": "CL576",
             "role": "admin",
             "hashed_password": default_password,
             "is_active": True,
+            "is_approved": True,
+            "auth_provider": "password",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        },
+        {
+            "username": "karan.ry",
+            "email": "karan.ry@cirruslabs.io",
+            "name": "Karan RY",
+            "employee_id": "CL600",
+            "role": "admin",
+            "hashed_password": default_password,
+            "is_active": True,
+            "is_approved": True,
+            "auth_provider": "password",
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc)
         }

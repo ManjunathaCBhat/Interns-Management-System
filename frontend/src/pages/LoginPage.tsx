@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -167,6 +167,14 @@ const LoginPage: React.FC = () => {
             />
             Sign in with Microsoft
           </button>
+
+          {/* Register Link */}
+          <p className="text-sm text-center mt-6 text-gray-600">
+            Don't have an account?{" "}
+            <Link to="/register" className="text-purple-600 hover:underline font-medium">
+              Register here
+            </Link>
+          </p>
         </form>
       </div>
     </div>

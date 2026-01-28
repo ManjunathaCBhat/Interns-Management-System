@@ -183,6 +183,7 @@ import InternDetails from '@/pages/admin/InternDetails';
 import DSUBoard from '@/pages/admin/DSUBoard';
 import TasksOverview from '@/pages/admin/TasksOverview';
 import PTOApproval from '@/pages/admin/PTOApproval';
+import ReferenceManagement from '@/pages/admin/ReferenceManagement';
 
 // Scrum Master Pages
 import ScrumMasterDashboard from '@/pages/scrum_master/ScrumMasterDashboard';
@@ -191,7 +192,8 @@ import ScrumMasterDSUBoard from '@/pages/scrum_master/DSUboard';
 // Intern Pages
 import InternDashboard from '@/pages/intern/InternDashboard';
 import InternProfile from '@/pages/intern/InternProfile';
-import DailyUpdates from '@/pages/intern/DailyUpdates'; 
+import DailyUpdates from '@/pages/intern/DailyUpdates';
+import PTORequest from '@/pages/intern/PTORequest';
 import { Toaster } from '@/components/ui/toaster';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -356,6 +358,14 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/references"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <ReferenceManagement />
+          </ProtectedRoute>
+        }
+      />
 
       {/* ========== Scrum Master Routes ========== */}
       <Route
@@ -375,18 +385,18 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/scrum-master/projects"
+        path="/scrum-master/daily-updates"
         element={
           <ProtectedRoute allowedRoles={['scrum_master', 'admin']}>
-            <ScrumMasterDashboard />
+            <DailyUpdates />
           </ProtectedRoute>
         }
       />
       <Route
-        path="/scrum-master/interns"
+        path="/scrum-master/profile"
         element={
-          <ProtectedRoute allowedRoles={['scrum_master', 'admin']}>
-            <UserManagement />
+          <ProtectedRoute allowedRoles={['scrum_master']}>
+            <InternProfile />
           </ProtectedRoute>
         }
       />
@@ -421,6 +431,14 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute allowedRoles={['intern']}>
             <DailyUpdates />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/intern/pto"
+        element={
+          <ProtectedRoute allowedRoles={['intern']}>
+            <PTORequest />
           </ProtectedRoute>
         }
       />

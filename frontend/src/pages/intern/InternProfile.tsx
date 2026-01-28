@@ -1,286 +1,201 @@
 import React, { useEffect, useState } from 'react';
-import {
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Calendar,
-  Briefcase,
-  GraduationCap,
-  Edit,
-  Clock,
-} from 'lucide-react';
+import { Mail, Calendar, AlertCircle, RefreshCw } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { useAuth } from '@/contexts/AuthContext';
+import { userService } from '@/services/UserService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Avatar from '@/components/shared/Avatar';
-import StatusBadge from '@/components/shared/StatusBadge';
-import { formatCurrency } from '@/lib/utils';
-import { internService } from '@/services/internService';
-import { Intern } from '@/types/intern';
+import PageLoader from '@/components/shared/PageLoader';
+import { User as UserType } from '@/types/intern';
 
 const InternProfile: React.FC = () => {
-  const { user } = useAuth();
-  const [internData, setInternData] = useState<Intern | null>(user?.internProfile || null);
-  const [loading, setLoading] = useState(!user?.internProfile);
+  const [profileData, setProfileData] = useState<UserType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await userService.getCurrentProfile();
+      setProfileData(data);
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load profile');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchInternProfile = async () => {
-      if (!internData && user?.email) {
-        try {
-          const allInterns = await internService.getAll({ limit: 100 });
-          const items = Array.isArray(allInterns) ? allInterns : allInterns.items;
-          const found = items.find(i => i.email === user.email);
-          if (found) {
-            setInternData(found);
-          }
-        } catch (error) {
-          console.error("Failed to fetch intern profile", error);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
-      }
-    };
-
-    fetchInternProfile();
-  }, [user, internData]);
+    fetchUserProfile();
+  }, []);
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-[50vh]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
+        <PageLoader message="Loading your profile..." />
       </DashboardLayout>
     );
   }
 
-  if (!internData) {
+  if (error || !profileData) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
-          <h2 className="text-xl font-semibold">Intern Profile Not Found</h2>
-          <p className="text-muted-foreground">Could not find an intern profile associated with your account.</p>
+          <AlertCircle className="h-12 w-12 text-destructive" />
+          <h2 className="text-xl font-semibold">Unable to Load Profile</h2>
+          <p className="text-muted-foreground text-center max-w-sm">
+            {error || 'Profile not found'}
+          </p>
+          <Button onClick={fetchUserProfile} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Try Again
+          </Button>
         </div>
       </DashboardLayout>
     );
   }
 
-  const intern = internData;
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
 
-  const timeline = [
-    {
-      date: intern.startDate,
-      title: 'Joined',
-      description: 'Started internship program',
-      status: 'completed',
-    },
-    {
-      date: '2024-01-22',
-      title: 'Onboarding Completed',
-      description: 'Finished initial setup and orientation',
-      status: 'completed',
-    },
-    {
-      date: '2024-02-01',
-      title: 'Training Started',
-      description: 'Began technical training sessions',
-      status: 'completed',
-    },
-    {
-      date: '2024-02-15',
-      title: 'Assigned to Project',
-      description: `Started working on ${intern.currentProject}`,
-      status: 'completed',
-    },
-    {
-      date: intern.endDate || 'TBD',
-      title: 'Internship End',
-      description: 'Expected completion date',
-      status: 'pending',
-    },
-  ];
+  const getRoleLabel = (role: string) => {
+    const roleMap: Record<string, string> = {
+      admin: 'Administrator',
+      scrum_master: 'Scrum Master',
+      intern: 'Intern',
+    };
+    return roleMap[role] || role;
+  };
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Profile Header */}
+        {/* Profile Header Card */}
         <Card className="overflow-hidden">
-          <div className="hero-gradient h-32 relative">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
-          </div>
+          <div className="h-32 bg-gradient-to-r from-primary/20 to-accent/20" />
           <CardContent className="relative -mt-16 pb-6">
-            <div className="flex flex-col items-center sm:flex-row sm:items-end gap-4">
-              <Avatar name={intern.name} size="xl" className="ring-4 ring-background" />
+            <div className="flex flex-col items-center sm:items-start sm:flex-row gap-4">
+              <Avatar name={profileData.name} size="xl" className="ring-4 ring-background" />
               <div className="flex-1 text-center sm:text-left">
-                <h1 className="text-2xl font-bold">{intern.name}</h1>
-                <p className="text-muted-foreground">{intern.domain}</p>
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
-                  <StatusBadge status={intern.status} />
-                  <span className="text-sm text-muted-foreground">•</span>
-                  <span className="text-sm uppercase font-medium text-accent">
-                    {intern.internType} Intern
-                  </span>
-                </div>
+                <h1 className="text-3xl font-bold">{profileData.name}</h1>
+                <p className="text-muted-foreground text-lg">
+                  {getRoleLabel(profileData.role)}
+                </p>
+                {profileData.employee_id && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    ID: {profileData.employee_id}
+                  </p>
+                )}
               </div>
-              <Button variant="outline">
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Profile
-              </Button>
             </div>
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Personal Info */}
-          <Card className="lg:col-span-2">
+        {/* Profile Information */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5 text-accent" />
-                Personal Information
-              </CardTitle>
+              <CardTitle className="text-lg">Account Information</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-6 sm:grid-cols-2">
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{intern.email}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Phone</p>
-                    <p className="font-medium">{intern.phone}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <GraduationCap className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Education</p>
-                    <p className="font-medium">{intern.degree}</p>
-                    <p className="text-sm text-muted-foreground">{intern.college}</p>
-                  </div>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Email</p>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <p className="font-medium break-all">{profileData.email}</p>
                 </div>
               </div>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Briefcase className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Current Project</p>
-                    <p className="font-medium">{intern.currentProject}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <User className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Mentor</p>
-                    <p className="font-medium">{intern.mentor}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Duration</p>
-                    <p className="font-medium">
-                      {new Date(intern.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      {intern.endDate && ` - ${new Date(intern.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
-                    </p>
-                  </div>
-                </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Username</p>
+                <p className="font-medium">{profileData.username}</p>
               </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Role</p>
+                <p className="font-medium inline-block px-3 py-1 rounded-full bg-primary/10 text-primary">
+                  {getRoleLabel(profileData.role)}
+                </p>
+              </div>
+
+              {profileData.employee_id && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Employee ID</p>
+                  <p className="font-medium">{profileData.employee_id}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Quick Stats */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Quick Stats</CardTitle>
+              <CardTitle className="text-lg">Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <span className="text-sm text-muted-foreground">Intern Type</span>
-                <span className="font-medium uppercase">{intern.internType}</span>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Account Status</p>
+                <div className="flex gap-2">
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      profileData.is_active
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {profileData.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      profileData.is_approved
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}
+                  >
+                    {profileData.is_approved ? 'Approved' : 'Pending Approval'}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <span className="text-sm text-muted-foreground">Source</span>
-                <span className="font-medium capitalize">{intern.source}</span>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Member Since</p>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <p className="font-medium">{formatDate(profileData.created_at)}</p>
+                </div>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <span className="text-sm text-muted-foreground">Payment Status</span>
-                <span className={`font-medium ${intern.isPaid ? 'text-success' : 'text-muted-foreground'}`}>
-                  {intern.isPaid ? formatCurrency(intern.stipendAmount || 0) : 'Unpaid'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <span className="text-sm text-muted-foreground">Billable</span>
-                <span className={`font-medium ${intern.isBillable ? 'text-success' : 'text-muted-foreground'}`}>
-                  {intern.isBillable ? 'Yes' : 'No'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <span className="text-sm text-muted-foreground">Education Status</span>
-                <span className="font-medium capitalize">{intern.educationStatus}</span>
-              </div>
+
+              {profileData.auth_provider && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Auth Provider</p>
+                  <p className="font-medium capitalize">{profileData.auth_provider}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Growth Timeline */}
+        {/* Additional Actions */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-accent" />
-              Growth Timeline
-            </CardTitle>
+            <CardTitle className="text-lg">Profile Actions</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="relative">
-              {/* Timeline line */}
-              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-
-              <div className="space-y-6">
-                {timeline.map((item, index) => (
-                  <div key={index} className="relative flex gap-4 pl-10">
-                    {/* Timeline dot */}
-                    <div
-                      className={`absolute left-2 w-5 h-5 rounded-full border-2 ${item.status === 'completed'
-                          ? 'bg-accent border-accent'
-                          : 'bg-background border-border'
-                        }`}
-                    >
-                      {item.status === 'completed' && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-2 h-2 bg-accent-foreground rounded-full" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 pb-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                        <h4 className="font-medium">{item.title}</h4>
-                        <span className="text-sm text-muted-foreground">
-                          {typeof item.date === 'string' && item.date !== 'TBD'
-                            ? new Date(item.date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })
-                            : item.date}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {item.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Need to update your profile information? Contact your administrator.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={fetchUserProfile}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh Profile
+              </Button>
             </div>
           </CardContent>
         </Card>

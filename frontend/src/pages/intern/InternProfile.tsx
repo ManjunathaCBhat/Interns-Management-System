@@ -1,233 +1,202 @@
-import React, { useEffect, useState } from "react";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { useAuth } from "@/contexts/AuthContext";
-import { internService } from "@/services/internService";
-import {
-  User,
-  Mail,
-  Phone,
-  GraduationCap,
-  Briefcase,
-  Calendar,
-} from "lucide-react";
-
-/* Year Options  */
-const getYearOptions = () => {
-  const currentYear = new Date().getFullYear();
-  const startYear = 2015;
-  const endYear = currentYear + 2;
-
-  const years: string[] = [];
-  for (let y = startYear; y <= endYear; y++) {
-    years.push(String(y));
-  }
-  return years;
-};
+import React, { useEffect, useState } from 'react';
+import { Mail, Calendar, AlertCircle, RefreshCw } from 'lucide-react';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { userService } from '@/services/UserService';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Avatar from '@/components/shared/Avatar';
+import PageLoader from '@/components/shared/PageLoader';
+import { User as UserType } from '@/types/intern';
 
 const InternProfile: React.FC = () => {
-  const { user } = useAuth();
-
-  const [profile, setProfile] = useState<any>(null);
-  const [editMode, setEditMode] = useState(false);
+  const [profileData, setProfileData] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await userService.getCurrentProfile();
+      setProfileData(data);
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load profile');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        if (user?.email) {
-          const res = await internService.getAll({ limit: 100 });
-          const items = Array.isArray(res) ? res : res.items;
-
-          const found = items.find(
-            (i: any) =>
-              i.email?.toLowerCase() === user.email?.toLowerCase()
-          );
-
-          if (found) {
-            setProfile(found);
-            setLoading(false);
-            return;
-          }
-        }
-
-        // fallback profile
-        setProfile({
-          name: user?.name || "Demo",
-          email: user?.email || "",
-          phone: "",
-          college: "",
-          degree: "",
-          branch: "",
-          year: "",
-          internType: "", // Paid / Unpaid
-          isPaid: "",     // Yes / No
-          currentProject: "",
-          startDate: "",
-          joinedDate: "",
-        });
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProfile();
-  }, [user]);
-
-  const handleChange = (e: any) => {
-    setProfile({ ...profile, [e.target.name]: e.target.value });
-  };
+    fetchUserProfile();
+  }, []);
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex justify-center items-center h-[60vh]">
-          Loading...
+        <PageLoader message="Loading your profile..." />
+      </DashboardLayout>
+    );
+  }
+
+  if (error || !profileData) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
+          <AlertCircle className="h-12 w-12 text-destructive" />
+          <h2 className="text-xl font-semibold">Unable to Load Profile</h2>
+          <p className="text-muted-foreground text-center max-w-sm">
+            {error || 'Profile not found'}
+          </p>
+          <Button onClick={fetchUserProfile} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Try Again
+          </Button>
         </div>
       </DashboardLayout>
     );
   }
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const getRoleLabel = (role: string) => {
+    const roleMap: Record<string, string> = {
+      admin: 'Administrator',
+      scrum_master: 'Scrum Master',
+      intern: 'Intern',
+    };
+    return roleMap[role] || role;
+  };
+
   return (
     <DashboardLayout>
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* =Profile Header = */}
-        <Card className="p-6">
-          <div className="flex items-center gap-6">
-            <div className="h-24 w-24 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white text-3xl font-bold">
-              {profile.name?.charAt(0)}
+      <div className="space-y-6">
+        {/* Profile Header Card */}
+        <Card className="overflow-hidden">
+          <div className="h-32 bg-gradient-to-r from-primary/20 to-accent/20" />
+          <CardContent className="relative -mt-16 pb-6">
+            <div className="flex flex-col items-center sm:items-start sm:flex-row gap-4">
+              <Avatar name={profileData.name} size="xl" className="ring-4 ring-background" />
+              <div className="flex-1 text-center sm:text-left">
+                <h1 className="text-3xl font-bold">{profileData.name}</h1>
+                <p className="text-muted-foreground text-lg">
+                  {getRoleLabel(profileData.role)}
+                </p>
+                {profileData.employee_id && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    ID: {profileData.employee_id}
+                  </p>
+                )}
+              </div>
             </div>
-
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold">{profile.name}</h1>
-              <p className="text-muted-foreground">{profile.email}</p>
-              <p className="text-sm mt-1">Intern</p>
-            </div>
-
-            <Button onClick={() => setEditMode(!editMode)}>
-              {editMode ? "Save Profile" : "Edit Profile"}
-            </Button>
-          </div>
+          </CardContent>
         </Card>
 
-        {/* = Profile Details =*/}
+        {/* Profile Information */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Account Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Email</p>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <p className="font-medium break-all">{profileData.email}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Username</p>
+                <p className="font-medium">{profileData.username}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Role</p>
+                <p className="font-medium inline-block px-3 py-1 rounded-full bg-primary/10 text-primary">
+                  {getRoleLabel(profileData.role)}
+                </p>
+              </div>
+
+              {profileData.employee_id && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Employee ID</p>
+                  <p className="font-medium">{profileData.employee_id}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Status</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Account Status</p>
+                <div className="flex gap-2">
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      profileData.is_active
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {profileData.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      profileData.is_approved
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}
+                  >
+                    {profileData.is_approved ? 'Approved' : 'Pending Approval'}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Member Since</p>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <p className="font-medium">{formatDate(profileData.created_at)}</p>
+                </div>
+              </div>
+
+              {profileData.auth_provider && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Auth Provider</p>
+                  <p className="font-medium capitalize">{profileData.auth_provider}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Additional Actions */}
         <Card>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-            <Field icon={<User />} label="Name">
-              <Input
-                name="name"
-                value={profile.name}
-                editMode={editMode}
-                onChange={handleChange}
-              />
-            </Field>
-
-            <Field icon={<Mail />} label="Email">
-              <span>{profile.email}</span>
-            </Field>
-
-            <Field icon={<Phone />} label="Phone">
-              <Input
-                name="phone"
-                value={profile.phone}
-                editMode={editMode}
-                onChange={handleChange}
-              />
-            </Field>
-
-            <Field icon={<GraduationCap />} label="College">
-              <Input
-                name="college"
-                value={profile.college}
-                editMode={editMode}
-                onChange={handleChange}
-              />
-            </Field>
-
-            <Field icon={<GraduationCap />} label="Degree">
-              <Input
-                name="degree"
-                value={profile.degree}
-                editMode={editMode}
-                onChange={handleChange}
-              />
-            </Field>
-
-            <Field icon={<GraduationCap />} label="Branch">
-              <Input
-                name="branch"
-                value={profile.branch}
-                editMode={editMode}
-                onChange={handleChange}
-              />
-            </Field>
-
-            {/* -DROPDOWNS - */}
-            <Field icon={<Calendar />} label="Year">
-              <Select
-                name="year"
-                value={profile.year}
-                editMode={editMode}
-                options={getYearOptions()}
-                onChange={handleChange}
-              />
-            </Field>
-
-            <Field icon={<Briefcase />} label="Intern Type">
-              <Select
-                name="internType"
-                value={profile.internType}
-                editMode={editMode}
-                options={["Paid", "Unpaid"]}
-                onChange={handleChange}
-              />
-            </Field>
-
-            <Field icon={<Briefcase />} label="Is Paid">
-              <Select
-                name="isPaid"
-                value={profile.isPaid}
-                editMode={editMode}
-                options={["Yes", "No"]}
-                onChange={handleChange}
-              />
-            </Field>
-
-            <Field icon={<Briefcase />} label="Current Project">
-              <Select
-                name="currentProject"
-                value={profile.currentProject}
-                editMode={editMode}
-                options={[
-                  "Internship Management System",
-                  "Chatbot",
-                  "Dashboard",
-                ]}
-                onChange={handleChange}
-              />
-            </Field>
-
-            {/* -------- DATE  -------- */}
-            <Field icon={<Calendar />} label="Start Date">
-              <DateInput
-                name="startDate"
-                value={profile.startDate}
-                editMode={editMode}
-                onChange={handleChange}
-              />
-            </Field>
-
-            <Field icon={<Calendar />} label="Joined Date">
-              <DateInput
-                name="joinedDate"
-                value={profile.joinedDate}
-                editMode={editMode}
-                onChange={handleChange}
-              />
-            </Field>
+          <CardHeader>
+            <CardTitle className="text-lg">Profile Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Need to update your profile information? Contact your administrator.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={fetchUserProfile}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh Profile
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -236,59 +205,3 @@ const InternProfile: React.FC = () => {
 };
 
 export default InternProfile;
-
-
-
-const Field = ({ icon, label, children }: any) => (
-  <div className="flex gap-3 items-start">
-    <div className="mt-1 text-primary">{icon}</div>
-    <div>
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <div className="font-medium">{children}</div>
-    </div>
-  </div>
-);
-
-const Input = ({ name, value, editMode, onChange }: any) =>
-  editMode ? (
-    <input
-      name={name}
-      value={value || ""}
-      onChange={onChange}
-      className="border rounded px-2 py-1 w-full"
-    />
-  ) : (
-    <span>{value || "Not set"}</span>
-  );
-
-const Select = ({ name, value, options, editMode, onChange }: any) =>
-  editMode ? (
-    <select
-      name={name}
-      value={value || ""}
-      onChange={onChange}
-      className="border rounded px-2 py-1 w-full"
-    >
-      <option value="">Select</option>
-      {options.map((o: string) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-    </select>
-  ) : (
-    <span>{value || "Not set"}</span>
-  );
-
-const DateInput = ({ name, value, editMode, onChange }: any) =>
-  editMode ? (
-    <input
-      type="date"
-      name={name}
-      value={value ? value.substring(0, 10) : ""}
-      onChange={onChange}
-      className="border rounded px-2 py-1 w-full"
-    />
-  ) : (
-    <span>{value ? new Date(value).toLocaleDateString() : "Not set"}</span>
-  );

@@ -10,6 +10,12 @@ export interface CreateUserPayload {
 }
 
 export const userService = {
+  // Get current user profile
+  async getCurrentProfile(): Promise<User> {
+    const response = await apiClient.get('/users/me');
+    return response.data;
+  },
+
   // Get all users (admin only)
   async getAll(pendingOnly: boolean = false): Promise<User[]> {
     const params = pendingOnly ? { pending_only: true } : {};

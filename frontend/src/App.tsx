@@ -402,6 +402,7 @@ const AppRoutes: React.FC = () => {
       />
 
       {/* ========== Intern Routes ========== */}
+      
       <Route
         path="/intern"
         element={
@@ -442,6 +443,7 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+
 
       {/* ========== Legacy Routes (Backward Compatibility) ========== */}
       <Route

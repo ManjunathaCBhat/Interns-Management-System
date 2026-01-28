@@ -192,6 +192,7 @@ import ScrumMasterDSUBoard from '@/pages/scrum_master/DSUboard';
 import InternDashboard from '@/pages/intern/InternDashboard';
 import InternProfile from '@/pages/intern/InternProfile';
 import DailyUpdates from '@/pages/intern/DailyUpdates'; 
+import PTORequests from '@/pages/intern/PTORequests';
 import { Toaster } from '@/components/ui/toaster';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -392,6 +393,7 @@ const AppRoutes: React.FC = () => {
       />
 
       {/* ========== Intern Routes ========== */}
+      
       <Route
         path="/intern"
         element={
@@ -424,6 +426,15 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+  path="/reqPTO"
+  element={
+    <ProtectedRoute allowedRoles={['intern', 'scrum_master']}>
+      <PTORequests />
+    </ProtectedRoute>
+  }
+/>
+
 
       {/* ========== Legacy Routes (Backward Compatibility) ========== */}
       <Route

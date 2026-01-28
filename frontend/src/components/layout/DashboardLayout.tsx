@@ -26,43 +26,36 @@ interface DashboardLayoutProps {
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   // Navigation links for Admin role
   const adminLinks = [
-    { to: '/admin', icon: LayoutDashboard, label: 'Overview' },
-    { to: '/admin/interns', icon: Users, label: 'Interns' },
+    { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/admin/interns', icon: Users, label: 'User Management' },
+    { to: '/admin/references', icon: FileText, label: 'References' },
     { to: '/admin/dsu-board', icon: ClipboardList, label: 'DSU Board' },
-    // { to: '/admin/tasks', icon: FileText, label: 'Tasks' },
     { to: '/admin/pto', icon: Calendar, label: 'PTO/WFH Requests' },
     { to: '/admin/users', icon: UserCheck, label: 'User Approvals' },
-    { to: '/profile', icon: User, label: 'Profile' },
-    // { to: '/admin/settings', icon: Settings, label: 'Settings' },
+   
   ];
 
   // Navigation links for Scrum Master role
   const scrumMasterLinks = [
-    { to: '/scrum-master', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/scrum-master', icon: LayoutDashboard, label: 'Overview' },
     { to: '/scrum-master/dsu-board', icon: ClipboardList, label: 'DSU Board' },
-    { to: '/intern/daily-updates', icon: Calendar, label: 'Daily Updates' },
-    { to: '/scrum-master/dsu-board', icon: ClipboardList, label: 'DSU Board' },
-    { to: '/reqPTO', icon: User, label: 'PTO/WFH Requests' },
-
-    { to: '/profile', icon: User, label: 'Profile' },
-    // { to: '/scrum-master/projects', icon: FileText, label: 'Projects' },
-    // { to: '/scrum-master/interns', icon: Users, label: 'Interns' },
-    // { to: '/scrum-master/settings', icon: Settings, label: 'Settings' },
+    { to: '/scrum-master/daily-updates', icon: Calendar, label: 'Daily Updates' },
+    { to: '/scrum-master/profile', icon: User, label: 'Profile' },
   ];
 
   // Navigation links for Intern role
   const internLinks = [
-    { to: '/intern', icon: LayoutDashboard, label: 'Home' },
+    { to: '/intern', icon: LayoutDashboard, label: 'Overview' },
     { to: '/intern/daily-updates', icon: Calendar, label: 'Daily Updates' },
-    { to: '/reqPTO', icon: User, label: 'PTO/WFH Requests' },
-     { to: '/intern/profile', icon: User, label: 'Profile' },
-    // { to: '/intern/settings', icon: Settings, label: 'Settings' },
+    { to: '/intern/pto', icon: Calendar, label: 'PTO/WFH Requests' },
+    { to: '/intern/profile', icon: User, label: 'Profile' },
   ];
 
   // Determine links based on user role
@@ -81,8 +74,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const links = getLinksForRole();
 
   const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = () => {
     logout();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     navigate('/login');
+    setShowLogoutModal(false);
   };
 
   // Get home route based on user role
@@ -144,14 +144,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               </span>
             </div>
             {sidebarOpen && (
-              <span className="font-semibold text-sidebar-foreground">
-                Intern Lifecycle by Cirruslabs
+              <span className="text-sm font-semibold text-sidebar-foreground truncate">
+                Interns360
               </span>
             )}
           </Link>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="rounded-lg p-1.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="rounded-lg p-1.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
           >
             <ChevronLeft
               className={cn(
@@ -177,7 +178,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               sidebarOpen ? 'justify-between' : 'justify-center'
             )}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <Avatar name={user?.name || ''} size="sm" />
               {sidebarOpen && (
                 <div className="overflow-hidden">
@@ -185,7 +186,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     {user?.name}
                   </p>
                   <p className="truncate text-xs text-sidebar-foreground/60 capitalize">
-                    {user?.role}
+                    {user?.role?.replace('_', ' ')}
                   </p>
                 </div>
               )}
@@ -193,7 +194,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             {sidebarOpen && (
               <button
                 onClick={handleLogout}
-                className="rounded-lg p-1.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                className="rounded-lg p-1.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
+                title="Logout"
               >
                 <LogOut className="h-4 w-4" />
               </button>
@@ -204,15 +206,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
       {/* Mobile Header */}
       <div className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between border-b bg-background px-4 md:hidden">
-        <Link to={getHomeRoute()} className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+        <Link to={getHomeRoute()} className="flex items-center gap-2 flex-1">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary flex-shrink-0">
             <span className="text-sm font-bold text-primary-foreground">IL</span>
           </div>
-          <span className="font-semibold">Intern Lifecycle</span>
+          <span className="font-semibold truncate">Interns360</span>
         </Link>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-lg p-2 hover:bg-muted"
+          className="rounded-lg p-2 hover:bg-muted ml-2"
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -225,13 +227,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             className="fixed inset-0 z-40 bg-black/50 md:hidden"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="fixed left-0 top-14 z-50 h-[calc(100vh-3.5rem)] w-72 bg-sidebar p-3 md:hidden animate-slide-down">
-            <nav className="space-y-1">
+          <aside className="fixed left-0 top-14 z-50 h-[calc(100vh-3.5rem)] w-72 bg-sidebar p-3 md:hidden overflow-y-auto">
+            <nav className="space-y-1 mb-20">
               {links.map((link) => (
                 <NavLink key={link.to} {...link} />
               ))}
             </nav>
-            <div className="absolute bottom-0 left-0 right-0 border-t border-sidebar-border p-3">
+            <div className="absolute bottom-0 left-0 right-0 border-t border-sidebar-border p-3 bg-sidebar">
               <div className="flex items-center justify-between rounded-lg px-3 py-2">
                 <div className="flex items-center gap-3">
                   <Avatar name={user?.name || ''} size="sm" />
@@ -240,7 +242,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                       {user?.name}
                     </p>
                     <p className="text-xs text-sidebar-foreground/60 capitalize">
-                      {user?.role}
+                      {user?.role?.replace('_', ' ')}
                     </p>
                   </div>
                 </div>
@@ -256,6 +258,32 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             </div>
           </aside>
         </>
+      )}
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg p-6 max-w-sm w-full mx-4 shadow-lg">
+            <h2 className="text-lg font-semibold mb-2">Logout</h2>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to logout? 😢
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowLogoutModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmLogout}
+              >
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Main Content */}

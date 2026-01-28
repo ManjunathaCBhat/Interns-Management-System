@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -31,7 +31,7 @@ const LoginPage: React.FC = () => {
     if (!validate()) return;
 
     setLoading(true);
-    const result = await login(email, password);
+    const result = await login(email.toLowerCase(), password);
 
     if (result.success) {
       toast({
@@ -73,12 +73,16 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen flex flex-col lg:flex-row">
 
       {/* LEFT BRANDING */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#2D0B59] via-[#5B1AA6] to-[#7C3AED] text-white p-16 flex-col justify-center">
-        <img src="/cirrus-logo.png" className="w-36 mb-10" />
-        <h1 className="text-5xl font-bold">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#2D0B59] via-[#5B1AA6] to-[#7C3AED] text-white p-16 flex-col justify-center items-center">
+        <div className="h-36 mb-10 flex items-center justify-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-white text-2xl font-bold text-purple-600">
+            IL
+          </div>
+        </div>
+        <h1 className="text-5xl font-bold text-center">
           Interns<span className="text-pink-400">360</span>
         </h1>
-        <p className="mt-6 max-w-md text-lg text-white/90">
+        <p className="mt-6 max-w-md text-lg text-white/90 text-center">
           Manage interns, attendance, standups, and performance in one platform.
         </p>
       </div>
@@ -167,6 +171,14 @@ const LoginPage: React.FC = () => {
             />
             Sign in with Microsoft
           </button>
+
+          {/* Register Link */}
+          <p className="text-sm text-center mt-6 text-gray-600">
+            Don't have an account?{" "}
+            <Link to="/register" className="text-purple-600 hover:underline font-medium">
+              Register here
+            </Link>
+          </p>
         </form>
       </div>
     </div>

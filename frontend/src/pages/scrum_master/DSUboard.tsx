@@ -65,22 +65,26 @@ interface User {
 /* ================= API FUNCTIONS ================= */
 const fetchInterns = async (): Promise<Intern[]> => {
   const response = await apiClient.get('/interns/');
-  return response.data;
+  // Handle paginated response format
+  return Array.isArray(response.data) ? response.data : (response.data.items || []);
 };
 
 const fetchProjects = async (): Promise<Project[]> => {
   const response = await apiClient.get('/projects/');
-  return response.data;
+  // Handle paginated response format
+  return Array.isArray(response.data) ? response.data : (response.data.items || []);
 };
 
 const fetchTasks = async (): Promise<Task[]> => {
   const response = await apiClient.get('/tasks/');
-  return response.data;
+  // Handle paginated response format
+  return Array.isArray(response.data) ? response.data : (response.data.items || []);
 };
 
 const fetchDSUs = async (): Promise<DSU[]> => {
   const response = await apiClient.get('/dsu-entries/');
-  return response.data;
+  // Handle paginated response format
+  return Array.isArray(response.data) ? response.data : (response.data.items || []);
 };
 
 

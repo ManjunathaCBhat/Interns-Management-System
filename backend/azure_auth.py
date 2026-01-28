@@ -18,6 +18,18 @@ load_dotenv()
 # Azure AD configuration
 security = HTTPBearer(auto_error=False)
 
+# Admin emails that are auto-approved with admin role
+ADMIN_EMAILS = [
+    "mukund.hs@cirruslabs.io",
+    "manjunatha.bhat@cirruslabs.io",
+    "karan.ry@cirruslabs.io"
+]
+
+
+def normalize_email(email: str) -> str:
+    """Normalize email to lowercase for consistent storage and lookup"""
+    return email.lower().strip() if email else email
+
 
 class AzureADSettings(BaseModel):
     tenant_id: str
@@ -124,27 +136,28 @@ async def get_or_create_azure_user(azure_user: AzureUser, db):
     Get existing user or create new one from Azure AD info.
     Returns the user document from MongoDB.
     """
-    
+    # Normalize email to lowercase
+    email = normalize_email(azure_user.email or azure_user.preferred_username)
+
     # Try to find existing user by Azure OID
     user = await db.users.find_one({"azure_oid": azure_user.oid})
-    
+
     if user:
         # Update user info from Azure (in case name/email changed)
         await db.users.update_one(
             {"_id": user["_id"]},
             {
                 "$set": {
-                    "email": azure_user.email or azure_user.preferred_username,
+                    "email": email,
                     "name": azure_user.name or f"{azure_user.given_name or ''} {azure_user.family_name or ''}".strip(),
                 }
             }
         )
         return await db.users.find_one({"_id": user["_id"]})
-    
+
     # Try to find by email (for existing users migrating to SSO)
-    email = azure_user.email or azure_user.preferred_username
     user = await db.users.find_one({"email": email})
-    
+
     if user:
         # Link existing user to Azure account
         await db.users.update_one(
@@ -157,17 +170,22 @@ async def get_or_create_azure_user(azure_user: AzureUser, db):
             }
         )
         return await db.users.find_one({"_id": user["_id"]})
-    
+
     # Create new user from Azure AD info
-    username = azure_user.preferred_username.split("@")[0]  # Use email prefix as username
-    
+    username = azure_user.preferred_username.split("@")[0].lower()  # Use email prefix as username
+
     # Ensure unique username
     existing = await db.users.find_one({"username": username})
     if existing:
         username = f"{username}_{azure_user.oid[:8]}"
-    
+
     from datetime import datetime, timezone
-    
+
+    # Check if this is an admin email (auto-approve with admin role)
+    is_admin = email in ADMIN_EMAILS
+    role = "admin" if is_admin else "intern"
+    is_approved = is_admin  # Admins are auto-approved, others need approval
+
     new_user = {
         "username": username,
         "email": email,
@@ -175,12 +193,13 @@ async def get_or_create_azure_user(azure_user: AzureUser, db):
         "azure_oid": azure_user.oid,
         "auth_provider": "azure_ad",
         "is_active": True,
-        "role": "intern",  # Default role for new SSO users
+        "is_approved": is_approved,
+        "role": role,
         "hashed_password": None,  # No password for SSO users
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)
     }
-    
+
     result = await db.users.insert_one(new_user)
     return await db.users.find_one({"_id": result.inserted_id})
 

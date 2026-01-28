@@ -522,7 +522,7 @@ from auth import (
     get_admin_user
 )
 from models import (
-    User, UserCreate, UserResponse, LoginRequest, Token,
+    User, UserCreate, UserUpdate, UserResponse, LoginRequest, Token,
     Intern, InternCreate, InternUpdate,
     DSUEntry, DSUCreate, DSUUpdate,
     Task, TaskCreate, TaskUpdate,
@@ -530,6 +530,18 @@ from models import (
     PTO, PTOCreate, PTOUpdate,
     Batch, BatchCreate, BatchUpdate
 )
+
+# Admin emails that are auto-approved with admin role
+ADMIN_EMAILS = [
+    "mukund.hs@cirruslabs.io",
+    "manjunatha.bhat@cirruslabs.io",
+    "karan.ry@cirruslabs.io"
+]
+
+
+def normalize_email(email: str) -> str:
+    """Normalize email to lowercase for consistent storage and lookup"""
+    return email.lower().strip() if email else email
 
 
 # ==================== APP SETUP ====================
@@ -574,54 +586,85 @@ async def health():
 @app.post("/api/v1/auth/login", response_model=Token)
 async def login(credentials: LoginRequest, db = Depends(get_database)):
     """Login with email and password"""
-    user = await db.users.find_one({"email": credentials.email})
-    
+    # Normalize email to lowercase
+    email = normalize_email(credentials.email)
+
+    user = await db.users.find_one({"email": email})
+
     if not user or not verify_password(credentials.password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
-    
+
     if not user.get("is_active", True):
-        raise HTTPException(status_code=400, detail="Inactive user")
-    
+        raise HTTPException(status_code=400, detail="Your account has been deactivated")
+
+    # Check if user is approved (admins are always approved)
+    if not user.get("is_approved", False) and user.get("role") != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is pending admin approval. Please wait for approval."
+        )
+
     token = create_access_token(data={"sub": user["username"], "role": user["role"]})
-    
+
     user_response = UserResponse(
         id=str(user["_id"]),
         username=user["username"],
         email=user["email"],
         name=user["name"],
+        employee_id=user.get("employee_id"),
         role=user["role"],
         is_active=user.get("is_active", True),
+        is_approved=user.get("is_approved", False),
         created_at=user.get("created_at", datetime.now(timezone.utc))
     )
-    
+
     return {"access_token": token, "token_type": "bearer", "user": user_response}
 
 
 @app.post("/api/v1/auth/register", response_model=UserResponse, status_code=201)
 async def register(user_data: UserCreate, db = Depends(get_database)):
-    """Register new user"""
+    """Register new user - requires admin approval"""
+    # Normalize email to lowercase
+    email = normalize_email(user_data.email)
+    username = user_data.username.lower().strip()
+
     existing = await db.users.find_one(
-        {"$or": [{"email": user_data.email}, {"username": user_data.username}]}
+        {"$or": [{"email": email}, {"username": username}]}
     )
-    
+
     if existing:
-        raise HTTPException(status_code=400, detail="User already exists")
-    
-    user_dict = user_data.model_dump()
-    user_dict["hashed_password"] = get_password_hash(user_dict.pop("password"))
-    user_dict["is_active"] = True
-    user_dict["created_at"] = datetime.now(timezone.utc)
-    user_dict["updated_at"] = datetime.now(timezone.utc)
-    
+        raise HTTPException(status_code=400, detail="User with this email or username already exists")
+
+    # Check if this is an admin email (auto-approve with admin role)
+    is_admin = email in ADMIN_EMAILS
+    role = "admin" if is_admin else "intern"
+    is_approved = is_admin  # Admins are auto-approved
+
+    user_dict = {
+        "username": username,
+        "email": email,
+        "name": user_data.name,
+        "employee_id": user_data.employee_id,
+        "hashed_password": get_password_hash(user_data.password),
+        "role": role,
+        "is_active": True,
+        "is_approved": is_approved,
+        "auth_provider": "password",
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc)
+    }
+
     result = await db.users.insert_one(user_dict)
-    
+
     return UserResponse(
         id=str(result.inserted_id),
         username=user_dict["username"],
         email=user_dict["email"],
         name=user_dict["name"],
+        employee_id=user_dict["employee_id"],
         role=user_dict["role"],
-        is_active=True
+        is_active=True,
+        is_approved=is_approved
     )
 
 
@@ -632,16 +675,23 @@ async def azure_sso(azure_token: dict, db = Depends(get_database)):
     Expects: { "access_token": "azure_token_string" }
     """
     from azure_auth import validate_azure_token, get_or_create_azure_user
-    
+
     if not azure_token.get("access_token"):
         raise HTTPException(status_code=400, detail="Missing access_token")
-    
+
     # Validate Azure token and get user info
     azure_user = await validate_azure_token(azure_token["access_token"])
-    
+
     # Get or create user in our database
     user_doc = await get_or_create_azure_user(azure_user, db)
-    
+
+    # Check if user is approved (admins are always approved)
+    if not user_doc.get("is_approved", False) and user_doc.get("role") != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is pending admin approval. Please wait for approval."
+        )
+
     # Normalize role - convert any invalid roles to 'intern'
     valid_roles = ["admin", "scrum_master", "intern"]
     user_role = user_doc.get("role", "intern")
@@ -652,23 +702,25 @@ async def azure_sso(azure_token: dict, db = Depends(get_database)):
             {"_id": user_doc["_id"]},
             {"$set": {"role": "intern"}}
         )
-    
+
     # Create our own JWT token for the user
     our_token = create_access_token(
         data={"sub": user_doc["username"], "role": user_role}
     )
-    
+
     # Prepare user response
     user_response = UserResponse(
         id=str(user_doc["_id"]),
         username=user_doc["username"],
         email=user_doc["email"],
         name=user_doc.get("name", ""),
+        employee_id=user_doc.get("employee_id"),
         role=user_role,
         is_active=user_doc.get("is_active", True),
+        is_approved=user_doc.get("is_approved", False),
         created_at=user_doc.get("created_at", datetime.now(timezone.utc))
     )
-    
+
     return {
         "access_token": our_token,
         "token_type": "bearer",
@@ -748,10 +800,17 @@ async def azure_sso_callback(request: dict, db = Depends(get_database)):
         
         # Validate token and get/create user
         from azure_auth import validate_azure_token, get_or_create_azure_user
-        
+
         azure_user = await validate_azure_token(access_token)
         user_doc = await get_or_create_azure_user(azure_user, db)
-        
+
+        # Check if user is approved (admins are always approved)
+        if not user_doc.get("is_approved", False) and user_doc.get("role") != "admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Your account is pending admin approval. Please wait for approval."
+            )
+
         # Create our JWT token
         # Normalize role - convert any invalid roles to 'intern'
         valid_roles = ["admin", "scrum_master", "intern"]
@@ -763,21 +822,23 @@ async def azure_sso_callback(request: dict, db = Depends(get_database)):
                 {"_id": user_doc["_id"]},
                 {"$set": {"role": "intern"}}
             )
-        
+
         our_token = create_access_token(
             data={"sub": user_doc["username"], "role": user_role}
         )
-        
+
         user_response = UserResponse(
             id=str(user_doc["_id"]),
             username=user_doc["username"],
             email=user_doc["email"],
             name=user_doc.get("name", ""),
+            employee_id=user_doc.get("employee_id"),
             role=user_role,
             is_active=user_doc.get("is_active", True),
+            is_approved=user_doc.get("is_approved", False),
             created_at=user_doc.get("created_at", datetime.now(timezone.utc))
         )
-        
+
         return {
             "access_token": our_token,
             "token_type": "bearer",
@@ -800,10 +861,137 @@ async def get_current_user_profile(current_user: User = Depends(get_current_acti
         username=current_user.username,
         email=current_user.email,
         name=current_user.name,
+        employee_id=current_user.employee_id,
         role=current_user.role,
         is_active=current_user.is_active,
+        is_approved=current_user.is_approved,
         created_at=current_user.created_at
     )
+
+
+# ==================== ADMIN USER MANAGEMENT ROUTES ====================
+@app.get("/api/v1/admin/users")
+async def list_users(
+    pending_only: bool = Query(False, description="Filter to show only pending approval users"),
+    role: Optional[str] = Query(None, description="Filter by role"),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List all users (admin only)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    query = {}
+    if pending_only:
+        query["is_approved"] = False
+    if role:
+        query["role"] = role
+
+    users = []
+    async for user in db.users.find(query).sort("created_at", -1):
+        users.append({
+            "id": str(user["_id"]),
+            "username": user.get("username"),
+            "email": user.get("email"),
+            "name": user.get("name"),
+            "employee_id": user.get("employee_id"),
+            "role": user.get("role"),
+            "is_active": user.get("is_active", True),
+            "is_approved": user.get("is_approved", False),
+            "auth_provider": user.get("auth_provider"),
+            "created_at": user.get("created_at")
+        })
+
+    return users
+
+
+@app.get("/api/v1/admin/users/pending")
+async def list_pending_users(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List users pending approval (admin only)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    users = []
+    async for user in db.users.find({"is_approved": False}).sort("created_at", -1):
+        users.append({
+            "id": str(user["_id"]),
+            "username": user.get("username"),
+            "email": user.get("email"),
+            "name": user.get("name"),
+            "employee_id": user.get("employee_id"),
+            "role": user.get("role"),
+            "is_active": user.get("is_active", True),
+            "is_approved": False,
+            "auth_provider": user.get("auth_provider"),
+            "created_at": user.get("created_at")
+        })
+
+    return users
+
+
+@app.patch("/api/v1/admin/users/{user_id}")
+async def update_user(
+    user_id: str,
+    user_update: UserUpdate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update user - approve and assign role (admin only)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    update_data = user_update.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    update_data["updated_at"] = datetime.now(timezone.utc)
+
+    result = await db.users.find_one_and_update(
+        {"_id": ObjectId(user_id)},
+        {"$set": update_data},
+        return_document=True
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "id": str(result["_id"]),
+        "username": result.get("username"),
+        "email": result.get("email"),
+        "name": result.get("name"),
+        "employee_id": result.get("employee_id"),
+        "role": result.get("role"),
+        "is_active": result.get("is_active", True),
+        "is_approved": result.get("is_approved", False),
+        "auth_provider": result.get("auth_provider"),
+        "created_at": result.get("created_at"),
+        "updated_at": result.get("updated_at")
+    }
+
+
+@app.delete("/api/v1/admin/users/{user_id}", status_code=204)
+async def delete_user(
+    user_id: str,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Delete user (admin only)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Prevent deleting self
+    if str(current_user.id) == user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    result = await db.users.delete_one({"_id": ObjectId(user_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return None
 
 
 # ==================== ADMIN DASHBOARD ROUTES ====================

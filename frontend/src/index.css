@@ -1,0 +1,442 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Intern Lifecycle Manager - Purple-Pink Design System */
+
+@layer base {
+  :root {
+    /* Background & Surfaces - Light Mode */
+    --background: 0 0% 100%;
+    --foreground: 262 47% 11%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 262 47% 11%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 262 47% 11%;
+    
+    /* Primary - Purple Shades */
+    --primary: 262 80% 50%; /* #7C3AED */
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary - Soft Purple */
+    --secondary: 262 20% 96%;
+    --secondary-foreground: 262 47% 11%;
+    
+    /* Muted */
+    --muted: 262 15% 96%;
+    --muted-foreground: 262 16% 47%;
+    
+    /* Accent - Vibrant Pink */
+    --accent: 330 100% 65%; /* #FF4DA6 */
+    --accent-foreground: 0 0% 100%;
+    
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Borders & Inputs */
+    --border: 262 20% 88%;
+    --input: 262 20% 88%;
+    --ring: 262 80% 50%;
+    
+    --radius: 0.75rem;
+    
+    /* Status Colors */
+    --status-success: 142 76% 36%;
+    --status-warning: 38 92% 50%;
+    --status-error: 0 84% 60%;
+    --status-info: 199 89% 48%;
+    
+    /* Gradient Tokens - Purple/Pink */
+    --gradient-hero: linear-gradient(135deg, #2D0B59 0%, #3B0F6F 50%, #5B1AA6 100%);
+    --gradient-card: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(91, 26, 166, 0.05) 100%);
+    --gradient-accent: linear-gradient(135deg, #9333EA 0%, #5B1AA6 100%);
+    --gradient-pink: linear-gradient(135deg, #FF4DA6 0%, #FF3396 100%);
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-card: 0 1px 3px 0 rgba(124, 58, 237, 0.1), 0 1px 2px -1px rgba(124, 58, 237, 0.1);
+    --shadow-elevated: 0 25px 50px -12px rgba(124, 58, 237, 0.25);
+    --shadow-pink: 0 4px 20px rgba(255, 77, 166, 0.35);
+    --shadow-glow: 0 0 0 3px rgba(255, 77, 166, 0.15);
+    
+    /* Sidebar - Purple Theme */
+    --sidebar-background: 262 45% 25%; /* #1a1625 */
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 262 80% 50%; /* Purple */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 262 50% 15%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 100% / 0.35;
+    --sidebar-ring: 262 80% 50%;
+  }
+
+  .dark {
+    /* Background & Surfaces - Dark Mode */
+    --background: 262 50% 6%; /* #0f0e1a */
+    --foreground: 0 0% 98%;
+    
+    --card: 262 50% 10%; /* #1a1625 */
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 262 50% 10%;
+    --popover-foreground: 0 0% 98%;
+    
+    /* Primary - Purple */
+    --primary: 262 80% 50%; /* #7C3AED */
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary - Dark Purple */
+    --secondary: 262 50% 15%;
+    --secondary-foreground: 0 0% 98%;
+    
+    /* Muted */
+    --muted: 262 50% 15%;
+    --muted-foreground: 0 0% 85%;
+    
+    /* Accent - Pink */
+    --accent: 330 100% 65%; /* #FF4DA6 */
+    --accent-foreground: 0 0% 100%;
+    
+    /* Destructive */
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+    
+    /* Borders & Inputs */
+    --border: 0 0% 100% / 0.35;
+    --input: 0 0% 100% / 0.35;
+    --ring: 262 80% 50%;
+    
+    /* Sidebar - Dark Purple */
+    --sidebar-background: 262 50% 6%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 262 80% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 262 50% 12%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 100% / 0.35;
+    --sidebar-ring: 262 80% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01", "ss03";
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+  
+  /* Selection color - Pink */
+  ::selection {
+    background: #FF4DA6;
+    color: white;
+  }
+  
+  ::-moz-selection {
+    background: #FF4DA6;
+    color: white;
+  }
+}
+
+@layer components {
+  /* Hero Section Styles - Purple Gradient */
+  .hero-gradient {
+    background: linear-gradient(135deg, #2D0B59 0%, #3B0F6F 50%, #5B1AA6 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .hero-gradient::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255, 77, 166, 0.35), transparent 60%);
+    pointer-events: none;
+  }
+  
+  /* Accent gradient - Purple to Dark Purple */
+  .accent-gradient {
+    background: linear-gradient(135deg, #9333EA 0%, #5B1AA6 100%);
+  }
+  
+  /* Card gradient - Subtle Purple */
+  .card-gradient {
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(91, 26, 166, 0.05) 100%);
+  }
+  
+  /* Status Badges */
+  .status-success {
+    @apply bg-green-100 text-green-700 border-green-200;
+  }
+  
+  .status-warning {
+    @apply bg-amber-100 text-amber-700 border-amber-200;
+  }
+  
+  .status-error {
+    @apply bg-red-100 text-red-700 border-red-200;
+  }
+  
+  .status-info {
+    @apply bg-sky-100 text-sky-700 border-sky-200;
+  }
+  
+  /* Glass Effect with Purple tint */
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl border border-white/20;
+  }
+  
+  .dark .glass {
+    @apply bg-purple-950/30 backdrop-blur-xl border border-white/10;
+  }
+  
+  /* Animated gradient border - Purple/Pink */
+  .gradient-border {
+    position: relative;
+    background: hsl(var(--card));
+    border-radius: var(--radius);
+  }
+  
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: calc(var(--radius) + 1px);
+    background: linear-gradient(135deg, #7C3AED, #FF4DA6);
+    z-index: -1;
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+  }
+  
+  .gradient-border:hover::before {
+    opacity: 1;
+  }
+  
+  /* Card hover effects with purple glow */
+  .card-hover {
+    transition: all 0.3s ease;
+  }
+  
+  .card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.2);
+  }
+  
+  /* Pink glow effect for buttons */
+  .pink-glow {
+    box-shadow: 0 4px 20px rgba(255, 77, 166, 0.35);
+  }
+  
+  .pink-glow:hover {
+    box-shadow: 0 6px 25px rgba(255, 77, 166, 0.5);
+  }
+}
+
+@layer utilities {
+  /* Custom scrollbar - Purple theme */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #7C3AED;
+    border-radius: 4px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #9333EA;
+  }
+  
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+  }
+  
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out forwards;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out forwards;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes slideUp {
+    from { 
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes slideDown {
+    from { 
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes scaleIn {
+    from { 
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to { 
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  /* Pulse dot animation - Pink */
+  .pulse-dot {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  /* Shimmer effect - Purple/Pink */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 77, 166, 0.35),
+      transparent
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  
+  /* Text gradients */
+  .text-gradient-purple {
+    background: linear-gradient(135deg, #9333EA 0%, #FF4DA6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  /* Border glow effects */
+  .border-glow-purple {
+    border-color: #7C3AED;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+  }
+  
+  .border-glow-pink {
+    border-color: #FF4DA6;
+    box-shadow: 0 0 0 3px rgba(255, 77, 166, 0.15);
+  }
+}
+
+/* Loading skeleton with purple tint */
+.loading-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(124, 58, 237, 0.1) 0%,
+    rgba(124, 58, 237, 0.2) 50%,
+    rgba(124, 58, 237, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 0.5rem;
+}
+
+/* Focus states with pink glow */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #7C3AED;
+  box-shadow: 0 0 0 3px rgba(255, 77, 166, 0.15);
+}
+
+/* Button variants enhancement */
+.btn-purple {
+  background: linear-gradient(135deg, #9333EA 0%, #5B1AA6 100%);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.btn-purple:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+}
+
+.btn-pink {
+  background: #FF4DA6;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.btn-pink:hover {
+  background: #FF3396;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(255, 77, 166, 0.5);
+}
+
+/* Stat card enhancements */
+.stat-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  border-color: #7C3AED;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.2);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(91, 26, 166, 0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.stat-card:hover::before {
+  opacity: 1;
+}

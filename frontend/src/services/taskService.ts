@@ -5,15 +5,25 @@ import { Task } from '@/types/intern';
 export interface TaskListParams {
   intern_id?: string;
   status?: string;
+  date?: string;
 }
 
 export const taskService = {
   async getAll(params?: TaskListParams): Promise<Task[]> {
     const searchParams = new URLSearchParams();
-    if (params?.intern_id) searchParams.append('intern_id', params.intern_id);
-    if (params?.status) searchParams.append('status', params.status);
-    
-    const response = await apiClient.get(`/tasks/?${searchParams}`);
+
+    if (params?.intern_id) {
+      searchParams.append('intern_id', params.intern_id);
+    }
+
+    if (params?.status) {
+      searchParams.append('status', params.status);
+    }
+
+    const response = await apiClient.get(
+      `/tasks/?${searchParams.toString()}`
+    );
+
     return response.data;
   },
 
@@ -33,10 +43,11 @@ export const taskService = {
   },
 
   async updateStatus(id: string, status: string): Promise<Task> {
-    return this.update(id, { status });
+    const response = await apiClient.patch(`/tasks/${id}`, { status });
+    return response.data;
   },
 
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/tasks/${id}`);
-  }
+  },
 };

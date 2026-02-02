@@ -23,6 +23,7 @@ import { Link } from 'react-router-dom';
 import { taskService } from '@/services/taskService';
 import { dsuService } from '@/services/dsuService';
 import { ptoService } from '@/services/ptoService'; // ✅ NEW
+import { internService } from '@/services/internService'; // ✅ NEW
 import { Task } from '@/types/intern';
 
 const InternDashboard: React.FC = () => {
@@ -31,6 +32,7 @@ const InternDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [todaysDSU, setTodaysDSU] = useState<any>(null);
+  const [internData, setInternData] = useState<any>(null); // ✅ NEW: Store intern details
   
   const [dsuForm, setDsuForm] = useState({
     yesterday: '',
@@ -54,6 +56,16 @@ const InternDashboard: React.FC = () => {
   
   const today = new Date().toISOString().split('T')[0];
 
+  // ✅ NEW: Calculate days remaining
+  const calculateDaysRemaining = (joinedDate: string) => {
+    const joined = new Date(joinedDate);
+    const internshipLength = 90; // 3 months in days
+    const endDate = new Date(joined.getTime() + internshipLength * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, daysRemaining);
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -61,13 +73,15 @@ const InternDashboard: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [tasksData, dsuData] = await Promise.all([
+      const [tasksData, dsuData, internDetail] = await Promise.all([
         taskService.getAll(user?.id),
         dsuService.getByDate(user?.id || '', today),
+        internService.getById(user?.id || ''), // ✅ NEW: Fetch intern details
       ]);
       
       setTasks(tasksData);
       setTodaysDSU(dsuData);
+      setInternData(internDetail); // ✅ NEW
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -236,13 +250,13 @@ const InternDashboard: React.FC = () => {
           />
           <StatCard
             title="DSU Streak"
-            value="7 days"
+            value={`${internData?.dsuStreak || 0} days`}
             subtitle="Keep it going!"
             icon={TrendingUp}
           />
           <StatCard
             title="Days Remaining"
-            value="45"
+            value={`${calculateDaysRemaining(internData?.joinedDate || new Date().toISOString())}`}
             subtitle="Internship period"
             icon={Calendar}
           />

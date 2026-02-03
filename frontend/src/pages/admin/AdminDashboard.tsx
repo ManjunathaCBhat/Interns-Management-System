@@ -131,7 +131,7 @@ const AdminDashboard: React.FC = () => {
         {/* Top Bar */}
         <header className="bg-white border-b p-4 flex items-center justify-between shadow-sm rounded-lg">
           <div>
-            <h1 className="text-xl font-bold text-[#1e1145]">Admin Dashboard</h1>
+            <h1 className="text-xl font-bold text-[#1e1145]">Admin</h1>
             <p className="text-sm text-slate-500">Welcome back, {user?.name}</p>
           </div>
           <button 

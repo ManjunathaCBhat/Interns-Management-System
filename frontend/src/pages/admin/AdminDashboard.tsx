@@ -15,6 +15,7 @@ import {
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import apiClient from '@/services/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { COLORS, getStatusColor, getStatusBgColor } from '@/config/colors';
 
 // --- Interfaces ---
 interface Intern {
@@ -96,10 +97,6 @@ const AdminDashboard: React.FC = () => {
 
   // --- Helper Functions ---
   const getInitials = (name: string) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || '??';
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = { active: '#22c55e', training: '#3b82f6', onboarding: '#eab308', completed: '#64748b', dropped: '#ef4444' };
-    return colors[status] || '#94a3b8';
-  };
 
   if (loading) {
     return (
@@ -134,12 +131,13 @@ const AdminDashboard: React.FC = () => {
         {/* Top Bar */}
         <header className="bg-white border-b p-4 flex items-center justify-between shadow-sm rounded-lg">
           <div>
-            <h1 className="text-xl font-bold text-[#1e1145]">Admin Dashboard</h1>
+            <h1 className="text-xl font-bold text-[#1e1145]">Admin</h1>
             <p className="text-sm text-slate-500">Welcome back, {user?.name}</p>
           </div>
           <button 
             onClick={fetchDashboardData}
-            className="flex items-center gap-2 bg-purple-500/10 text-purple-600 px-4 py-2 rounded-lg font-semibold hover:bg-purple-500/20 transition-all"
+            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all"
+            style={{ backgroundColor: COLORS.primary.purple }}
           >
             <RefreshCw size={16} /> Refresh
           </button>
@@ -152,28 +150,28 @@ const AdminDashboard: React.FC = () => {
             value={stats?.totalInterns || 0} 
             sub={`${stats?.activeInterns || 0} active`} 
             icon={<Users className="text-white" />} 
-            color="bg-blue-500" 
+            color={COLORS.primary.purple}
           />
           <StatCard 
             title="DSU Completion" 
             value={`${stats?.dsuCompletion || 0}%`} 
             sub={`${stats?.submittedDSUs || 0} submitted today`} 
             icon={<CheckCircle className="text-white" />} 
-            color={(stats?.dsuCompletion || 0) > 80 ? 'bg-green-500' : 'bg-yellow-500'} 
+            color={(stats?.dsuCompletion || 0) > 80 ? COLORS.status.success : COLORS.status.warning}
           />
           <StatCard 
             title="Project / RS" 
             value={`${stats?.projectInterns || 0} / ${stats?.rsInterns || 0}`} 
             sub="Intern Types" 
             icon={<Briefcase className="text-white" />} 
-            color="bg-pink-500" 
+            color={COLORS.accent.pink}
           />
           <StatCard 
             title="Task Completion" 
             value={`${stats?.taskCompletion || 0}%`} 
             sub={`${stats?.completedTasks || 0}/${stats?.totalTasks || 0} tasks`} 
             icon={<Target className="text-white" />} 
-            color="bg-cyan-500" 
+            color={COLORS.primary.deepPurple}
           />
         </div>
 
@@ -181,8 +179,8 @@ const AdminDashboard: React.FC = () => {
           {/* DSU Status */}
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold flex items-center gap-2"><Calendar size={20} className="text-purple-600" /> Today's DSU Status</h2>
-              <Link to="/admin/dsu-board" className="text-blue-600 text-sm font-semibold flex items-center gap-1">View Board <ArrowRight size={14} /></Link>
+              <h2 className="text-lg font-bold flex items-center gap-2"><Calendar size={20} style={{ color: COLORS.primary.purple }} /> Today's DSU Status</h2>
+              <Link to="/admin/dsu-board" className="text-sm font-semibold flex items-center gap-1" style={{ color: COLORS.primary.purple }}>View Board <ArrowRight size={14} /></Link>
             </div>
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-green-50 p-4 rounded-xl text-center">
@@ -215,7 +213,7 @@ const AdminDashboard: React.FC = () => {
 
           {/* Recent Activity */}
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-bold flex items-center gap-2 mb-6"><Activity size={20} className="text-purple-600" /> Quick Stats</h2>
+            <h2 className="text-lg font-bold flex items-center gap-2 mb-6"><Activity size={20} style={{ color: COLORS.primary.purple }} /> Quick Stats</h2>
             <div className="space-y-4">
               <div className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-xl transition-colors">
                 <div className="p-2 bg-purple-50 rounded-lg text-purple-600"><Award size={20} /></div>
@@ -248,8 +246,8 @@ const AdminDashboard: React.FC = () => {
         {/* Interns Table */}
         <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-lg font-bold flex items-center gap-2"><Users size={20} className="text-purple-600" /> Recent Interns</h2>
-            <Link to="/admin/interns" className="text-blue-600 text-sm font-semibold flex items-center gap-1">View All <ArrowRight size={14} /></Link>
+            <h2 className="text-lg font-bold flex items-center gap-2"><Users size={20} style={{ color: COLORS.primary.purple }} /> Recent Interns</h2>
+            <Link to="/admin/interns" className="text-sm font-semibold flex items-center gap-1" style={{ color: COLORS.primary.purple }}>View All <ArrowRight size={14} /></Link>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -267,16 +265,16 @@ const AdminDashboard: React.FC = () => {
                   recentInterns.map(intern => (
                     <tr key={intern._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center text-xs font-bold">{getInitials(intern.name)}</div>
+                        <div className="w-8 h-8 rounded-lg text-white flex items-center justify-center text-xs font-bold" style={{ backgroundColor: COLORS.primary.purple }}>{getInitials(intern.name)}</div>
                         <div>
                           <div className="font-bold text-slate-800">{intern.name}</div>
                           <div className="text-slate-400 text-xs">{intern.domain}</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 font-bold text-purple-600 uppercase text-xs">{intern.internType}</td>
+                      <td className="px-6 py-4 font-bold uppercase text-xs" style={{ color: COLORS.primary.purple }}>{intern.internType}</td>
                       <td className="px-6 py-4 text-slate-600">{intern.currentProject}</td>
                       <td className="px-6 py-4">
-                        <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `${getStatusColor(intern.status)}15`, color: getStatusColor(intern.status) }}>
+                        <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: getStatusBgColor(intern.status), color: getStatusColor(intern.status) }}>
                           {intern.status}
                         </span>
                       </td>
@@ -305,7 +303,7 @@ const StatCard = ({ title, value, sub, icon, color }: any) => (
         <div className="text-3xl font-bold text-[#1e1145]">{value}</div>
         <div className="text-sm font-medium text-slate-500">{title}</div>
       </div>
-      <div className={`${color} p-3 rounded-xl shadow-lg shadow-black/5`}>{icon}</div>
+      <div className="p-3 rounded-xl shadow-lg shadow-black/5" style={{ backgroundColor: color }}>{icon}</div>
     </div>
     <div className="text-xs text-slate-400 font-medium">{sub}</div>
   </div>

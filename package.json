@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "python main.py",
     "frontend": "npm run dev --prefix frontend",
     "backend": "cd backend && set PYTHONIOENCODING=utf-8 && python main.py",
     "dev": "concurrently -n \"frontend,backend\" -c \"blue,green\" \"npm run frontend\" \"npm run backend\" --kill-others"
@@ -22,6 +23,10 @@
   },
   "homepage": "https://github.com/karanry/Interns_lifecycle#readme",
   "devDependencies": {
+    "@types/react-datepicker": "^6.2.0",
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "react-datepicker": "^9.1.0"
   }
 }

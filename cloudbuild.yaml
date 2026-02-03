@@ -26,6 +26,14 @@ steps:
       - "--region=europe-west1"
       - "--platform=managed"
       - "--allow-unauthenticated"
+      - "--port=8000"
+      - "--set-env-vars=PORT=8000,RELOAD=false"
+      - "--timeout=600"
+      - "--cpu=2"
+      - "--memory=1Gi"
+      - "--set-secrets=MONGODB_URL=mongodb-url:latest,SECRET_KEY=jwt-secret:latest,AZURE_SECRET_KEY=azure-secret:latest"
 
 tags:
   - "interns360"
+options:
+  machineType: "N1_HIGHCPU_8"

@@ -548,7 +548,10 @@ def normalize_email(email: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown"""
-    await connect_db()
+    try:
+        await connect_db()
+    except Exception as exc:
+        print(f"⚠️  Startup without database connection: {exc}")
     yield
     await close_db()
 

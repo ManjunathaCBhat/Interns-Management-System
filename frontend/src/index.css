@@ -28,8 +28,8 @@
     --muted: 210 20% 96%;
     --muted-foreground: 215 16% 47%;
     
-    /* Accent - Vibrant Teal */
-    --accent: 173 80% 40%;
+    /* Accent - Pink */
+    --accent: 327 97% 50%;
     --accent-foreground: 0 0% 100%;
     
     /* Destructive */
@@ -39,7 +39,7 @@
     /* Borders & Inputs */
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 173 80% 40%;
+    --ring: 279 80% 48%;
     
     --radius: 0.625rem;
     
@@ -49,10 +49,10 @@
     --status-error: 0 84% 60%;
     --status-info: 199 89% 48%;
     
-    /* Gradient Tokens */
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 47% 20%) 50%, hsl(173 80% 30%) 100%);
+    /* Gradient Tokens - Purple to Pink */
+    --gradient-hero: linear-gradient(135deg, #2D0B59 0%, #5B1AA6 50%, #FF4DA6 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(173 80% 40%) 0%, hsl(173 80% 50%) 100%);
+    --gradient-accent: linear-gradient(135deg, #7C3AED 0%, #FF4DA6 100%);
     
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -62,15 +62,15 @@
     --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
     --shadow-elevated: 0 25px 50px -12px rgb(0 0 0 / 0.25);
     
-    /* Sidebar */
-    --sidebar-background: 222 47% 11%;
+    /* Sidebar - Purple theme */
+    --sidebar-background: 279 80% 30%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 173 80% 40%;
+    --sidebar-primary: #7C3AED;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 18%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 173 80% 40%;
+    --sidebar-accent: #FF4DA6;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: #5B1AA6;
+    --sidebar-ring: #FF4DA6;
   }
 
   .dark {
@@ -92,7 +92,7 @@
     --muted: 222 47% 15%;
     --muted-foreground: 215 20% 65%;
     
-    --accent: 173 80% 40%;
+    --accent: 327 97% 50%;
     --accent-foreground: 0 0% 100%;
     
     --destructive: 0 62% 50%;

@@ -1,5 +1,5 @@
 """
-Interns360 – Backend Models (Normalized & Clean)
+Interns360 – Updated Backend Models (With Missing Fields)
 Roles: admin, scrum_master, intern
 """
 
@@ -51,7 +51,7 @@ class LeaveStatus(str, Enum):
 
 
 # =========================
-# USERS
+# USERS (UPDATED)
 # =========================
 
 class User(BaseModel):
@@ -61,19 +61,19 @@ class User(BaseModel):
     username: str
     email: EmailStr
     name: str
-    employee_id: Optional[str] = None  # Employee ID for registration
-    role: UserRole = UserRole.intern  # Default role is intern
-    hashed_password: Optional[str] = None  # Optional for SSO users
+    employee_id: Optional[str] = None
+    role: UserRole = UserRole.intern
+    hashed_password: Optional[str] = None
     is_active: bool = True
-    is_approved: bool = False  # Requires admin approval
-    azure_oid: Optional[str] = None  # Azure AD Object ID for SSO users
-    auth_provider: Optional[str] = None  # 'azure_ad' or None for password auth
+    is_approved: bool = False
+    azure_oid: Optional[str] = None
+    auth_provider: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =========================
-# INTERNS
+# INTERNS (UPDATED)
 # =========================
 
 class Intern(BaseModel):
@@ -92,6 +92,7 @@ class Intern(BaseModel):
     internType: str
     isPaid: bool = False
     status: str = "active"
+    batch: Optional[str] = None
     currentProject: Optional[str] = None
     mentor: str
     startDate: date
@@ -106,7 +107,7 @@ class Intern(BaseModel):
 
 
 # =========================
-# DSU ENTRIES (CONTENT)
+# DSU ENTRIES (UPDATED)
 # =========================
 
 class DSUEntry(BaseModel):
@@ -121,12 +122,15 @@ class DSUEntry(BaseModel):
     learnings: Optional[str] = None
     status: DSUStatus = DSUStatus.pending
     submittedAt: Optional[datetime] = None
+    reviewedBy: Optional[str] = None
+    reviewedAt: Optional[datetime] = None
+    feedback: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =========================
-# DSU ATTENDANCE (BEHAVIOR)
+# DSU ATTENDANCE
 # =========================
 
 class DSUAttendance(BaseModel):
@@ -161,7 +165,7 @@ class OfficeAttendance(BaseModel):
 
 
 # =========================
-# TASKS
+# TASKS (UPDATED)
 # =========================
 
 class Task(BaseModel):
@@ -177,6 +181,8 @@ class Task(BaseModel):
     assignedBy: str
     dueDate: Optional[date] = None
     completedDate: Optional[date] = None
+    tags: Optional[List[str]] = None
+    comments: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -202,11 +208,115 @@ class Leave(BaseModel):
 
 
 # =========================
+# PROJECTS (NEW)
+# =========================
+
+class Project(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = Field(None, alias="_id")
+    name: str
+    description: Optional[str] = None
+    status: str = "active"
+    techStack: List[str] = []
+    startDate: date
+    endDate: Optional[date] = None
+    mentor: str
+    internIds: List[str] = []
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ProjectCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    techStack: List[str] = []
+    startDate: date
+    endDate: Optional[date] = None
+    mentor: str
+    internIds: List[str] = []
+
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    techStack: Optional[List[str]] = None
+    startDate: Optional[date] = None
+    endDate: Optional[date] = None
+    mentor: Optional[str] = None
+    internIds: Optional[List[str]] = None
+
+
+# =========================
+# PERFORMANCE REVIEWS (NEW)
+# =========================
+
+class PerformanceReview(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = Field(None, alias="_id")
+    internId: str
+    internName: str
+    email: EmailStr
+    isPaid: bool
+    project: str
+    mentor: str
+    reviewType: str
+    reviewDate: date
+    technicalSkills: int
+    communicationSkills: int
+    punctuality: int
+    problemSolving: int
+    teamwork: int
+    overallRating: float
+    performanceReview: str
+    continuationDecision: bool
+    comments: Optional[str] = None
+    reviewedBy: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PerformanceReviewCreate(BaseModel):
+    internId: str
+    internName: str
+    email: EmailStr
+    isPaid: bool
+    project: str
+    mentor: str
+    reviewType: str
+    technicalSkills: int
+    communicationSkills: int
+    punctuality: int
+    problemSolving: int
+    teamwork: int
+    overallRating: float
+    performanceReview: str
+    continuationDecision: bool
+    comments: Optional[str] = None
+    reviewedBy: str
+
+
+class PerformanceReviewUpdate(BaseModel):
+    technicalSkills: Optional[int] = None
+    communicationSkills: Optional[int] = None
+    punctuality: Optional[int] = None
+    problemSolving: Optional[int] = None
+    teamwork: Optional[int] = None
+    overallRating: Optional[float] = None
+    performanceReview: Optional[str] = None
+    continuationDecision: Optional[bool] = None
+    comments: Optional[str] = None
+    reviewType: Optional[str] = None
+    reviewDate: Optional[date] = None
+
+
+# =========================
 # USER SCHEMAS
 # =========================
 
 class UserCreate(BaseModel):
-    """Schema for user registration - role assigned by admin after approval"""
     username: str
     email: EmailStr
     name: str
@@ -227,7 +337,6 @@ class UserResponse(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    """Schema for admin to update user - approve and assign roles"""
     role: Optional[UserRole] = None
     is_approved: Optional[bool] = None
     is_active: Optional[bool] = None
@@ -261,6 +370,7 @@ class InternCreate(BaseModel):
     domain: str
     internType: str
     isPaid: bool = False
+    batch: Optional[str] = None
     mentor: str
     startDate: date
     endDate: date
@@ -280,6 +390,7 @@ class InternUpdate(BaseModel):
     internType: Optional[str] = None
     isPaid: Optional[bool] = None
     status: Optional[str] = None
+    batch: Optional[str] = None
     currentProject: Optional[str] = None
     mentor: Optional[str] = None
     startDate: Optional[date] = None
@@ -306,6 +417,9 @@ class DSUUpdate(BaseModel):
     blockers: Optional[str] = None
     learnings: Optional[str] = None
     status: Optional[DSUStatus] = None
+    reviewedBy: Optional[str] = None
+    reviewedAt: Optional[datetime] = None
+    feedback: Optional[str] = None
 
 
 # =========================
@@ -320,6 +434,8 @@ class TaskCreate(BaseModel):
     priority: str = "medium"
     assignedBy: str
     dueDate: Optional[date] = None
+    tags: Optional[List[str]] = None
+    comments: Optional[str] = None
 
 
 class TaskUpdate(BaseModel):
@@ -330,44 +446,8 @@ class TaskUpdate(BaseModel):
     status: Optional[TaskStatus] = None
     dueDate: Optional[date] = None
     completedDate: Optional[date] = None
-
-
-# =========================
-# PROJECT SCHEMAS
-# =========================
-
-class Project(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    id: Optional[str] = Field(None, alias="_id")
-    name: str
-    description: Optional[str] = None
-    status: str = "active"
-    startDate: date
-    endDate: Optional[date] = None
-    teamMembers: List[str] = []
-    scrumMaster: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class ProjectCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    startDate: date
-    endDate: Optional[date] = None
-    teamMembers: List[str] = []
-    scrumMaster: str
-
-
-class ProjectUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    startDate: Optional[date] = None
-    endDate: Optional[date] = None
-    teamMembers: Optional[List[str]] = None
-    scrumMaster: Optional[str] = None
+    tags: Optional[List[str]] = None
+    comments: Optional[str] = None
 
 
 # =========================

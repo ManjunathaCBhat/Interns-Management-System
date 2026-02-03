@@ -1914,4 +1914,9 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
     reload_enabled = os.getenv("RELOAD", "false").lower() == "true"
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=reload_enabled)
+    # Choose module path based on current working directory
+    if (Path.cwd() / "backend" / "main.py").exists():
+        app_module = "backend.main:app"
+    else:
+        app_module = "main:app"
+    uvicorn.run(app_module, host="0.0.0.0", port=port, reload=reload_enabled)

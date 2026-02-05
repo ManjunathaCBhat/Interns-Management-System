@@ -783,7 +783,7 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/intern/pto"
+        path="/intern/pto-requests"
         element={
           <ProtectedRoute allowedRoles={['intern']}>
             <PTORequest />

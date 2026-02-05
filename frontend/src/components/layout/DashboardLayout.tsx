@@ -361,7 +361,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const internLinks = [
     { to: '/intern', icon: LayoutDashboard, label: 'Overview' },
     { to: '/intern/daily-updates', icon: Calendar, label: 'Daily Updates' },
-    { to: '/intern/pto', icon: Calendar, label: 'PTO/WFH Requests' },
+    { to: '/intern/pto-requests', icon: Calendar, label: 'PTO/WFH Requests' },
     { to: '/intern/profile', icon: User, label: 'Profile' },
   ];
 

@@ -548,7 +548,10 @@ def normalize_email(email: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown"""
-    await connect_db()
+    try:
+        await connect_db()
+    except Exception as exc:
+        print(f"⚠️  Startup without database connection: {exc}")
     yield
     await close_db()
 
@@ -564,7 +567,7 @@ app = FastAPI(
 CORS_ORIGINS = eval(os.getenv("BACKEND_CORS_ORIGINS", '["http://localhost:5173"]'))
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1994,4 +1997,6 @@ async def update_my_profile(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", "8000"))
+    reload_enabled = os.getenv("RELOAD", "false").lower() == "true"
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=reload_enabled)

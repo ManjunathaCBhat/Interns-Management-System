@@ -1909,6 +1909,91 @@ async def list_projects(
     
     return projects
 
+# ==================== INTERN PROFILE ROUTES ====================
+@app.get("/api/v1/interns/me/profile")
+async def get_my_profile(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get current user's intern profile"""
+    # Find intern by email matching current user
+    intern = await db.interns.find_one({"email": current_user.email})
+    
+    if not intern:
+        # Return empty profile if intern doesn't exist yet
+        return {
+            "exists": False,
+            "message": "Profile not found"
+        }
+    
+    intern["_id"] = str(intern["_id"])
+    if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
+        intern["joinedDate"] = intern["joinedDate"].isoformat()
+    
+    return {
+        "exists": True,
+        "data": intern
+    }
+
+
+@app.put("/api/v1/interns/me/profile")
+async def update_my_profile(
+    profile_data: dict,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update current user's intern profile"""
+    # Find existing intern profile
+    intern = await db.interns.find_one({"email": current_user.email})
+    
+    # Prepare update data
+    update_data = {}
+    
+    # Handle date fields
+    if "startDate" in profile_data:
+        update_data["startDate"] = profile_data["startDate"]
+    if "joinedDate" in profile_data:
+        update_data["joinedDate"] = profile_data["joinedDate"]
+    if "endDate" in profile_data:
+        update_data["endDate"] = profile_data["endDate"]
+    
+    # Handle other fields
+    allowed_fields = ["currentProject", "mentor", "skills", "phone", 
+                     "internType", "payType", "college", "degree", "batch"]
+    
+    for field in allowed_fields:
+        if field in profile_data:
+            update_data[field] = profile_data[field]
+    
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
+    if intern:
+        # Update existing profile
+        result = await db.interns.find_one_and_update(
+            {"email": current_user.email},
+            {"$set": update_data},
+            return_document=True
+        )
+    else:
+        # Create new intern profile
+        update_data["email"] = current_user.email
+        update_data["name"] = current_user.name
+        update_data["status"] = "active"
+        update_data["taskCount"] = 0
+        update_data["completedTasks"] = 0
+        update_data["dsuStreak"] = 0
+        update_data["created_at"] = datetime.now(timezone.utc)
+        
+        result_insert = await db.interns.insert_one(update_data)
+        result = await db.interns.find_one({"_id": result_insert.inserted_id})
+    
+    if result:
+        result["_id"] = str(result["_id"])
+        if "joinedDate" in result and isinstance(result["joinedDate"], date):
+            result["joinedDate"] = result["joinedDate"].isoformat()
+        return {"success": True, "data": result}
+    
+    raise HTTPException(status_code=500, detail="Failed to update profile")
 
 if __name__ == "__main__":
     import uvicorn

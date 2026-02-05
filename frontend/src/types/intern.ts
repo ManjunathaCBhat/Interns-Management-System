@@ -52,6 +52,8 @@ export interface Intern {
   completedTasks: number;
   dsuStreak: number;
   skills: string[];
+  batch: string;
+  employeeId?: string; 
 }
 
 export interface DSUEntry {

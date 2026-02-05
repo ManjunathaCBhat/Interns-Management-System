@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import profileService from "@/services/profileService";
 
 const InternProfile: React.FC = () => {
   const { user } = useAuth();
@@ -47,23 +48,23 @@ const InternProfile: React.FC = () => {
   const [college, setCollege] = useState("");
   const [degree, setDegree] = useState("");
 
-  const clearProfileData = () => {
-  if (user?.id) {
-    localStorage.removeItem(`intern_profile_${user.id}`);
-  }
+//   const clearProfileData = () => {
+//   if (user?.id) {
+//     localStorage.removeItem(`intern_profile_${user.id}`);
+//   }
 
-  setStartDate("");
-  setJoinedDate("");
-  setEndDate("");
-  setCurrentProject("");
-  setMentor("");
-  setPhone("");
-  setInternType("Intern");
-  setPayType("Unpaid");
-  setCollege("");
-  setDegree("");
-  setSkills([]);
-};
+//   setStartDate("");
+//   setJoinedDate("");
+//   setEndDate("");
+//   setCurrentProject("");
+//   setMentor("");
+//   setPhone("");
+//   setInternType("Intern");
+//   setPayType("Unpaid");
+//   setCollege("");
+//   setDegree("");
+//   setSkills([]);
+// };
 
   
   // Projects list  (temporary data)
@@ -85,41 +86,42 @@ const InternProfile: React.FC = () => {
 
   //Load Data 
   useEffect(() => {
-    const loadProfileData = () => {
-      try {
-        setIsLoading(true);
+  const loadProfileData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch from backend
+      const response = await profileService.getMyProfile();
+      
+      if (response.exists && response.data) {
+        const data = response.data;
         
-        // Get saved data 
-        const savedProfile = localStorage.getItem(`intern_profile_${user?.id}`);
-        
-        if (savedProfile) {
-          const data = JSON.parse(savedProfile);
-          
-          setStartDate(data.startDate || "");
-          setJoinedDate(data.joinedDate || "");
-          setEndDate(data.endDate || "");
-          setCurrentProject(data.currentProject || "");
-          setMentor(data.mentor || "");
-          setPhone(data.phone || "");
-          setInternType(data.internType || "Intern");
-          setPayType(data.payType || "Unpaid");
-          setCollege(data.college || "");
-          setDegree(data.degree || "");
-          setSkills(data.skills || []);
-        }
-      } catch (error) {
-        console.error("Error loading profile data:", error);
-      } finally {
-        setIsLoading(false);
+        setStartDate(data.startDate || "");
+        setJoinedDate(data.joinedDate || "");
+        setEndDate(data.endDate || "");
+        setCurrentProject(data.currentProject || "");
+        setMentor(data.mentor || "");
+        setPhone(data.phone || "");
+        setInternType(data.internType || "Intern");
+        setPayType(data.payType || "Unpaid");
+        setCollege(data.college || "");
+        setDegree(data.degree || "");
+        setSkills(data.skills || []);
       }
-    };
-
-    if (user?.id) {
-      loadProfileData();
-    } else {
+    } catch (error) {
+      console.error("Error loading profile data:", error);
+      setErrorMessage("Failed to load profile data");
+    } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  };
+
+  if (user?.id) {
+    loadProfileData();
+  } else {
+    setIsLoading(false);
+  }
+}, [user?.id]);
 
   
   const getInitials = (name?: string) => {
@@ -163,16 +165,17 @@ const InternProfile: React.FC = () => {
 
   
 
-  const handleCancel = () => {
-    setErrorMessage("");
-    setSuccessMessage("");
-    setIsEditMode(false);
-    clearProfileData();
-  
-    // Reload data 
-    const savedProfile = localStorage.getItem(`intern_profile_${user?.id}`);
-    if (savedProfile) {
-      const data = JSON.parse(savedProfile);
+  const handleCancel = async () => {
+  setErrorMessage("");
+  setSuccessMessage("");
+  setIsEditMode(false);
+
+  // Reload data from backend
+  try {
+    const response = await profileService.getMyProfile();
+    
+    if (response.exists && response.data) {
+      const data = response.data;
       setStartDate(data.startDate || "");
       setJoinedDate(data.joinedDate || "");
       setEndDate(data.endDate || "");
@@ -185,44 +188,47 @@ const InternProfile: React.FC = () => {
       setDegree(data.degree || "");
       setSkills(data.skills || []);
     }
+  } catch (error) {
+    console.error("Error reloading profile:", error);
+  }
+};
+
+  const handleSave = async () => {
+  setErrorMessage("");
+  setSuccessMessage("");
+
+  const validationError = validateForm();
+  
+  if (validationError) {
+    setErrorMessage(validationError);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    setTimeout(() => {
+      setErrorMessage("");
+    }, 5000);
+    return;
+  }
+
+  // Prepare profile data
+  const profileData = {
+    startDate,
+    joinedDate,
+    endDate,
+    currentProject,
+    mentor,
+    skills,
+    phone,
+    internType,
+    payType,
+    college,
+    degree
   };
 
-  const handleSave = () => {
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    const validationError = validateForm();
+  try {
+    // Save to backend
+    const response = await profileService.updateMyProfile(profileData);
     
-    if (validationError) {
-      setErrorMessage(validationError);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      
-      setTimeout(() => {
-        setErrorMessage("");
-      }, 5000);
-      return;
-    }
-
-    // Save 
-    const profileData = {
-      startDate,
-      joinedDate,
-      endDate,
-      currentProject,
-      mentor,
-      skills,
-      phone,
-      internType,
-      payType,
-      college,
-      degree
-    };
-
-    try {
-      localStorage.setItem(`intern_profile_${user?.id}`, JSON.stringify(profileData));
-      
-      console.log("Profile data saved to localStorage:", profileData);
-
+    if (response.success) {
       setSuccessMessage("Profile updated successfully!");
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
@@ -230,12 +236,14 @@ const InternProfile: React.FC = () => {
         setSuccessMessage("");
         setIsEditMode(false);
       }, 3000);
-    } catch (error) {
-      console.error("Error saving profile:", error);
-      setErrorMessage("Failed to save profile. Please try again.");
-      setTimeout(() => setErrorMessage(""), 5000);
     }
-  };
+  } catch (error: any) {
+    console.error("Error saving profile:", error);
+    const errorMsg = error.response?.data?.detail || "Failed to save profile. Please try again.";
+    setErrorMessage(errorMsg);
+    setTimeout(() => setErrorMessage(""), 5000);
+  }
+};
 
   //Loading 
   if (isLoading) {

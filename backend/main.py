@@ -548,7 +548,10 @@ def normalize_email(email: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown"""
-    await connect_db()
+    try:
+        await connect_db()
+    except Exception as exc:
+        print(f"⚠️  Startup without database connection: {exc}")
     yield
     await close_db()
 
@@ -564,7 +567,7 @@ app = FastAPI(
 CORS_ORIGINS = eval(os.getenv("BACKEND_CORS_ORIGINS", '["http://localhost:5173"]'))
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

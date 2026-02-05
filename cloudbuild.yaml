@@ -7,7 +7,7 @@ steps:
       - "--builder=gcr.io/buildpacks/builder:latest"
       - "--path=."
       - "--env"
-      - "GOOGLE_ENTRYPOINT=python backend/main.py"
+      - "GOOGLE_ENTRYPOINT=python start.py"
 
   - id: "Push"
     name: "gcr.io/cloud-builders/docker"

@@ -1,200 +1,125 @@
 """
 Unified entry point for Intern Lifecycle Manager
-Runs both backend (FastAPI) and frontend (Vite) simultaneously
+Serves both FastAPI backend API and frontend build from a single process
 Usage: python main.py
 """
 
-import subprocess
 import sys
 import os
-import time
-import signal
+import importlib.util
 from pathlib import Path
 
-# Get the root directory
+# Setup paths
 ROOT_DIR = Path(__file__).parent
 BACKEND_DIR = ROOT_DIR / "backend"
-FRONTEND_DIR = ROOT_DIR / "frontend"
+FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"
 
-# Check if required directories exist
 if not BACKEND_DIR.exists():
-    print(f"❌ Backend directory not found: {BACKEND_DIR}")
+    print("Backend directory not found:", BACKEND_DIR)
     sys.exit(1)
 
-if not FRONTEND_DIR.exists():
-    print(f"❌ Frontend directory not found: {FRONTEND_DIR}")
-    sys.exit(1)
+# Add backend to sys.path so its internal imports (database, auth, models) work
+sys.path.insert(0, str(BACKEND_DIR))
+os.chdir(str(BACKEND_DIR))
 
-# Store subprocess references for cleanup
-processes = []
+# Load the backend FastAPI app via importlib to avoid naming conflict with this file
+spec = importlib.util.spec_from_file_location("backend_main", str(BACKEND_DIR / "main.py"))
+backend_module = importlib.util.module_from_spec(spec)
+sys.modules["backend_main"] = backend_module
+spec.loader.exec_module(backend_module)
 
+app = backend_module.app
 
-def signal_handler(sig, frame):
-    """Handle Ctrl+C gracefully"""
-    print("\n\n⏹️  Shutting down...")
-    for process in processes:
-        try:
-            process.terminate()
-            # Wait a bit for graceful shutdown
-            process.wait(timeout=5)
-        except (subprocess.TimeoutExpired, ProcessLookupError):
-            try:
-                process.kill()
-            except:
-                pass
-    print("✅ All services stopped")
-    sys.exit(0)
+# --- Cache-control middleware to prevent stale builds ---
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 
-def start_backend():
-    """Start the FastAPI backend"""
-    print("\n🚀 Starting Backend (FastAPI on port 8000)...")
-    print("=" * 60)
-    
-    # Set environment variables
-    env = os.environ.copy()
-    env['PYTHONIOENCODING'] = 'utf-8'
-    
-    try:
-        process = subprocess.Popen(
-            [sys.executable, "main.py"],
-            cwd=str(BACKEND_DIR),
-            env=env,
-            stdout=sys.stdout,
-            stderr=sys.stderr
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """
+    Sets cache headers so that after a new frontend build, browsers
+    pick up the changes without the user having to clear cache.
+
+    Strategy:
+    - API responses:        no-cache  (always fresh data)
+    - Hashed assets (/assets/*):  1-year cache, immutable
+      (safe because Vite filenames change with content, e.g. index-abc123.js)
+    - HTML / SPA routes:    no-cache  (forces browser to always fetch the
+      latest index.html which points to the new hashed assets)
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+
+        if path.startswith("/api/"):
+            # API: never cache
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+
+        elif path.startswith("/assets/"):
+            # Vite hashed bundles: cache forever (filename changes on rebuild)
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+
+        else:
+            # HTML pages, SPA routes, root: never cache
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+
+        return response
+
+
+app.add_middleware(CacheControlMiddleware)
+
+# --- Serve frontend build if dist folder exists ---
+if FRONTEND_DIST.exists() and (FRONTEND_DIST / "index.html").exists():
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse, JSONResponse
+    from starlette.routing import Route
+
+    # Remove the backend's root GET / route so the frontend is served at /
+    app.router.routes = [
+        r for r in app.router.routes
+        if not (isinstance(r, Route) and r.path == "/" and "GET" in (r.methods or set()))
+    ]
+
+    # Mount /assets for Vite JS/CSS bundles
+    if (FRONTEND_DIST / "assets").exists():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=str(FRONTEND_DIST / "assets")),
+            name="frontend-assets",
         )
-        processes.append(process)
-        print(f"✅ Backend started (PID: {process.pid})")
-        return process
-    except Exception as e:
-        print(f"❌ Failed to start backend: {e}")
-        return None
 
+    # Serve index.html at root
+    @app.get("/", include_in_schema=False)
+    async def serve_root():
+        return FileResponse(str(FRONTEND_DIST / "index.html"))
 
-def start_frontend():
-    """Start the Vite frontend dev server"""
-    print("\n🎨 Starting Frontend (Vite on port 5173)...")
-    print("=" * 60)
-    
-    # Detect package manager - prefer npm as fallback for Windows compatibility
-    package_manager = "npm"
-    
-    # Check if bun exists in PATH and use it if available
-    if (FRONTEND_DIR / "bun.lockb").exists():
-        try:
-            # Test if bun command is available
-            result = subprocess.run(
-                "bun --version",
-                capture_output=True,
-                timeout=5,
-                shell=True
-            )
-            if result.returncode == 0:
-                package_manager = "bun"
-                print(f"📦 Detected {package_manager} package manager")
-            else:
-                print(f"⚠️  bun.lockb found but bun not available, using npm instead")
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            print(f"⚠️  bun.lockb found but bun not installed, using npm instead")
-    
-    # Verify package manager is available
-    try:
-        subprocess.run(
-            f"{package_manager} --version",
-            capture_output=True,
-            timeout=5,
-            shell=True,
-            check=True
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        print(f"❌ Error: {package_manager} is not installed or not in PATH")
-        print("Please install Node.js and npm from https://nodejs.org/")
-        return None
-    
-    # Check if node_modules exists, if not install dependencies
-    if not (FRONTEND_DIR / "node_modules").exists():
-        print(f"\n📥 Installing dependencies with {package_manager}...")
-        try:
-            subprocess.run(
-                f"{package_manager} install",
-                cwd=str(FRONTEND_DIR),
-                check=True,
-                shell=True
-            )
-            print(f"✅ Dependencies installed")
-        except subprocess.CalledProcessError as e:
-            print(f"⚠️  Failed to install dependencies: {e}")
-            print("Continuing anyway...")
-    
-    try:
-        # Use npm run dev to start the dev server
-        process = subprocess.Popen(
-            f"{package_manager} run dev",
-            cwd=str(FRONTEND_DIR),
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-            shell=True
-        )
-        processes.append(process)
-        print(f"✅ Frontend started (PID: {process.pid})")
-        return process
-    except Exception as e:
-        print(f"❌ Failed to start frontend: {e}")
-        return None
+    # SPA catch-all: must be registered last so API routes take priority
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend(full_path: str):
+        # Return proper 404 for unmatched API paths
+        if full_path.startswith("api/"):
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
 
+        # Serve static file from dist if it exists (with path-traversal guard)
+        file_path = (FRONTEND_DIST / full_path).resolve()
+        if file_path.is_file() and str(file_path).startswith(str(FRONTEND_DIST.resolve())):
+            return FileResponse(str(file_path))
 
-def main():
-    """Main entry point"""
-    print("=" * 60)
-    print("🎯 Intern Lifecycle Manager - Full Stack")
-    print("=" * 60)
-    print()
-    print("📍 Backend: http://localhost:8000")
-    print("📍 Frontend: http://localhost:5173")
-    print("📍 API Docs: http://localhost:8000/docs")
-    print()
-    print("Press Ctrl+C to stop all services")
-    print("=" * 60)
-    print()
-    
-    # Set up signal handler for Ctrl+C
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
-    # Start both services
-    backend_process = start_backend()
-    
-    # Give backend a moment to start
-    time.sleep(2)
-    
-    frontend_process = start_frontend()
-    
-    if not backend_process or not frontend_process:
-        print("\n❌ Failed to start all services")
-        signal_handler(None, None)
-        sys.exit(1)
-    
-    print("\n" + "=" * 60)
-    print("✅ All services are running!")
-    print("=" * 60)
-    print()
-    
-    # Wait for processes to complete
-    try:
-        while True:
-            # Check if processes are still running
-            if backend_process.poll() is not None:
-                print(f"\n⚠️  Backend process exited with code {backend_process.returncode}")
-                signal_handler(None, None)
-            
-            if frontend_process.poll() is not None:
-                print(f"\n⚠️  Frontend process exited with code {frontend_process.returncode}")
-                signal_handler(None, None)
-            
-            time.sleep(1)
-    except KeyboardInterrupt:
-        signal_handler(None, None)
+        # Everything else gets index.html (client-side routing)
+        return FileResponse(str(FRONTEND_DIST / "index.html"))
+
+    print(f"Frontend: serving build from {FRONTEND_DIST}")
+else:
+    print("Frontend dist not found, serving API only.")
+    print("Run 'npm run build' in frontend/ to generate the build.")
 
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

@@ -106,6 +106,10 @@ const DailyUpdates: React.FC = () => {
   const blockedTasks = tasks.filter(
     t => normalizeStatus(t.status) === 'BLOCKED'
   ).length;
+  const onHoldTasks = tasks.filter(
+    t => t.status === 'ON_HOLD'
+  ).length;
+
 
   /* ---------------- FILTER ---------------- */
   const filteredTasks =
@@ -187,7 +191,7 @@ const DailyUpdates: React.FC = () => {
       <div className="space-y-6">
 
         {/* ---------------- KPI CARDS ---------------- */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           <KpiCard
             title="Total Tasks"
             value={totalTasks}
@@ -211,6 +215,12 @@ const DailyUpdates: React.FC = () => {
             value={blockedTasks}
             icon={<AlertTriangle className="text-red-600" />}
             onClick={() => setStatusFilter('BLOCKED')}
+          />
+          <KpiCard
+            title="On Hold"
+            value={onHoldTasks}
+            icon={<Clock className="text-gray-600" />}
+            onClick={() => setStatusFilter('ON_HOLD')}
           />
         </div>
 

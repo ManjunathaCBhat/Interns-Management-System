@@ -37,6 +37,10 @@ const injectStyles = () => {
       10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
       20%, 40%, 60%, 80% { transform: translateX(4px); }
     }
+    .input-shake {
+      animation: shake 0.4s ease-in-out;
+    }
+
     @keyframes sad {
       0%, 100% { transform: translateY(0) rotate(0deg); }
       50% { transform: translateY(3px) rotate(-2deg); }
@@ -491,15 +495,22 @@ const LoginPage: React.FC = () => {
         }
         navigate(redirectPath);
       }
-    } else {
-      setHasLoginError(true);
-      setTimeout(() => setHasLoginError(false), 2000);
-      toast({
-        title: "Login failed",
-        description: result.error || "Invalid credentials",
-        variant: "destructive",
-      });
-    }
+    } 
+      else {
+        setErrors({
+          password: "Invalid password",
+        });
+
+        setHasLoginError(true);
+        setTimeout(() => setHasLoginError(false), 400);
+
+        toast({
+          title: "Login failed",
+          description: result.error || "Invalid email or password",
+          variant: "destructive",
+        });
+      }
+
 
     setLoading(false);
   };
@@ -558,7 +569,7 @@ const LoginPage: React.FC = () => {
             mouseX={mouseX}
             mouseY={mouseY}
           />
-
+          <Link to="/" style={{ textDecoration: "none" }}>
           <h1
             style={{
               fontSize: "28px",
@@ -571,6 +582,7 @@ const LoginPage: React.FC = () => {
           >
             Interns<span style={{ color: "#a855f7" }}>360</span>
           </h1>
+          </Link>
           <p
             style={{
               fontSize: "15px",
@@ -634,6 +646,7 @@ const LoginPage: React.FC = () => {
                 placeholder="Enter your email"
                 value={email}
                 onChange={handleInputChange(setEmail, "email")}
+                className={hasLoginError && errors.email ? "input-shake" : ""}
                 style={{
                   width: "100%",
                   padding: "12px 16px",
@@ -667,6 +680,7 @@ const LoginPage: React.FC = () => {
                   placeholder="Enter your password"
                   value={password}
                   onChange={handleInputChange(setPassword, "password")}
+                  className={hasLoginError && errors.password ? "input-shake" : ""}
                   style={{
                     width: "100%",
                     padding: "12px 16px",
@@ -687,6 +701,7 @@ const LoginPage: React.FC = () => {
                     e.currentTarget.style.boxShadow = "none";
                   }}
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -713,14 +728,24 @@ const LoginPage: React.FC = () => {
             </div>
 
             {/* Remember & Forgot */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", fontSize: "13px" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#64748b", cursor: "pointer" }}>
-                <input type="checkbox" style={{ accentColor: "#a855f7", cursor: "pointer" }} /> Remember for 30 days
-              </label>
-              <a href="#" style={{ color: "#a855f7", fontWeight: 600, textDecoration: "none" }}>
-                Forgot password?
-              </a>
-            </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "20px",
+                    fontSize: "13px",
+                  }}
+                >
+                  <Link
+                    to="/forgot-password"
+                    style={{ color: "#a855f7", fontWeight: 600, textDecoration: "none" }}
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+
 
             {/* Login Button */}
             <button

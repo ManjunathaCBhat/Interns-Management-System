@@ -509,6 +509,7 @@
 import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
+import ForgetPassword from "@/pages/forgetpassword";
 import NotFound from '@/pages/NotFound';
 import AzureAuthCallback from '@/pages/AzureAuthCallback';
 import PerformancePage from "./pages/admin/PerformancePage";
@@ -629,6 +630,7 @@ const AppRoutes: React.FC = () => {
           </PublicRoute>
         }
       />
+      <Route path="/forgot-password" element={<ForgetPassword />} />
       <Route path="/auth/azure-callback" element={<AzureAuthCallback />} />
 
       {/* ========== Admin Routes ========== */}

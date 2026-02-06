@@ -40,7 +40,8 @@ from models import (
     Task, TaskCreate, TaskUpdate,
     Project, ProjectCreate, ProjectUpdate,
     PTO, PTOCreate, PTOUpdate,
-    Batch, BatchCreate, BatchUpdate
+    Batch, BatchCreate, BatchUpdate,
+    OfficeAttendanceCreate
 )
 
 # Admin emails that are auto-approved with admin role
@@ -382,6 +383,32 @@ async def get_current_user_profile(current_user: User = Depends(get_current_acti
         is_approved=current_user.is_approved,
         created_at=current_user.created_at
     )
+
+
+@app.get("/api/v1/users")
+async def list_basic_users(
+    role: Optional[str] = Query(None, description="Filter by role"),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List basic user info for admins and scrum masters"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    query = {}
+    if role:
+        query["role"] = role
+
+    users = []
+    async for user in db.users.find(query).sort("created_at", -1):
+        users.append({
+            "id": str(user["_id"]),
+            "name": user.get("name", ""),
+            "email": user.get("email", ""),
+            "role": user.get("role", "intern")
+        })
+
+    return users
 
 
 # ==================== ADMIN USER MANAGEMENT ROUTES ====================
@@ -1181,6 +1208,81 @@ async def update_dsu(
     
     result["_id"] = str(result["_id"])
     return result
+
+
+# ==================== OFFICE ATTENDANCE ROUTES ====================
+@app.post("/api/v1/office-attendance", status_code=201)
+async def upsert_office_attendance(
+    attendance_data: OfficeAttendanceCreate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Mark office attendance (admin/scrum master)"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    date_value = attendance_data.date
+    date_key = date_value.isoformat() if isinstance(date_value, date) else str(date_value)
+
+    filter_query = {
+        "internId": attendance_data.internId,
+        "date": date_key
+    }
+
+    update_data = {
+        "status": attendance_data.status,
+        "remarks": attendance_data.remarks,
+        "markedBy": current_user.username,
+        "updatedAt": datetime.now(timezone.utc)
+    }
+
+    result = await db.office_attendance.update_one(
+        filter_query,
+        {
+            "$set": update_data,
+            "$setOnInsert": {
+                "internId": attendance_data.internId,
+                "date": date_key,
+                "createdAt": datetime.now(timezone.utc)
+            }
+        },
+        upsert=True
+    )
+
+    stored = await db.office_attendance.find_one(filter_query)
+    if not stored and result.upserted_id:
+        stored = await db.office_attendance.find_one({"_id": result.upserted_id})
+
+    if not stored:
+        raise HTTPException(status_code=500, detail="Failed to save attendance")
+
+    stored["_id"] = str(stored["_id"])
+    return stored
+
+
+@app.get("/api/v1/office-attendance")
+async def list_office_attendance(
+    date: Optional[date] = Query(None),
+    intern_id: Optional[str] = Query(None),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List office attendance records (admin/scrum master)"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    query = {}
+    if date:
+        query["date"] = date.isoformat()
+    if intern_id:
+        query["internId"] = intern_id
+
+    records = []
+    async for record in db.office_attendance.find(query).sort("updatedAt", -1):
+        record["_id"] = str(record["_id"])
+        records.append(record)
+
+    return records
 
 
 # ==================== TASK ROUTES ====================

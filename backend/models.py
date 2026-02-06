@@ -164,6 +164,13 @@ class OfficeAttendance(BaseModel):
     updatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class OfficeAttendanceCreate(BaseModel):
+    internId: str
+    date: date
+    status: AttendanceStatus
+    remarks: Optional[str] = None
+
+
 # =========================
 # TASKS (UPDATED)
 # =========================

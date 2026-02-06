@@ -51,9 +51,11 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [blockedDSUs, setBlockedDSUs] = useState<DSUEntry[]>([]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
 
       const [statsResponse, dsusResponse] = await Promise.all([
@@ -67,12 +69,19 @@ const AdminDashboard: React.FC = () => {
       console.error('Error fetching dashboard data:', err);
       setError(err.response?.data?.detail || 'Failed to load dashboard data');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     fetchDashboardData();
+    const intervalId = window.setInterval(() => {
+      fetchDashboardData(true);
+    }, 10000);
+
+    return () => window.clearInterval(intervalId);
   }, []);
 
   const getInitials = (name: string) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || '??';
@@ -181,7 +190,7 @@ const AdminDashboard: React.FC = () => {
         </header>
 
         {/* Live Stats Grid - 6 Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <ClickableStatCard 
             title="Total Interns" 
             value={stats.totalInterns} 
@@ -226,15 +235,6 @@ const AdminDashboard: React.FC = () => {
             color={COLORS.status.warning}
             onClick={() => navigate('/admin/pto-requests')}
             isEmpty={stats.pendingPTOs === 0}
-          />
-          <ClickableStatCard 
-            title="Approved PTO" 
-            value={stats.approvedPTOs} 
-            sub="This month" 
-            icon={<Award className="text-white" />} 
-            color={COLORS.status.success}
-            onClick={() => navigate('/admin/pto-requests')}
-            isEmpty={stats.approvedPTOs === 0}
           />
         </div>
 
@@ -338,25 +338,25 @@ const AdminDashboard: React.FC = () => {
 const ClickableStatCard = ({ title, value, sub, icon, color, onClick, isEmpty }: any) => (
   <div 
     onClick={onClick}
-    className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:-translate-y-1 hover:shadow-lg transition-all cursor-pointer relative overflow-hidden"
+    className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:-translate-y-1 hover:shadow-lg transition-all cursor-pointer relative overflow-hidden"
   >
     {isEmpty && (
       <div className="absolute top-2 right-2">
         <Inbox className="h-4 w-4 text-slate-300" />
       </div>
     )}
-    <div className="flex justify-between items-start mb-4">
+    <div className="flex justify-between items-start mb-3">
       <div>
-        <div className={`text-3xl font-bold ${isEmpty ? 'text-slate-300' : 'text-[#1e1145]'}`}>
+        <div className={`text-2xl font-bold ${isEmpty ? 'text-slate-300' : 'text-[#1e1145]'}`}>
           {value}
         </div>
-        <div className="text-sm font-medium text-slate-500">{title}</div>
+        <div className="text-xs font-semibold text-slate-500">{title}</div>
       </div>
-      <div className="p-3 rounded-xl shadow-lg shadow-black/5" style={{ backgroundColor: isEmpty ? '#e2e8f0' : color }}>
+      <div className="p-2 rounded-lg shadow-md shadow-black/5" style={{ backgroundColor: isEmpty ? '#e2e8f0' : color }}>
         {icon}
       </div>
     </div>
-    <div className="text-xs text-slate-400 font-medium">{sub}</div>
+    <div className="text-[11px] text-slate-400 font-medium">{sub}</div>
   </div>
 );
 

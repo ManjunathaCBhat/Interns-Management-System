@@ -548,24 +548,21 @@ async def get_dashboard_stats(
         raise HTTPException(status_code=403, detail="Not authorized")
     
     try:
-        # 1. Total Active Interns - TRY MULTIPLE QUERIES
-        # First, try counting ALL interns
-        total_interns = await db.interns.count_documents({"role": "intern"})
-        
-        # If you want only active interns, uncomment this:
-        # total_interns = await db.interns.count_documents({"status": "active"})
-        
-        # OR if status field might be different:
-        #total_interns = await db.interns.count_documents({"intern_status": "active"})
-        
-        print(f"📊 Total Interns Count: {total_interns}")  # Debug log
+        # 1. Total Interns (from users collection)
+        total_interns = await db.users.count_documents({
+            "role": {"$in": ["intern", "scrum_master"]},
+            "is_approved": True
+        })
+        active_interns = await db.users.count_documents({
+            "role": {"$in": ["intern", "scrum_master"]},
+            "is_approved": True,
+            "is_active": True
+        })
         
         # 2. DSU Completion (today)
         today_str = date.today().isoformat()
         
         # Count active interns for DSU percentage calculation
-        #active_interns = await db.interns.count_documents({})  # All interns
-        active_interns = await db.interns.count_documents({"status": "active"})
         
         submitted_dsus = await db.dsu_entries.count_documents({
             "date": today_str,
@@ -596,20 +593,20 @@ async def get_dashboard_stats(
         # 4. Task Completion
         total_tasks = await db.tasks.count_documents({})
         completed_tasks = await db.tasks.count_documents({
-            "status": {"$in": ["completed", "done", "finished"]}
+            "status": {"$in": ["completed", "done", "finished", "COMPLETED", "DONE", "FINISHED"]}
         })
         task_completion = round((completed_tasks / total_tasks * 100), 1) if total_tasks > 0 else 0
         
         print(f"📊 Tasks - Total: {total_tasks}, Completed: {completed_tasks}, Completion: {task_completion}%")
         
         # 5. PTO Stats
-        pending_ptos = await db.ptos.count_documents({"status": "pending"})
+        pending_ptos = await db.pto.count_documents({"status": "pending"})
         
         # Approved PTOs this month
         month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        approved_ptos = await db.ptos.count_documents({
+        approved_ptos = await db.pto.count_documents({
             "status": "approved",
-            "createdAt": {"$gte": month_start}
+            "created_at": {"$gte": month_start}
         })
         
         print(f"📊PTOs - Pending: {pending_ptos}, Approved: {approved_ptos}")

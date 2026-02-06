@@ -542,84 +542,123 @@ async def get_dashboard_stats(
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Get comprehensive admin dashboard statistics"""
+    """Fetch real-time dashboard statistics"""
+    
     if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    today = date.today().isoformat()
-    
-    # Fetch all data in parallel
-    total_interns = await db.interns.count_documents({})
-    active_interns = await db.interns.count_documents({"status": "active"})
-    project_interns = await db.interns.count_documents({"internType": "project"})
-    rs_interns = await db.interns.count_documents({"internType": "rs"})
-    paid_interns = await db.interns.count_documents({"isPaid": True})
-    
-    total_tasks = await db.tasks.count_documents({})
-    completed_tasks = await db.tasks.count_documents({"status": "DONE"})
-    
-    # DSU stats for today
-    todays_dsus = await db.dsu_entries.count_documents({"date": today})
-    submitted_dsus = await db.dsu_entries.count_documents({"date": today, "status": "submitted"})
-    
-    # PTO stats
-    pending_ptos = await db.pto.count_documents({"status": "pending"})
-    approved_ptos = await db.pto.count_documents({"status": "approved"})
-    
-    # Calculate DSU completion percentage
-    dsu_completion = 0
-    if active_interns > 0:
-        dsu_completion = round((submitted_dsus / active_interns) * 100)
-    
-    # Task completion percentage
-    task_completion = 0
-    if total_tasks > 0:
-        task_completion = round((completed_tasks / total_tasks) * 100)
-    
-    # Batch stats
-    total_batches = await db.batches.count_documents({})
-    active_batches = await db.batches.count_documents({"status": "active"})
-    upcoming_batches = await db.batches.count_documents({"status": "upcoming"})
-    
-    return {
-        "totalInterns": total_interns,
-        "activeInterns": active_interns,
-        "projectInterns": project_interns,
-        "rsInterns": rs_interns,
-        "paidInterns": paid_interns,
-        "totalTasks": total_tasks,
-        "completedTasks": completed_tasks,
-        "taskCompletion": task_completion,
-        "submittedDSUs": submitted_dsus,
-        "pendingDSUs": active_interns - submitted_dsus,
-        "dsuCompletion": dsu_completion,
-        "pendingPTOs": pending_ptos,
-        "approvedPTOs": approved_ptos,
-        "totalBatches": total_batches,
-        "activeBatches": active_batches,
-        "upcomingBatches": upcoming_batches,
-    }
+    try:
+        # 1. Total Active Interns - TRY MULTIPLE QUERIES
+        # First, try counting ALL interns
+        total_interns = await db.interns.count_documents({"role": "intern"})
+        
+        # If you want only active interns, uncomment this:
+        # total_interns = await db.interns.count_documents({"status": "active"})
+        
+        # OR if status field might be different:
+        #total_interns = await db.interns.count_documents({"intern_status": "active"})
+        
+        print(f"📊 Total Interns Count: {total_interns}")  # Debug log
+        
+        # 2. DSU Completion (today)
+        today_str = date.today().isoformat()
+        
+        # Count active interns for DSU percentage calculation
+        #active_interns = await db.interns.count_documents({})  # All interns
+        active_interns = await db.interns.count_documents({"status": "active"})
+        
+        submitted_dsus = await db.dsu_entries.count_documents({
+            "date": today_str,
+            "status": {"$in": ["submitted", "approved", "completed"]}
+        })
+        
+        pending_dsus = await db.dsu_entries.count_documents({
+            "date": today_str,
+            "status": "pending"
+        })
+        
+        dsu_completion = round((submitted_dsus / active_interns * 100), 1) if active_interns > 0 else 0
+        
+        print(f"📊 DSU Stats - Submitted: {submitted_dsus}, Pending: {pending_dsus}, Completion: {dsu_completion}%")
+        
+        # 3. Intern Types (Project / RS)
+        # First try with all interns
+        project_interns = await db.interns.count_documents({"internType": "project"})
+        rs_interns = await db.interns.count_documents({"internType": "rs"})
+        
+        # If both are 0, try different field names:
+        if project_interns == 0 and rs_interns == 0:
+            project_interns = await db.interns.count_documents({"type": "project"})
+            rs_interns = await db.interns.count_documents({"type": "rs"})
+        
+        print(f"📊 Intern Types - Project: {project_interns}, RS: {rs_interns}")
+        
+        # 4. Task Completion
+        total_tasks = await db.tasks.count_documents({})
+        completed_tasks = await db.tasks.count_documents({
+            "status": {"$in": ["completed", "done", "finished"]}
+        })
+        task_completion = round((completed_tasks / total_tasks * 100), 1) if total_tasks > 0 else 0
+        
+        print(f"📊 Tasks - Total: {total_tasks}, Completed: {completed_tasks}, Completion: {task_completion}%")
+        
+        # 5. PTO Stats
+        pending_ptos = await db.ptos.count_documents({"status": "pending"})
+        
+        # Approved PTOs this month
+        month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        approved_ptos = await db.ptos.count_documents({
+            "status": "approved",
+            "createdAt": {"$gte": month_start}
+        })
+        
+        print(f"📊PTOs - Pending: {pending_ptos}, Approved: {approved_ptos}")
+        
+        # 6. Active Batches
+        active_batches = await db.batches.count_documents({"status": "active"})
+        
+        print(f"📊 Batches - Active: {active_batches}")
+        
+        return {
+            "totalInterns": total_interns,
+            "dsuCompletion": dsu_completion,
+            "submittedDSUs": submitted_dsus,
+            "pendingDSUs": pending_dsus,
+            "projectInterns": project_interns,
+            "rsInterns": rs_interns,
+            "taskCompletion": task_completion,
+            "completedTasks": completed_tasks,
+            "totalTasks": total_tasks,
+            "pendingPTOs": pending_ptos,
+            "approvedPTOs": approved_ptos,
+            "activeBatches": active_batches
+        }
+        
+    except Exception as e:
+        print(f"❌ Dashboard Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
 
-
-@app.get("/api/v1/admin/dashboard/recent-interns")
-async def get_recent_interns(
-    limit: int = 5,
-    db = Depends(get_database),
-    current_user: User = Depends(get_current_active_user)
-):
-    """Get recently added interns"""
-    if current_user.role not in ["admin", "scrum_master"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+# @app.get("/api/v1/admin/dashboard/recent-interns")
+# async def get_recent_interns(
+#     limit: int = 5,
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """Get recently added interns"""
+#     if current_user.role not in ["admin", "scrum_master"]:
+#         raise HTTPException(status_code=403, detail="Not authorized")
     
-    interns = []
-    async for intern in db.interns.find().sort("created_at", -1).limit(limit):
-        intern["_id"] = str(intern["_id"])
-        # Convert date to ISO string if needed
-        if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
-            intern["joinedDate"] = intern["joinedDate"].isoformat()
-        interns.append(intern)
+#     interns = []
+#     async for intern in db.interns.find().sort("created_at", -1).limit(limit):
+#         intern["_id"] = str(intern["_id"])
+#         # Convert date to ISO string if needed
+#         if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
+#             intern["joinedDate"] = intern["joinedDate"].isoformat()
+#         interns.append(intern)
     
-    return interns
+#     return interns
 
 
 @app.get("/api/v1/admin/dashboard/blocked-interns")

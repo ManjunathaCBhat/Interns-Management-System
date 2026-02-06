@@ -56,6 +56,7 @@ const HomePage: React.FC = () => {
                style={{ background: 'radial-gradient(circle at center, #3B0F6F 0%, #2D0B59 100%)' }}>
         
         {/* Hero Content */}
+          
         <h1 className="mb-6 max-w-4xl text-5xl font-extrabold tracking-tight md:text-7xl">
           Interns<span className="text-[#FF4DA6]">360</span>
         </h1>

@@ -1005,49 +1005,65 @@ async def get_dashboard_stats(
 ):
     """Fetch real-time dashboard statistics"""
     
-    # Check authorization
     if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     try:
-        # Fetch real-time data from MongoDB
-        total_interns = await db.interns.count_documents({"status": "active"})
+        # 1. Total Active Interns - TRY MULTIPLE QUERIES
+        # First, try counting ALL interns
+        total_interns = await db.interns.count_documents({"role": "intern"})
         
-        # DSU Completion (today)
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        total_active = await db.interns.count_documents({"status": "active"})
+        # If you want only active interns, uncomment this:
+        # total_interns = await db.interns.count_documents({"status": "active"})
         
-        # Use today's date as ISO string (matching your blocked-dsus format)
+        # OR if status field might be different:
+        #total_interns = await db.interns.count_documents({"intern_status": "active"})
+        
+        print(f"📊 Total Interns Count: {total_interns}")  # Debug log
+        
+        # 2. DSU Completion (today)
         today_str = date.today().isoformat()
         
-        submitted_dsus = await db.dsu_entries.count_documents({  # ← Changed to dsu_entries
+        # Count active interns for DSU percentage calculation
+        #active_interns = await db.interns.count_documents({})  # All interns
+        active_interns = await db.interns.count_documents({"status": "active"})
+        
+        submitted_dsus = await db.dsu_entries.count_documents({
             "date": today_str,
-            "status": "submitted"
+            "status": {"$in": ["submitted", "approved", "completed"]}
         })
         
-        pending_dsus = await db.dsu_entries.count_documents({  # ← Changed to dsu_entries
+        pending_dsus = await db.dsu_entries.count_documents({
             "date": today_str,
             "status": "pending"
         })
         
-        dsu_completion = round((submitted_dsus / total_active * 100), 1) if total_active > 0 else 0
+        dsu_completion = round((submitted_dsus / active_interns * 100), 1) if active_interns > 0 else 0
         
-        # Intern Types
-        project_interns = await db.interns.count_documents({
-            "internType": "project", 
-            "status": "active"
-        })
-        rs_interns = await db.interns.count_documents({
-            "internType": "rs", 
-            "status": "active"
-        })
+        print(f"📊 DSU Stats - Submitted: {submitted_dsus}, Pending: {pending_dsus}, Completion: {dsu_completion}%")
         
-        # Task Completion
+        # 3. Intern Types (Project / RS)
+        # First try with all interns
+        project_interns = await db.interns.count_documents({"internType": "project"})
+        rs_interns = await db.interns.count_documents({"internType": "rs"})
+        
+        # If both are 0, try different field names:
+        if project_interns == 0 and rs_interns == 0:
+            project_interns = await db.interns.count_documents({"type": "project"})
+            rs_interns = await db.interns.count_documents({"type": "rs"})
+        
+        print(f"📊 Intern Types - Project: {project_interns}, RS: {rs_interns}")
+        
+        # 4. Task Completion
         total_tasks = await db.tasks.count_documents({})
-        completed_tasks = await db.tasks.count_documents({"status": "completed"})
+        completed_tasks = await db.tasks.count_documents({
+            "status": {"$in": ["completed", "done", "finished"]}
+        })
         task_completion = round((completed_tasks / total_tasks * 100), 1) if total_tasks > 0 else 0
         
-        # PTO Stats
+        print(f"📊 Tasks - Total: {total_tasks}, Completed: {completed_tasks}, Completion: {task_completion}%")
+        
+        # 5. PTO Stats
         pending_ptos = await db.ptos.count_documents({"status": "pending"})
         
         # Approved PTOs this month
@@ -1057,8 +1073,12 @@ async def get_dashboard_stats(
             "createdAt": {"$gte": month_start}
         })
         
-        # Active Batches
+        print(f"📊PTOs - Pending: {pending_ptos}, Approved: {approved_ptos}")
+        
+        # 6. Active Batches
         active_batches = await db.batches.count_documents({"status": "active"})
+        
+        print(f"📊 Batches - Active: {active_batches}")
         
         return {
             "totalInterns": total_interns,
@@ -1080,7 +1100,6 @@ async def get_dashboard_stats(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
-
 
 # @app.get("/api/v1/admin/dashboard/recent-interns")
 # async def get_recent_interns(

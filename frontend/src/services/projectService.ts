@@ -10,5 +10,4 @@ export const projectService = {
   async create(data: Partial<Project>) {
     const response = await apiClient.post('/projects/', data);
     return response.data;
-  }
-};
+  }}

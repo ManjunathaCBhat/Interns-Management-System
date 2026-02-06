@@ -28,7 +28,7 @@ export interface PTOListParams {
 }
 
 export const ptoService = {
-  async create(data: Partial<PTORequest>): Promise<PTORequest> {
+  async create(data: PTORequest): Promise<PTORequest> {
     const response = await apiClient.post('/pto/', data);
     return response.data;
   },

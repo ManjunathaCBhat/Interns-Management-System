@@ -9,7 +9,8 @@ export interface PTORequest {
   name: string;
   email: string;
   team: string;
-  leaveType: 'casual' | 'sick' | 'emergency';
+  type: 'PTO' | 'WFH';
+  leaveType?: 'casual' | 'sick' | 'emergency';
   startDate: string;
   endDate: string;
   numberOfDays: number;
@@ -25,6 +26,7 @@ export interface PTORequest {
 export interface PTOListParams {
   intern_id?: string;
   status?: string;
+  type?: 'PTO' | 'WFH';
 }
 
 export const ptoService = {
@@ -37,6 +39,7 @@ export const ptoService = {
     const searchParams = new URLSearchParams();
     if (params?.intern_id) searchParams.append('intern_id', params.intern_id);
     if (params?.status) searchParams.append('status', params.status);
+    if (params?.type) searchParams.append('type', params.type);
     
     const response = await apiClient.get(`/pto/?${searchParams}`);
     return response.data;

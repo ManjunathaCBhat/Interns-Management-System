@@ -47,6 +47,7 @@ async def connect_db():
         
         await db.db.dsu_entries.create_index([("internId", ASCENDING), ("date", DESCENDING)])
         await db.db.tasks.create_index([("internId", ASCENDING)])
+        await db.db.pto.create_index([("internId", ASCENDING), ("status", ASCENDING), ("type", ASCENDING)])
         await db.db.projects.create_index("name", unique=True)
         
         print("✅ Database indexes created")

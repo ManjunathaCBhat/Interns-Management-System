@@ -83,7 +83,7 @@ const PTORequest: React.FC = () => {
   });
 
   const fetchRequests = async () => {
-    const data = await ptoService.getAll();
+    const data = await ptoService.getAll({ intern_id: user?.id });
     setRequests(Array.isArray(data) ? data : []);
     setLoading(false);
   };
@@ -103,6 +103,7 @@ const PTORequest: React.FC = () => {
         name: user.name,
         email: user.email,
         team: 'Engineering',
+        type: 'PTO',
         leaveType: formData.leaveType,
         startDate: formData.startDate,
         endDate: formData.endDate,
@@ -117,8 +118,21 @@ const PTORequest: React.FC = () => {
     }
 
     if (activeTab === "WFH") {
+      await ptoService.create({
+        internId: user.id,
+        name: user.name,
+        email: user.email,
+        team: 'Engineering',
+        type: 'WFH',
+        startDate: wfhData.startDate,
+        endDate: wfhData.endDate,
+        numberOfDays: calculateDays(wfhData.startDate, wfhData.endDate),
+        reason: wfhData.reason,
+        status: 'pending',
+      });
+      setWfhData({ reason: '', startDate: '', endDate: '' });
       setOpen(false);
-      alert("WFH request submitted (demo)");
+      fetchRequests();
     }
   };
 
@@ -132,6 +146,9 @@ const PTORequest: React.FC = () => {
         req.status === "rejected" ? "red" :
         "orange"
     }));
+
+  const ptoRequests = requests.filter((req) => (req.type || 'PTO') === 'PTO');
+  const wfhRequests = requests.filter((req) => req.type === 'WFH');
 
   if (loading) return <DashboardLayout><PageLoader message="Loading PTO..." /></DashboardLayout>;
 
@@ -169,7 +186,7 @@ const PTORequest: React.FC = () => {
               <FullCalendar
                 plugins={[dayGridPlugin, interactionPlugin]}
                 initialView="dayGridMonth"
-                events={tab==="PTO"?toCalendarEvents(requests):[]}
+                events={tab==="PTO" ? toCalendarEvents(ptoRequests) : toCalendarEvents(wfhRequests)}
                 nowIndicator
                 height="550px"
                 aspectRatio={1.8}

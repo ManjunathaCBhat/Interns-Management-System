@@ -48,25 +48,6 @@ const InternProfile: React.FC = () => {
   const [college, setCollege] = useState("");
   const [degree, setDegree] = useState("");
 
-//   const clearProfileData = () => {
-//   if (user?.id) {
-//     localStorage.removeItem(`intern_profile_${user.id}`);
-//   }
-
-//   setStartDate("");
-//   setJoinedDate("");
-//   setEndDate("");
-//   setCurrentProject("");
-//   setMentor("");
-//   setPhone("");
-//   setInternType("Intern");
-//   setPayType("Unpaid");
-//   setCollege("");
-//   setDegree("");
-//   setSkills([]);
-// };
-
-  
   // Projects list  (temporary data)
   const [projects, setProjects] = useState<string[]>([
     "Interns360 Management System",

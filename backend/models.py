@@ -460,27 +460,39 @@ class PTO(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     internId: str
     type: str
+    leaveType: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    team: Optional[str] = None
     startDate: date
     endDate: date
     numberOfDays: int
     status: LeaveStatus = LeaveStatus.pending
     approvedBy: Optional[str] = None
+    approvedAt: Optional[datetime] = None
     reason: Optional[str] = None
-    createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    comments: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PTOCreate(BaseModel):
     internId: str
     type: str
+    leaveType: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    team: Optional[str] = None
     startDate: date
     endDate: date
+    numberOfDays: Optional[int] = None
     reason: Optional[str] = None
 
 
 class PTOUpdate(BaseModel):
     status: Optional[LeaveStatus] = None
     approvedBy: Optional[str] = None
+    comments: Optional[str] = None
 
 
 # =========================

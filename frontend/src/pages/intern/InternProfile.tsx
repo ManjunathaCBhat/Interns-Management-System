@@ -3,6 +3,8 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import profileService from "@/services/profileService";
+import { projectService } from "@/services/projectService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const InternProfile: React.FC = () => {
   const { user } = useAuth();
@@ -48,13 +50,7 @@ const InternProfile: React.FC = () => {
   const [college, setCollege] = useState("");
   const [degree, setDegree] = useState("");
 
-  // Projects list  (temporary data)
-  const [projects, setProjects] = useState<string[]>([
-    "Interns360 Management System",
-    "E-commerce Platform",
-    "Mobile App Development",
-    "AI Chatbot Project"
-  ]);
+  const [projects, setProjects] = useState<string[]>([]);
   
   // Skills
   const allSkills = ["React", "TypeScript", "SQL", "Node.js", "Python", "Java", "JavaScript"];
@@ -71,8 +67,13 @@ const InternProfile: React.FC = () => {
     try {
       setIsLoading(true);
       
-      // Fetch from backend
-      const response = await profileService.getMyProfile();
+      const [response, assignedProjects] = await Promise.all([
+        profileService.getMyProfile(),
+        projectService.getAssigned(),
+      ]);
+
+      const projectNames = assignedProjects.map((p) => p.name);
+      setProjects(projectNames);
       
       if (response.exists && response.data) {
         const data = response.data;
@@ -80,7 +81,11 @@ const InternProfile: React.FC = () => {
         setStartDate(data.startDate || "");
         setJoinedDate(data.joinedDate || "");
         setEndDate(data.endDate || "");
-        setCurrentProject(data.currentProject || "");
+        const current = data.currentProject || "";
+        setCurrentProject(current);
+        if (current && !projectNames.includes(current)) {
+          setProjects((prev) => [...prev, current]);
+        }
         setMentor(data.mentor || "");
         setPhone(data.phone || "");
         setInternType(data.internType || "Intern");
@@ -230,10 +235,11 @@ const InternProfile: React.FC = () => {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="text-4xl mb-4">⏳</div>
-            <p className="text-gray-600">Loading profile...</p>
+        <div className="space-y-6">
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <Skeleton className="h-96 w-full lg:col-span-2" />
+            <Skeleton className="h-96 w-full lg:col-span-3" />
           </div>
         </div>
       </DashboardLayout>

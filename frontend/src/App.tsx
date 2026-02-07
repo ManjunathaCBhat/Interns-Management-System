@@ -5,6 +5,7 @@ import ForgetPassword from "@/pages/forgetpassword";
 import NotFound from '@/pages/NotFound';
 import AzureAuthCallback from '@/pages/AzureAuthCallback';
 import PerformancePage from "./pages/admin/PerformancePage";
+import MentorHub from '@/pages/mentor/MentorHub';
 
 // Admin Pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
@@ -15,6 +16,9 @@ import DSUBoard from '@/pages/admin/DSUBoard';
 import TasksOverview from '@/pages/admin/TasksOverview';
 import PTOApproval from '@/pages/admin/PTOApproval';
 import ReferenceManagement from '@/pages/admin/ReferenceManagement';
+import BatchManagement from '@/pages/admin/BatchManagement';
+import CreateBatch from '@/pages/admin/CreateBatch';
+import ProjectManagement from '@/pages/admin/ProjectManagement';
 
 // Scrum Master Pages
 import ScrumMasterDashboard from '@/pages/scrum_master/ScrumMasterDashboard';
@@ -198,6 +202,30 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/batches"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <BatchManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/batches/new"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <CreateBatch />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/projects"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <ProjectManagement />
+          </ProtectedRoute>
+        }
+      />
       {/* ✅ NEW: Performance Route */}
       <Route
         path="/admin/performance"
@@ -238,6 +266,15 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute allowedRoles={['scrum_master']}>
             <InternProfile />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/mentor"
+        element={
+          <ProtectedRoute allowedRoles={['intern', 'scrum_master', 'admin']}>
+            <MentorHub />
           </ProtectedRoute>
         }
       />

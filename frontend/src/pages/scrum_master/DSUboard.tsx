@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import { Skeleton } from '@/components/ui/skeleton';
 import apiClient from '@/services/apiClient';
 
 /* ================= TYPES ================= */
@@ -47,6 +48,7 @@ interface DSU {
   today: string;
   blockers: string;
   learnings: string;
+  status?: string;
 }
 
 interface Project {
@@ -161,9 +163,9 @@ const getInitials = (name: string) => {
 
 const getAvatarColor = (name: string) => {
   const colors = [
-    "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899",
-    "#f43f5e", "#ef4444", "#f97316", "#eab308", "#84cc16",
-    "#22c55e", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6",
+    "#0F0E47", "#272757", "#505081", "#8686AC", "#6D6D9A",
+    "#5A5A86", "#3F3F72", "#2C2C5E", "#1E1E54", "#4C4C7A",
+    "#7A7AA3", "#59598A", "#3A3A6B", "#515180", "#2B2B58",
   ];
   const index = name.charCodeAt(0) % colors.length;
   return colors[index];
@@ -843,32 +845,24 @@ const Index: React.FC = () => {
     border: "2px solid rgba(239, 68, 68, 0.3)",
   };
 
-  const loadingContainerStyle: React.CSSProperties = {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "linear-gradient(135deg, #1e1145 0%, #2d1b69 100%)",
-    gap: "20px",
-  };
-
-  const spinnerStyle: React.CSSProperties = {
-    width: "56px",
-    height: "56px",
-    borderRadius: "50%",
-    border: "4px solid rgba(168, 85, 247, 0.2)",
-    borderTopColor: "#a855f7",
-    animation: "spin 1s linear infinite",
-  };
-
   if (loading) {
     return (
-      <div style={loadingContainerStyle}>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <div style={spinnerStyle} />
-        <p style={{ fontSize: "15px", color: "rgba(255,255,255,0.7)" }}>Loading DSU Board...</p>
-      </div>
+      <DashboardLayout>
+        <div className="space-y-6 p-6">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-7 w-56" />
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="h-9 w-24" />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-64 w-full" />
+            ))}
+          </div>
+        </div>
+      </DashboardLayout>
     );
   }
 

@@ -33,6 +33,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /* ---------------- TYPES ---------------- */
 
@@ -86,9 +87,13 @@ const DailyUpdates: React.FC = () => {
 
   const fetchData = async () => {
     setLoading(true);
+    const projectLoader = user?.role === 'intern'
+      ? projectService.getAssigned()
+      : projectService.getAll();
+
     const [tasksData, projectsData] = await Promise.all([
       taskService.getAll({ intern_id: user?.id }),
-      projectService.getAll(),
+      projectLoader,
     ]);
     setTasks(tasksData);
     setProjects(projectsData);
@@ -181,7 +186,17 @@ const DailyUpdates: React.FC = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex justify-center py-20">Loading...</div>
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Skeleton key={index} className="h-24 w-full" />
+            ))}
+          </div>
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            <Skeleton className="h-96 w-full" />
+            <Skeleton className="h-96 w-full" />
+          </div>
+        </div>
       </DashboardLayout>
     );
   }
@@ -348,7 +363,7 @@ const DailyUpdates: React.FC = () => {
 
                 <Button
                   type="submit"
-                  className="w-full bg-purple-700 hover:bg-purple-800"
+                  className="w-full bg-[#0F0E47] hover:bg-[#272757]"
                 >
                   Submit Task
                 </Button>

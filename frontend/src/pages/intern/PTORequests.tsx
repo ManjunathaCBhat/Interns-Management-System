@@ -55,7 +55,7 @@ const PTORequests: React.FC = () => {
       <div className="space-y-6">
 
         {/* ===== Header Banner ===== */}
-        <div className="rounded-2xl p-6 text-white bg-gradient-to-r from-purple-600 via-pink-500 to-purple-700">
+        <div className="rounded-2xl p-6 text-white bg-gradient-to-r from-[#0F0E47] via-[#272757] to-[#505081]">
           <div className="flex items-center gap-2 text-sm opacity-90">
             <Umbrella className="h-4 w-4" />
             Request PTO / WFH
@@ -160,9 +160,9 @@ const PTORequests: React.FC = () => {
 
             {/* =success message=*/}
             {submitted && (
-              <div className="flex gap-2 bg-purple-50 border border-purple-200 p-3 rounded-lg">
-                <Clock className="h-4 w-4 text-purple-600 mt-0.5" />
-                <p className="text-purple-700 text-sm">
+              <div className="flex gap-2 bg-[#505081]/10 border border-[#505081]/30 p-3 rounded-lg">
+                <Clock className="h-4 w-4 text-[#0F0E47] mt-0.5" />
+                <p className="text-[#272757] text-sm">
                   This request has been sent to the <b>Scrum Master</b> and marked as{" "}
                   <b>Pending</b>.
                 </p>
@@ -172,7 +172,7 @@ const PTORequests: React.FC = () => {
             {/*= Submit Button=*/}
             <Button
               onClick={handleSubmit}
-              className="w-full text-white font-semibold py-2 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600"
+              className="w-full text-white font-semibold py-2 bg-gradient-to-r from-[#0F0E47] to-[#505081] hover:from-[#272757] hover:to-[#505081]"
             >
               Request
             </Button>

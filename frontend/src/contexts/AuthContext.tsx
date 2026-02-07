@@ -17,6 +17,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const inactivityLimitMs = 6 * 60 * 60 * 1000;
 
   useEffect(() => {
     // Check if user is already logged in
@@ -52,6 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Store token and user data
       localStorage.setItem('ilm_token', access_token);
       localStorage.setItem('ilm_user', JSON.stringify(user));
+      localStorage.setItem('ilm_last_activity', Date.now().toString());
       setUser(user);
       
       return { success: true };
@@ -81,6 +83,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     localStorage.removeItem('ilm_token');
     localStorage.removeItem('ilm_user');
+    localStorage.removeItem('ilm_last_activity');
     setUser(null);
     // Redirect to login page instead of using window.location for cleaner SPA behavior
   };
@@ -88,8 +91,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const setAuthUser = (userData: User, token: string) => {
     localStorage.setItem('ilm_token', token);
     localStorage.setItem('ilm_user', JSON.stringify(userData));
+    localStorage.setItem('ilm_last_activity', Date.now().toString());
     setUser(userData);
   };
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const updateActivity = () => {
+      localStorage.setItem('ilm_last_activity', Date.now().toString());
+    };
+
+    const checkInactivity = () => {
+      const last = Number(localStorage.getItem('ilm_last_activity') || 0);
+      if (last && Date.now() - last > inactivityLimitMs) {
+        localStorage.setItem('ilm_force_logout', Date.now().toString());
+        logout();
+      }
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'ilm_force_logout') {
+        logout();
+      }
+    };
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach((event) => window.addEventListener(event, updateActivity, true));
+    window.addEventListener('storage', handleStorage);
+
+    updateActivity();
+    const interval = window.setInterval(checkInactivity, 60 * 1000);
+
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, updateActivity, true));
+      window.removeEventListener('storage', handleStorage);
+      window.clearInterval(interval);
+    };
+  }, [user, inactivityLimitMs]);
 
   return (
     <AuthContext.Provider

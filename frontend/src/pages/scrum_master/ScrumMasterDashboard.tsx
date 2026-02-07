@@ -14,6 +14,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import apiClient from '@/services/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, getStatusColor, getStatusBgColor } from '@/config/colors';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // --- Interfaces ---
 interface DashboardStats {
@@ -118,8 +119,14 @@ const ScrumMasterDashboard: React.FC = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-full items-center justify-center">
-          <RefreshCw className="h-8 w-8 animate-spin text-purple-600" />
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-full" />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-32 w-full" />
+            ))}
+          </div>
+          <Skeleton className="h-64 w-full" />
         </div>
       </DashboardLayout>
     );
@@ -267,7 +274,7 @@ const ScrumMasterDashboard: React.FC = () => {
                     className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-all"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-sm font-semibold">
+                      <div className="w-10 h-10 rounded-full bg-[#8686AC]/20 flex items-center justify-center text-[#0F0E47] text-sm font-semibold">
                         {getInitials(dsu.internName || 'UN')}
                       </div>
                       <div>

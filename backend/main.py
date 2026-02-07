@@ -8,9 +8,12 @@ from contextlib import asynccontextmanager
 from datetime import datetime, date, timezone
 from typing import Optional, List
 from bson import ObjectId
+from pydantic import BaseModel, EmailStr
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from urllib.parse import quote
+import httpx
 
 # Load .env from backend folder first, then from root folder
 env_path = Path(__file__).parent / '.env'
@@ -41,7 +44,9 @@ from models import (
     Project, ProjectCreate, ProjectUpdate,
     PTO, PTOCreate, PTOUpdate,
     Batch, BatchCreate, BatchUpdate,
-    OfficeAttendanceCreate
+    BatchYear, BatchMonth, Organization,
+    OfficeAttendanceCreate,
+    MentorRequestCreate, MentorRequestUpdate
 )
 
 # Admin emails that are auto-approved with admin role
@@ -51,10 +56,131 @@ ADMIN_EMAILS = [
     "karan.ry@cirruslabs.io"
 ]
 
+RESET_SENDER_EMAIL = os.getenv("SENDER_MAIL")
+
 
 def normalize_email(email: str) -> str:
     """Normalize email to lowercase for consistent storage and lookup"""
     return email.lower().strip() if email else email
+
+
+def parse_date(value: object) -> date:
+    """Parse date or datetime inputs from API payloads."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+        except ValueError:
+            return date.fromisoformat(value)
+    raise ValueError("Unsupported date format")
+
+
+def parse_object_id(value: str, label: str) -> ObjectId:
+    """Validate and convert a string to ObjectId."""
+    try:
+        return ObjectId(value)
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Invalid {label} id")
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class BatchYearCreate(BaseModel):
+    year: int
+    label: Optional[str] = None
+
+
+class BatchMonthCreate(BaseModel):
+    name: str
+    order: int
+
+
+class OrganizationCreate(BaseModel):
+    name: str
+
+
+class ProjectAssign(BaseModel):
+    internIds: List[str]
+
+
+async def get_graph_access_token() -> str:
+    tenant_id = os.getenv("tenant_id")
+    client_id = os.getenv("client_id")
+    client_secret = os.getenv("AZURE_SECRET_KEY")
+
+    if not tenant_id or not client_id or not client_secret:
+        raise HTTPException(status_code=503, detail="Microsoft Graph is not configured")
+
+    token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scope": "https://graph.microsoft.com/.default",
+        "grant_type": "client_credentials"
+    }
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(token_url, data=data, timeout=10.0)
+
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to get Graph access token: {resp.text}"
+        )
+
+    token = resp.json().get("access_token")
+    if not token:
+        raise HTTPException(status_code=503, detail="Missing Graph access token")
+
+    return token
+
+
+async def send_reset_email(to_email: str, reset_link: str) -> None:
+    if not RESET_SENDER_EMAIL:
+        raise HTTPException(status_code=503, detail="SENDER_MAIL is not configured")
+    token = await get_graph_access_token()
+
+    subject = "Reset your Interns360 password"
+    body = (
+        "<p>Hello,</p>"
+        "<p>Click the link below to reset your password:</p>"
+        f"<p><a href=\"{reset_link}\">Reset password</a></p>"
+        "<p>If you did not request a reset, you can ignore this email.</p>"
+    )
+
+    payload = {
+        "message": {
+            "subject": subject,
+            "body": {
+                "contentType": "HTML",
+                "content": body
+            },
+            "toRecipients": [
+                {"emailAddress": {"address": to_email}}
+            ]
+        },
+        "saveToSentItems": "false"
+    }
+
+    send_url = f"https://graph.microsoft.com/v1.0/users/{RESET_SENDER_EMAIL}/sendMail"
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            send_url,
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10.0
+        )
+
+    if resp.status_code not in [202]:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to send reset email: {resp.text}"
+        )
 
 
 # ==================== APP SETUP ====================
@@ -182,6 +308,22 @@ async def register(user_data: UserCreate, db = Depends(get_database)):
         is_active=True,
         is_approved=is_approved
     )
+
+
+@app.post("/api/v1/auth/forgot-password")
+async def forgot_password(payload: ForgotPasswordRequest, db = Depends(get_database)):
+    """Send password reset link to the provided email"""
+    email = normalize_email(payload.email)
+    user = await db.users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    reset_link = f"{frontend_url}/forgot-password?email={quote(email)}"
+
+    await send_reset_email(email, reset_link)
+
+    return {"message": "Password reset email sent"}
 
 
 @app.post("/api/v1/auth/sso/azure", response_model=Token)
@@ -806,6 +948,260 @@ async def get_batch_performance(
     return batches
 
 
+# ==================== PERFORMANCE ROUTES ====================
+@app.get("/api/v1/admin/performance/users")
+async def list_performance_users(
+    role: Optional[str] = Query(None),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List intern/scrum master users for performance dashboards"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    if role:
+        query = {"role": role}
+    else:
+        query = {"role": {"$in": ["intern", "scrum_master"]}}
+
+    users = []
+    async for user in db.users.find(query).sort("created_at", -1):
+        user_id = str(user["_id"])
+        payload = {
+            "id": user_id,
+            "name": user.get("name"),
+            "email": user.get("email"),
+            "role": user.get("role"),
+            "employee_id": user.get("employee_id"),
+            "is_active": user.get("is_active", True),
+            "is_approved": user.get("is_approved", False)
+        }
+
+        intern_profile = await db.interns.find_one({"email": user.get("email")})
+        if intern_profile:
+            payload.update({
+                "internId": str(intern_profile["_id"]),
+                "batch": intern_profile.get("batch"),
+                "internType": intern_profile.get("internType"),
+                "taskCount": intern_profile.get("taskCount", 0),
+                "completedTasks": intern_profile.get("completedTasks", 0),
+                "dsuStreak": intern_profile.get("dsuStreak", 0),
+                "currentProject": intern_profile.get("currentProject"),
+                "phone": intern_profile.get("phone"),
+                "college": intern_profile.get("college"),
+                "cgpa": intern_profile.get("cgpa"),
+                "joinedDate": intern_profile.get("joinedDate"),
+                "skills": intern_profile.get("skills", [])
+            })
+
+        users.append(payload)
+
+    return users
+
+
+@app.get("/api/v1/admin/performance/activity")
+async def get_performance_activity(
+    user_id: str = Query(...),
+    limit: int = Query(50, ge=1, le=200),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get activity details for a user (intern or scrum master)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    user = await db.users.find_one({"_id": parse_object_id(user_id, "user")})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    role = user.get("role")
+    username = user.get("username")
+
+    tasks = []
+    dsus = []
+    attendance = []
+
+    if role == "intern":
+        intern_profile = await db.interns.find_one({"email": user.get("email")})
+        if intern_profile:
+            intern_id = str(intern_profile["_id"])
+            async for task in db.tasks.find({"internId": intern_id}).sort("created_at", -1).limit(limit):
+                task["_id"] = str(task["_id"])
+                tasks.append(task)
+
+            async for dsu in db.dsu_entries.find({"internId": intern_id}).sort("date", -1).limit(limit):
+                dsu["_id"] = str(dsu["_id"])
+                dsus.append(dsu)
+
+    if role == "scrum_master":
+        async for dsu in db.dsu_entries.find({"reviewedBy": username}).sort("reviewedAt", -1).limit(limit):
+            dsu["_id"] = str(dsu["_id"])
+            dsus.append(dsu)
+
+        async for record in db.office_attendance.find({"markedBy": username}).sort("updatedAt", -1).limit(limit):
+            record["_id"] = str(record["_id"])
+            attendance.append(record)
+
+    return {
+        "role": role,
+        "tasks": tasks,
+        "dsus": dsus,
+        "attendance": attendance
+    }
+
+
+# ==================== MENTOR REQUEST ROUTES ====================
+@app.post("/api/v1/mentor-requests", status_code=201)
+async def create_mentor_request(
+    payload: MentorRequestCreate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Create a mentorship request (intern/scrum master)"""
+    if current_user.role not in ["intern", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    requester_id = str(current_user.id)
+    if requester_id == payload.mentorUserId:
+        raise HTTPException(status_code=400, detail="Cannot request yourself as mentor")
+
+    mentor_user = await db.users.find_one({"_id": parse_object_id(payload.mentorUserId, "mentor")})
+    if not mentor_user or mentor_user.get("role") != "intern":
+        raise HTTPException(status_code=404, detail="Mentor not found")
+
+    existing = await db.mentor_requests.find_one({
+        "requesterUserId": requester_id,
+        "mentorUserId": payload.mentorUserId,
+        "status": "pending"
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Request already pending")
+
+    record = {
+        "requesterUserId": requester_id,
+        "requesterEmail": current_user.email,
+        "requesterName": current_user.name,
+        "mentorUserId": payload.mentorUserId,
+        "mentorEmail": mentor_user.get("email"),
+        "mentorName": mentor_user.get("name"),
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc)
+    }
+
+    result = await db.mentor_requests.insert_one(record)
+    record["_id"] = str(result.inserted_id)
+    return record
+
+
+@app.get("/api/v1/mentor-requests")
+async def list_mentor_requests(
+    status: Optional[str] = Query(None),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List mentorship requests (admin/scrum master)"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    query = {}
+    if status:
+        query["status"] = status
+
+    requests = []
+    async for req in db.mentor_requests.find(query).sort("created_at", -1):
+        req["_id"] = str(req["_id"])
+        requests.append(req)
+    return requests
+
+
+@app.get("/api/v1/mentor-requests/me")
+async def list_my_mentor_requests(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List mentorship requests for the current user"""
+    user_id = str(current_user.id)
+    query = {
+        "$or": [
+            {"requesterUserId": user_id},
+            {"mentorUserId": user_id}
+        ]
+    }
+
+    requests = []
+    async for req in db.mentor_requests.find(query).sort("created_at", -1):
+        req["_id"] = str(req["_id"])
+        requests.append(req)
+    return requests
+
+
+@app.patch("/api/v1/mentor-requests/{request_id}")
+async def update_mentor_request(
+    request_id: str,
+    payload: MentorRequestUpdate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Approve or reject mentor request (admin/scrum master)"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    update_data = payload.model_dump()
+    update_data["approvedBy"] = current_user.username
+    update_data["updated_at"] = datetime.now(timezone.utc)
+
+    result = await db.mentor_requests.find_one_and_update(
+        {"_id": parse_object_id(request_id, "mentor request")},
+        {"$set": update_data},
+        return_document=True
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Mentor request not found")
+
+    result["_id"] = str(result["_id"])
+    return result
+
+
+@app.get("/api/v1/mentorships/me")
+async def get_my_mentorships(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get approved mentor/mentee relationships for the current user"""
+    user_id = str(current_user.id)
+
+    mentor_request = await db.mentor_requests.find_one({
+        "requesterUserId": user_id,
+        "status": "approved"
+    })
+
+    mentor = None
+    if mentor_request:
+        mentor = {
+            "userId": mentor_request.get("mentorUserId"),
+            "name": mentor_request.get("mentorName"),
+            "email": mentor_request.get("mentorEmail")
+        }
+
+    mentees = []
+    async for req in db.mentor_requests.find({
+        "mentorUserId": user_id,
+        "status": "approved"
+    }):
+        mentees.append({
+            "userId": req.get("requesterUserId"),
+            "name": req.get("requesterName"),
+            "email": req.get("requesterEmail")
+        })
+
+    return {
+        "mentor": mentor,
+        "mentees": mentees
+    }
+
+
 # ==================== BATCH ROUTES ====================
 @app.post("/api/v1/batches/", status_code=201)
 async def create_batch(
@@ -822,20 +1218,37 @@ async def create_batch(
     if existing:
         raise HTTPException(status_code=400, detail="Batch ID already exists")
     
-    # Determine status based on start date
-    start_date = datetime.fromisoformat(batch_data.startDate.replace('Z', '+00:00'))
-    today = datetime.now(timezone.utc)
-    
+    # Validate category references if provided
+    if batch_data.yearId:
+        year = await db.batch_years.find_one({"_id": parse_object_id(batch_data.yearId, "batch year")})
+        if not year:
+            raise HTTPException(status_code=404, detail="Batch year not found")
+    if batch_data.monthId:
+        month = await db.batch_months.find_one({"_id": parse_object_id(batch_data.monthId, "batch month")})
+        if not month:
+            raise HTTPException(status_code=404, detail="Batch month not found")
+    if batch_data.organizationId:
+        org = await db.organizations.find_one({"_id": parse_object_id(batch_data.organizationId, "organization")})
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
+
+    # Determine status based on start/end date
+    start_date = parse_date(batch_data.startDate)
+    end_date = parse_date(batch_data.endDate)
+    today = date.today()
+
     if start_date > today:
         status = "upcoming"
+    elif end_date < today:
+        status = "completed"
     else:
-        end_date = datetime.fromisoformat(batch_data.endDate.replace('Z', '+00:00'))
-        if end_date < today:
-            status = "completed"
-        else:
-            status = "active"
+        status = "active"
     
     batch_dict = batch_data.model_dump()
+    if not batch_dict.get("duration"):
+        batch_dict["duration"] = max((end_date - start_date).days, 0)
+    if not batch_dict.get("maxInterns"):
+        batch_dict["maxInterns"] = 50
     batch_dict["status"] = status
     batch_dict["totalInterns"] = 0
     batch_dict["activeInterns"] = 0
@@ -868,6 +1281,28 @@ async def list_batches(
     batches = []
     async for batch in db.batches.find(query).sort("startDate", -1):
         batch["_id"] = str(batch["_id"])
+
+        if batch.get("yearId"):
+            try:
+                year_doc = await db.batch_years.find_one({"_id": parse_object_id(batch["yearId"], "batch year")})
+                if year_doc:
+                    batch["year"] = year_doc.get("label") or str(year_doc.get("year"))
+            except HTTPException:
+                pass
+        if batch.get("monthId"):
+            try:
+                month_doc = await db.batch_months.find_one({"_id": parse_object_id(batch["monthId"], "batch month")})
+                if month_doc:
+                    batch["month"] = month_doc.get("name")
+            except HTTPException:
+                pass
+        if batch.get("organizationId"):
+            try:
+                org_doc = await db.organizations.find_one({"_id": parse_object_id(batch["organizationId"], "organization")})
+                if org_doc:
+                    batch["organization"] = org_doc.get("name")
+            except HTTPException:
+                pass
         
         # Update intern counts
         batch_interns = await db.interns.count_documents({"batch": batch["batchId"]})
@@ -906,6 +1341,27 @@ async def get_batch(
         raise HTTPException(status_code=404, detail="Batch not found")
     
     batch["_id"] = str(batch["_id"])
+    if batch.get("yearId"):
+        try:
+            year_doc = await db.batch_years.find_one({"_id": parse_object_id(batch["yearId"], "batch year")})
+            if year_doc:
+                batch["year"] = year_doc.get("label") or str(year_doc.get("year"))
+        except HTTPException:
+            pass
+    if batch.get("monthId"):
+        try:
+            month_doc = await db.batch_months.find_one({"_id": parse_object_id(batch["monthId"], "batch month")})
+            if month_doc:
+                batch["month"] = month_doc.get("name")
+        except HTTPException:
+            pass
+    if batch.get("organizationId"):
+        try:
+            org_doc = await db.organizations.find_one({"_id": parse_object_id(batch["organizationId"], "organization")})
+            if org_doc:
+                batch["organization"] = org_doc.get("name")
+        except HTTPException:
+            pass
     
     # Get detailed stats
     interns = []
@@ -948,6 +1404,19 @@ async def update_batch(
     
     update_data = batch_update.model_dump(exclude_unset=True)
     update_data["updated_at"] = datetime.now(timezone.utc)
+
+    if "yearId" in update_data and update_data["yearId"]:
+        year = await db.batch_years.find_one({"_id": parse_object_id(update_data["yearId"], "batch year")})
+        if not year:
+            raise HTTPException(status_code=404, detail="Batch year not found")
+    if "monthId" in update_data and update_data["monthId"]:
+        month = await db.batch_months.find_one({"_id": parse_object_id(update_data["monthId"], "batch month")})
+        if not month:
+            raise HTTPException(status_code=404, detail="Batch month not found")
+    if "organizationId" in update_data and update_data["organizationId"]:
+        org = await db.organizations.find_one({"_id": parse_object_id(update_data["organizationId"], "organization")})
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
     
     result = await db.batches.find_one_and_update(
         {"batchId": batch_id},
@@ -999,6 +1468,97 @@ async def get_batch_interns(
         interns.append(intern)
     
     return interns
+
+
+# ==================== BATCH CATEGORY ROUTES ====================
+@app.get("/api/v1/batch-years/")
+async def list_batch_years(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    years = []
+    async for year in db.batch_years.find().sort("year", -1):
+        year["_id"] = str(year["_id"])
+        years.append(year)
+    return years
+
+
+@app.post("/api/v1/batch-years/", status_code=201)
+async def create_batch_year(
+    payload: BatchYearCreate,
+    db = Depends(get_database),
+    admin: User = Depends(get_admin_user)
+):
+    existing = await db.batch_years.find_one({"year": payload.year})
+    if existing:
+        raise HTTPException(status_code=400, detail="Batch year already exists")
+
+    data = payload.model_dump()
+    data["created_at"] = datetime.now(timezone.utc)
+    data["updated_at"] = datetime.now(timezone.utc)
+    result = await db.batch_years.insert_one(data)
+    data["_id"] = str(result.inserted_id)
+    return data
+
+
+@app.get("/api/v1/batch-months/")
+async def list_batch_months(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    months = []
+    async for month in db.batch_months.find().sort("order", 1):
+        month["_id"] = str(month["_id"])
+        months.append(month)
+    return months
+
+
+@app.post("/api/v1/batch-months/", status_code=201)
+async def create_batch_month(
+    payload: BatchMonthCreate,
+    db = Depends(get_database),
+    admin: User = Depends(get_admin_user)
+):
+    existing = await db.batch_months.find_one({"name": payload.name})
+    if existing:
+        raise HTTPException(status_code=400, detail="Batch month already exists")
+
+    data = payload.model_dump()
+    data["created_at"] = datetime.now(timezone.utc)
+    data["updated_at"] = datetime.now(timezone.utc)
+    result = await db.batch_months.insert_one(data)
+    data["_id"] = str(result.inserted_id)
+    return data
+
+
+@app.get("/api/v1/organizations/")
+async def list_organizations(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    organizations = []
+    async for org in db.organizations.find().sort("name", 1):
+        org["_id"] = str(org["_id"])
+        organizations.append(org)
+    return organizations
+
+
+@app.post("/api/v1/organizations/", status_code=201)
+async def create_organization(
+    payload: OrganizationCreate,
+    db = Depends(get_database),
+    admin: User = Depends(get_admin_user)
+):
+    existing = await db.organizations.find_one({"name": payload.name})
+    if existing:
+        raise HTTPException(status_code=400, detail="Organization already exists")
+
+    data = payload.model_dump()
+    data["created_at"] = datetime.now(timezone.utc)
+    data["updated_at"] = datetime.now(timezone.utc)
+    result = await db.organizations.insert_one(data)
+    data["_id"] = str(result.inserted_id)
+    return data
 
 
 # ==================== INTERN ROUTES ====================
@@ -1603,7 +2163,7 @@ async def create_project(
     
     project_dict = project_data.model_dump()
     project_dict["status"] = "active"
-    project_dict["internIds"] = []
+    project_dict["internIds"] = project_dict.get("internIds", []) or []
     project_dict["created_at"] = datetime.now(timezone.utc)
     project_dict["updated_at"] = datetime.now(timezone.utc)
     
@@ -1625,6 +2185,121 @@ async def list_projects(
         projects.append(project)
     
     return projects
+
+
+@app.get("/api/v1/projects/assigned")
+async def list_assigned_projects(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List projects assigned to the current intern"""
+    intern = await db.interns.find_one({"email": current_user.email})
+    if not intern:
+        return []
+
+    intern_id = str(intern["_id"])
+    projects = []
+    async for project in db.projects.find({"internIds": intern_id}):
+        project["_id"] = str(project["_id"])
+        projects.append(project)
+    return projects
+
+
+@app.patch("/api/v1/projects/{project_id}")
+async def update_project(
+    project_id: str,
+    project_update: ProjectUpdate,
+    db = Depends(get_database),
+    admin: User = Depends(get_admin_user)
+):
+    """Update a project (admin only)"""
+    update_data = project_update.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    result = await db.projects.find_one_and_update(
+        {"_id": parse_object_id(project_id, "project")},
+        {"$set": update_data},
+        return_document=True
+    )
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    result["_id"] = str(result["_id"])
+    return result
+
+
+@app.post("/api/v1/projects/{project_id}/interns")
+async def assign_project_interns(
+    project_id: str,
+    payload: ProjectAssign,
+    db = Depends(get_database),
+    admin: User = Depends(get_admin_user)
+):
+    """Assign interns to a project (admin only)"""
+    if not payload.internIds:
+        raise HTTPException(status_code=400, detail="No interns provided")
+
+    project = await db.projects.find_one({"_id": parse_object_id(project_id, "project")})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    valid_ids = []
+    for intern_id in payload.internIds:
+        intern = await db.interns.find_one({"_id": parse_object_id(intern_id, "intern")})
+        if intern:
+            valid_ids.append(intern_id)
+
+    if not valid_ids:
+        raise HTTPException(status_code=404, detail="No valid interns found")
+
+    await db.projects.update_one(
+        {"_id": project["_id"]},
+        {"$addToSet": {"internIds": {"$each": valid_ids}}, "$set": {"updated_at": datetime.now(timezone.utc)}}
+    )
+
+    await db.interns.update_many(
+        {"_id": {"$in": [parse_object_id(i, "intern") for i in valid_ids]}},
+        {"$set": {"currentProject": project.get("name"), "updated_at": datetime.now(timezone.utc)}}
+    )
+
+    updated = await db.projects.find_one({"_id": project["_id"]})
+    updated["_id"] = str(updated["_id"])
+    return updated
+
+
+@app.get("/api/v1/projects/{project_id}/updates")
+async def get_project_updates(
+    project_id: str,
+    limit: int = Query(10, ge=1, le=50),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get latest task updates for a project"""
+    project = await db.projects.find_one({"_id": parse_object_id(project_id, "project")})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    tasks = []
+    cursor = db.tasks.find({"project": project.get("name")}).sort([
+        ("updated_at", -1),
+        ("created_at", -1)
+    ]).limit(limit)
+
+    intern_cache = {}
+    async for task in cursor:
+        task["_id"] = str(task["_id"])
+        intern_id = task.get("internId")
+        if intern_id:
+            if intern_id not in intern_cache:
+                intern = await db.interns.find_one({"_id": parse_object_id(intern_id, "intern")})
+                intern_cache[intern_id] = intern.get("name") if intern else None
+            task["internName"] = intern_cache.get(intern_id)
+        tasks.append(task)
+
+    return tasks
 
 # ==================== INTERN PROFILE ROUTES ====================
 @app.get("/api/v1/interns/me/profile")

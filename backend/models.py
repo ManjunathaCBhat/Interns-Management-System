@@ -50,6 +50,12 @@ class LeaveStatus(str, Enum):
     rejected = "rejected"
 
 
+class MentorRequestStatus(str, Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
 # =========================
 # USERS (UPDATED)
 # =========================
@@ -506,32 +512,110 @@ class PTOUpdate(BaseModel):
 # BATCH SCHEMAS
 # =========================
 
-class Batch(BaseModel):
+class BatchYear(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = Field(None, alias="_id")
+    year: int
+    label: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class BatchMonth(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     id: Optional[str] = Field(None, alias="_id")
     name: str
+    order: int
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Organization(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = Field(None, alias="_id")
+    name: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Batch(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = Field(None, alias="_id")
+    batchId: str
+    batchName: str
+    yearId: Optional[str] = None
+    monthId: Optional[str] = None
+    organizationId: Optional[str] = None
     startDate: date
     endDate: date
+    duration: Optional[int] = None
+    coordinator: str
+    description: Optional[str] = None
+    maxInterns: Optional[int] = None
+    domains: List[str] = []
     internIds: List[str] = []
-    scrumMaster: str
     status: str = "active"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BatchCreate(BaseModel):
-    name: str
+    batchId: str
+    batchName: str
+    yearId: Optional[str] = None
+    monthId: Optional[str] = None
+    organizationId: Optional[str] = None
     startDate: date
     endDate: date
-    scrumMaster: str
-    internIds: List[str] = []
+    duration: Optional[int] = None
+    coordinator: str
+    description: Optional[str] = None
+    maxInterns: Optional[int] = None
+    domains: List[str] = []
 
 
 class BatchUpdate(BaseModel):
-    name: Optional[str] = None
+    batchName: Optional[str] = None
+    yearId: Optional[str] = None
+    monthId: Optional[str] = None
+    organizationId: Optional[str] = None
     startDate: Optional[date] = None
     endDate: Optional[date] = None
-    scrumMaster: Optional[str] = None
-    internIds: Optional[List[str]] = None
+    duration: Optional[int] = None
+    coordinator: Optional[str] = None
+    description: Optional[str] = None
+    maxInterns: Optional[int] = None
+    domains: Optional[List[str]] = None
     status: Optional[str] = None
+
+
+# =========================
+# MENTOR REQUESTS
+# =========================
+
+class MentorRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = Field(None, alias="_id")
+    requesterUserId: str
+    requesterEmail: EmailStr
+    requesterName: str
+    mentorUserId: str
+    mentorEmail: EmailStr
+    mentorName: str
+    status: MentorRequestStatus = MentorRequestStatus.pending
+    approvedBy: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class MentorRequestCreate(BaseModel):
+    mentorUserId: str
+
+
+class MentorRequestUpdate(BaseModel):
+    status: MentorRequestStatus

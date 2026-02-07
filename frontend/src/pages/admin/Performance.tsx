@@ -245,7 +245,7 @@ Report ID: ${selectedIntern._id}
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent"
               >
                 <option value="all">All Types</option>
                 <option value="project">Project</option>
@@ -255,7 +255,7 @@ Report ID: ${selectedIntern._id}
               <select
                 value={filterBatch}
                 onChange={(e) => setFilterBatch(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent"
               >
                 <option value="all">All Batches</option>
                 {batches.map((batch) => (
@@ -284,7 +284,7 @@ Report ID: ${selectedIntern._id}
           <CardContent className="p-6">
             {loading ? (
               <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0F0E47]"></div>
                 <p className="mt-2 text-gray-600">Loading interns...</p>
               </div>
             ) : filteredInterns.length === 0 ? (
@@ -325,7 +325,7 @@ Report ID: ${selectedIntern._id}
                               className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                 intern.internType === "project"
                                   ? "bg-blue-100 text-blue-800"
-                                  : "bg-purple-100 text-purple-800"
+                                  : "bg-[#8686AC]/20 text-[#272757]"
                               }`}
                             >
                               {intern.internType?.toUpperCase() || "N/A"}
@@ -338,7 +338,7 @@ Report ID: ${selectedIntern._id}
                             <Button
                               onClick={() => handleViewProgress(intern)}
                               size="sm"
-                              className="bg-purple-600 hover:bg-purple-700"
+                              className="bg-[#0F0E47] hover:bg-[#272757]"
                             >
                               View Progress
                             </Button>
@@ -383,7 +383,7 @@ Report ID: ${selectedIntern._id}
                               onClick={() => setCurrentPage(pageNum)}
                               className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                                 currentPage === pageNum
-                                  ? "bg-purple-600 text-white"
+                                  ? "bg-[#0F0E47] text-white"
                                   : "hover:bg-gray-100 text-gray-700"
                               }`}
                             >
@@ -412,10 +412,10 @@ Report ID: ${selectedIntern._id}
         {showModal && selectedIntern && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full my-8">
-              <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 rounded-t-2xl">
+              <div className="sticky top-0 bg-gradient-to-r from-[#0F0E47] to-[#505081] text-white p-6 rounded-t-2xl">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 rounded-full bg-white flex items-center justify-center text-2xl font-bold text-purple-600 flex-shrink-0">
+                    <div className="h-16 w-16 rounded-full bg-white flex items-center justify-center text-2xl font-bold text-[#0F0E47] flex-shrink-0">
                       {getInitials(selectedIntern.name)}
                     </div>
                     <div>
@@ -590,7 +590,7 @@ Report ID: ${selectedIntern._id}
 
                     {loadingTasks ? (
                       <div className="text-center py-8">
-                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-[#0F0E47]"></div>
                         <p className="mt-2 text-gray-600 text-sm">Loading tasks...</p>
                       </div>
                     ) : internTasks.length === 0 ? (

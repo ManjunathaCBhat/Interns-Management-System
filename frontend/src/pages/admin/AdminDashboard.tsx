@@ -141,7 +141,7 @@ const AdminDashboard: React.FC = () => {
           <p className="text-red-600 text-center max-w-md">{error}</p>
           <button
             onClick={fetchDashboardData}
-            className="flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-3 text-white hover:bg-purple-700 transition-colors font-semibold"
+            className="flex items-center gap-2 rounded-lg bg-[#0F0E47] px-6 py-3 text-white hover:bg-[#272757] transition-colors font-semibold"
           >
             <RefreshCw size={18} /> Retry
           </button>
@@ -162,7 +162,7 @@ const AdminDashboard: React.FC = () => {
           </p>
           <button
             onClick={fetchDashboardData}
-            className="flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-3 text-white hover:bg-purple-700 transition-colors font-semibold"
+            className="flex items-center gap-2 rounded-lg bg-[#0F0E47] px-6 py-3 text-white hover:bg-[#272757] transition-colors font-semibold"
           >
             <RefreshCw size={18} /> Load Data
           </button>

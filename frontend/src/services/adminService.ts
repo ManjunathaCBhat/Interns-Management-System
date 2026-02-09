@@ -20,18 +20,18 @@ export interface DashboardStats {
   upcomingBatches: number;
 }
 
-export interface RecentIntern {
-  _id: string;
-  name: string;
-  email: string;
-  batch?: string;
-  internType: string;
-  domain: string;
-  status: string;
-  completedTasks: number;
-  taskCount: number;
-  dsuStreak: number;
-}
+// export interface RecentIntern {
+//   _id: string;
+//   name: string;
+//   email: string;
+//   batch?: string;
+//   internType: string;
+//   domain: string;
+//   status: string;
+//   completedTasks: number;
+//   taskCount: number;
+//   dsuStreak: number;
+// }
 
 export interface BlockedIntern {
   _id: string;
@@ -71,10 +71,10 @@ export const adminService = {
     return response.data;
   },
 
-  async getRecentInterns(limit: number = 5): Promise<RecentIntern[]> {
-    const response = await apiClient.get(`/admin/dashboard/recent-interns?limit=${limit}`);
-    return response.data;
-  },
+  // async getRecentInterns(limit: number = 5): Promise<RecentIntern[]> {
+  //   const response = await apiClient.get(`/admin/dashboard/recent-interns?limit=${limit}`);
+  //   return response.data;
+  // },
 
   async getBlockedInterns(): Promise<BlockedIntern[]> {
     const response = await apiClient.get('/admin/dashboard/blocked-interns');

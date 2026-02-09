@@ -47,7 +47,14 @@ async def connect_db():
         
         await db.db.dsu_entries.create_index([("internId", ASCENDING), ("date", DESCENDING)])
         await db.db.tasks.create_index([("internId", ASCENDING)])
+        await db.db.pto.create_index([("internId", ASCENDING), ("status", ASCENDING), ("type", ASCENDING)])
         await db.db.projects.create_index("name", unique=True)
+        await db.db.batches.create_index("batchId", unique=True)
+        await db.db.batch_years.create_index("year", unique=True)
+        await db.db.batch_months.create_index("name", unique=True)
+        await db.db.organizations.create_index("name", unique=True)
+        await db.db.mentor_requests.create_index([("requesterUserId", ASCENDING), ("status", ASCENDING)])
+        await db.db.mentor_requests.create_index([("mentorUserId", ASCENDING), ("status", ASCENDING)])
         
         print("✅ Database indexes created")
     except asyncio.TimeoutError:

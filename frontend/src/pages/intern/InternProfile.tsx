@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import profileService from "@/services/profileService";
+import { projectService } from "@/services/projectService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const InternProfile: React.FC = () => {
   const { user } = useAuth();
@@ -47,32 +50,7 @@ const InternProfile: React.FC = () => {
   const [college, setCollege] = useState("");
   const [degree, setDegree] = useState("");
 
-  const clearProfileData = () => {
-  if (user?.id) {
-    localStorage.removeItem(`intern_profile_${user.id}`);
-  }
-
-  setStartDate("");
-  setJoinedDate("");
-  setEndDate("");
-  setCurrentProject("");
-  setMentor("");
-  setPhone("");
-  setInternType("Intern");
-  setPayType("Unpaid");
-  setCollege("");
-  setDegree("");
-  setSkills([]);
-};
-
-  
-  // Projects list  (temporary data)
-  const [projects, setProjects] = useState<string[]>([
-    "Interns360 Management System",
-    "E-commerce Platform",
-    "Mobile App Development",
-    "AI Chatbot Project"
-  ]);
+  const [projects, setProjects] = useState<string[]>([]);
   
   // Skills
   const allSkills = ["React", "TypeScript", "SQL", "Node.js", "Python", "Java", "JavaScript"];
@@ -85,41 +63,51 @@ const InternProfile: React.FC = () => {
 
   //Load Data 
   useEffect(() => {
-    const loadProfileData = () => {
-      try {
-        setIsLoading(true);
-        
-        // Get saved data 
-        const savedProfile = localStorage.getItem(`intern_profile_${user?.id}`);
-        
-        if (savedProfile) {
-          const data = JSON.parse(savedProfile);
-          
-          setStartDate(data.startDate || "");
-          setJoinedDate(data.joinedDate || "");
-          setEndDate(data.endDate || "");
-          setCurrentProject(data.currentProject || "");
-          setMentor(data.mentor || "");
-          setPhone(data.phone || "");
-          setInternType(data.internType || "Intern");
-          setPayType(data.payType || "Unpaid");
-          setCollege(data.college || "");
-          setDegree(data.degree || "");
-          setSkills(data.skills || []);
-        }
-      } catch (error) {
-        console.error("Error loading profile data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadProfileData = async () => {
+    try {
+      setIsLoading(true);
+      
+      const [response, assignedProjects] = await Promise.all([
+        profileService.getMyProfile(),
+        projectService.getAssigned(),
+      ]);
 
-    if (user?.id) {
-      loadProfileData();
-    } else {
+      const projectNames = assignedProjects.map((p) => p.name);
+      setProjects(projectNames);
+      
+      if (response.exists && response.data) {
+        const data = response.data;
+        
+        setStartDate(data.startDate || "");
+        setJoinedDate(data.joinedDate || "");
+        setEndDate(data.endDate || "");
+        const current = data.currentProject || "";
+        setCurrentProject(current);
+        if (current && !projectNames.includes(current)) {
+          setProjects((prev) => [...prev, current]);
+        }
+        setMentor(data.mentor || "");
+        setPhone(data.phone || "");
+        setInternType(data.internType || "Intern");
+        setPayType(data.payType || "Unpaid");
+        setCollege(data.college || "");
+        setDegree(data.degree || "");
+        setSkills(data.skills || []);
+      }
+    } catch (error) {
+      console.error("Error loading profile data:", error);
+      setErrorMessage("Failed to load profile data");
+    } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  };
+
+  if (user?.id) {
+    loadProfileData();
+  } else {
+    setIsLoading(false);
+  }
+}, [user?.id]);
 
   
   const getInitials = (name?: string) => {
@@ -163,16 +151,17 @@ const InternProfile: React.FC = () => {
 
   
 
-  const handleCancel = () => {
-    setErrorMessage("");
-    setSuccessMessage("");
-    setIsEditMode(false);
-    clearProfileData();
-  
-    // Reload data 
-    const savedProfile = localStorage.getItem(`intern_profile_${user?.id}`);
-    if (savedProfile) {
-      const data = JSON.parse(savedProfile);
+  const handleCancel = async () => {
+  setErrorMessage("");
+  setSuccessMessage("");
+  setIsEditMode(false);
+
+  // Reload data from backend
+  try {
+    const response = await profileService.getMyProfile();
+    
+    if (response.exists && response.data) {
+      const data = response.data;
       setStartDate(data.startDate || "");
       setJoinedDate(data.joinedDate || "");
       setEndDate(data.endDate || "");
@@ -185,44 +174,47 @@ const InternProfile: React.FC = () => {
       setDegree(data.degree || "");
       setSkills(data.skills || []);
     }
+  } catch (error) {
+    console.error("Error reloading profile:", error);
+  }
+};
+
+  const handleSave = async () => {
+  setErrorMessage("");
+  setSuccessMessage("");
+
+  const validationError = validateForm();
+  
+  if (validationError) {
+    setErrorMessage(validationError);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    setTimeout(() => {
+      setErrorMessage("");
+    }, 5000);
+    return;
+  }
+
+  // Prepare profile data
+  const profileData = {
+    startDate,
+    joinedDate,
+    endDate,
+    currentProject,
+    mentor,
+    skills,
+    phone,
+    internType,
+    payType,
+    college,
+    degree
   };
 
-  const handleSave = () => {
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    const validationError = validateForm();
+  try {
+    // Save to backend
+    const response = await profileService.updateMyProfile(profileData);
     
-    if (validationError) {
-      setErrorMessage(validationError);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      
-      setTimeout(() => {
-        setErrorMessage("");
-      }, 5000);
-      return;
-    }
-
-    // Save 
-    const profileData = {
-      startDate,
-      joinedDate,
-      endDate,
-      currentProject,
-      mentor,
-      skills,
-      phone,
-      internType,
-      payType,
-      college,
-      degree
-    };
-
-    try {
-      localStorage.setItem(`intern_profile_${user?.id}`, JSON.stringify(profileData));
-      
-      console.log("Profile data saved to localStorage:", profileData);
-
+    if (response.success) {
       setSuccessMessage("Profile updated successfully!");
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
@@ -230,21 +222,24 @@ const InternProfile: React.FC = () => {
         setSuccessMessage("");
         setIsEditMode(false);
       }, 3000);
-    } catch (error) {
-      console.error("Error saving profile:", error);
-      setErrorMessage("Failed to save profile. Please try again.");
-      setTimeout(() => setErrorMessage(""), 5000);
     }
-  };
+  } catch (error: any) {
+    console.error("Error saving profile:", error);
+    const errorMsg = error.response?.data?.detail || "Failed to save profile. Please try again.";
+    setErrorMessage(errorMsg);
+    setTimeout(() => setErrorMessage(""), 5000);
+  }
+};
 
   //Loading 
   if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="text-4xl mb-4">⏳</div>
-            <p className="text-gray-600">Loading profile...</p>
+        <div className="space-y-6">
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <Skeleton className="h-96 w-full lg:col-span-2" />
+            <Skeleton className="h-96 w-full lg:col-span-3" />
           </div>
         </div>
       </DashboardLayout>

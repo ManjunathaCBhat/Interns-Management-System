@@ -18,4 +18,13 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    include: [
+      '@fullcalendar/react',
+      '@fullcalendar/daygrid',
+      '@fullcalendar/interaction'
+    ]
+  }
 }));
+
+

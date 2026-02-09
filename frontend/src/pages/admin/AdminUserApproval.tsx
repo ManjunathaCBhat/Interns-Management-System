@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { userService } from "@/services/UserService";
 import { User, UserRole } from "@/types/intern";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const AdminUserApproval: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -266,7 +267,7 @@ const AdminUserApproval: React.FC = () => {
                 placeholder="Search by name, email, or employee ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#0F0E47]"
               />
             </div>
 
@@ -276,7 +277,7 @@ const AdminUserApproval: React.FC = () => {
                 onClick={() => setFilter("all")}
                 className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
                   filter === "all"
-                    ? "bg-purple-600 text-white"
+                    ? "bg-[#0F0E47] text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
@@ -314,9 +315,11 @@ const AdminUserApproval: React.FC = () => {
         {/* Users Table */}
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           {loading ? (
-            <div className="p-12 text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600" />
-              <p className="text-gray-500 mt-2">Loading users...</p>
+            <div className="p-6 space-y-3">
+              <Skeleton className="h-6 w-48" />
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="p-12 text-center">

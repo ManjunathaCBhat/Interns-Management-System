@@ -3,103 +3,199 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  Calendar,
 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { useToast } from '@/hooks/use-toast';
 import { taskService } from '@/services/taskService';
-import { dsuService } from '@/services/dsuService';
-import { Task } from '@/types/intern';
+import { projectService } from '@/services/projectService';
+import { Task, Project } from '@/types/intern';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const InternDashboard: React.FC = () => {
+/* ---------------- TYPES ---------------- */
+
+type StatusFilter =
+  | 'ALL'
+  | 'NOT_STARTED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'BLOCKED'
+  | 'ON_HOLD';
+
+const STATUS_OPTIONS: StatusFilter[] = [
+  'NOT_STARTED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'BLOCKED',
+  'ON_HOLD',
+];
+
+/* 🔧 FIX: normalize status everywhere */
+const normalizeStatus = (status: string) =>
+  status.toUpperCase().replace(/\s+/g, '_');
+
+/* ---------------- COMPONENT ---------------- */
+
+const DailyUpdates: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>('ALL');
+
+  const [selectedTask, setSelectedTask] =
+    useState<Task | null>(null);
 
   const [taskForm, setTaskForm] = useState({
     title: '',
     project: '',
-    status: '',
+    status: 'NOT_STARTED',
     assignedBy: '',
     description: '',
   });
-
-  const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     fetchData();
   }, []);
 
   const fetchData = async () => {
-    try {
-      setLoading(true);
-      const tasksData = await taskService.getAll({ intern_id: user?.id });
-      setTasks(tasksData);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+    const projectLoader = user?.role === 'intern'
+      ? projectService.getAssigned()
+      : projectService.getAll();
+
+    const [tasksData, projectsData] = await Promise.all([
+      taskService.getAll({ intern_id: user?.id }),
+      projectLoader,
+    ]);
+    setTasks(tasksData);
+    setProjects(projectsData);
+    setLoading(false);
   };
 
+  /* ---------------- KPI COUNTS ---------------- */
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(
+    t => normalizeStatus(t.status) === 'COMPLETED'
+  ).length;
+  const inProgressTasks = tasks.filter(
+    t => normalizeStatus(t.status) === 'IN_PROGRESS'
+  ).length;
   const blockedTasks = tasks.filter(
-    (t) => t.status === 'BLOCKED' || t.status === 'blocked'
-  );
+    t => normalizeStatus(t.status) === 'BLOCKED'
+  ).length;
+  const onHoldTasks = tasks.filter(
+    t => t.status === 'ON_HOLD'
+  ).length;
 
-  const handleTaskSubmit = async (e: React.FormEvent) => {
+
+  /* ---------------- FILTER ---------------- */
+  const filteredTasks =
+    statusFilter === 'ALL'
+      ? tasks
+      : tasks.filter(
+          t => normalizeStatus(t.status) === statusFilter
+        );
+
+  /* ---------------- SUBMIT TASK ---------------- */
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!taskForm.title || !taskForm.project || !taskForm.status) {
+    if (
+      !taskForm.title ||
+      !taskForm.project ||
+      !taskForm.status ||
+      !taskForm.description
+    ) {
       toast({
         title: 'Missing fields',
-        description: 'Task Name, Project and Status are required',
+        description: 'All * fields are required',
         variant: 'destructive',
       });
       return;
     }
 
-    try {
-      await taskService.create({
-        ...taskForm,
-        internId: user?.id,
-      });
+    const created = await taskService.create({
+      ...taskForm,
+      status: normalizeStatus(taskForm.status),
+      internId: user?.id,
+    });
 
-      toast({
-        title: 'Task added',
-        description: 'Task successfully created',
-      });
+    setTasks(prev => [created, ...prev]);
+    setTaskForm({
+      title: '',
+      project: '',
+      status: 'NOT_STARTED',
+      assignedBy: '',
+      description: '',
+    });
 
-      setTaskForm({
-        title: '',
-        project: '',
-        status: '',
-        assignedBy: '',
-        description: '',
-      });
+    toast({ title: 'Task added successfully' });
+  };
 
-      fetchData();
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: 'Failed to create task',
-        variant: 'destructive',
-      });
-    }
+  /* ---------------- EDIT TASK (FIXED) ---------------- */
+  const handleUpdateTask = async () => {
+    if (!selectedTask) return;
+
+    const payload = {
+      title: selectedTask.title,
+      status: normalizeStatus(selectedTask.status),
+    };
+
+    await taskService.update(selectedTask._id, payload);
+
+    setTasks(prev =>
+      prev.map(t =>
+        t._id === selectedTask._id
+          ? { ...t, ...payload }
+          : t
+      )
+    );
+
+    setSelectedTask(null);
+    toast({ title: 'Task updated' });
   };
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full" />
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Skeleton key={index} className="h-24 w-full" />
+            ))}
+          </div>
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            <Skeleton className="h-96 w-full" />
+            <Skeleton className="h-96 w-full" />
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -109,157 +205,243 @@ const InternDashboard: React.FC = () => {
     <DashboardLayout>
       <div className="space-y-6">
 
-        {/* KPI ROW */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <Clock />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Tasks</p>
-                <p className="text-xl font-bold">{tasks.length}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <CheckCircle />
-              <div>
-                <p className="text-sm text-muted-foreground">Completed</p>
-                <p className="text-xl font-bold">
-                  {tasks.filter(t => t.status === 'DONE' || t.status === 'completed').length}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <AlertTriangle />
-              <div>
-                <p className="text-sm text-muted-foreground">Blocked Tasks</p>
-                <p className="text-xl font-bold">{blockedTasks.length}</p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* ---------------- KPI CARDS ---------------- */}
+        <div className="grid gap-4 md:grid-cols-5">
+          <KpiCard
+            title="Total Tasks"
+            value={totalTasks}
+            icon={<Clock className="text-blue-600" />}
+            onClick={() => setStatusFilter('ALL')}
+          />
+          <KpiCard
+            title="Completed"
+            value={completedTasks}
+            icon={<CheckCircle className="text-green-600" />}
+            onClick={() => setStatusFilter('COMPLETED')}
+          />
+          <KpiCard
+            title="In Progress"
+            value={inProgressTasks}
+            icon={<Clock className="text-orange-600" />}
+            onClick={() => setStatusFilter('IN_PROGRESS')}
+          />
+          <KpiCard
+            title="Blocked"
+            value={blockedTasks}
+            icon={<AlertTriangle className="text-red-600" />}
+            onClick={() => setStatusFilter('BLOCKED')}
+          />
+          <KpiCard
+            title="On Hold"
+            value={onHoldTasks}
+            icon={<Clock className="text-gray-600" />}
+            onClick={() => setStatusFilter('ON_HOLD')}
+          />
         </div>
 
-        {/* MAIN 50–50 LAYOUT */}
+        {/* ---------------- MAIN GRID ---------------- */}
         <div className="grid gap-6 lg:grid-cols-2">
 
-          {/* LEFT PANEL – TASK HISTORY */}
+          {/* ---------------- LEFT TABLE ---------------- */}
           <Card>
             <CardHeader>
               <CardTitle>Past Tasks</CardTitle>
+              <div className="flex gap-2 mt-2">
+                {STATUS_OPTIONS.map(s => (
+                  <StatusBadge key={s} status={s} />
+                ))}
+              </div>
             </CardHeader>
-            <CardContent className="p-0 overflow-x-auto">
-              {tasks.length === 0 ? (
-                <div className="p-6 text-center text-muted-foreground">
-                  No tasks available
-                </div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="p-3 text-left">Task</th>
-                      <th className="p-3 text-left">Project</th>
-                      <th className="p-3 text-left">Status</th>
-                      <th className="p-3 text-left">Date</th>
-                      <th className="p-3 text-left">Assigned By</th>
-                      <th className="p-3 text-right">Edit</th>
+
+            <CardContent className="p-0">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="p-3 text-left">Task</th>
+                    <th className="p-3 text-left">Project</th>
+                    <th className="p-3 text-left">Status</th>
+                    <th className="p-3 text-left">Assigned By</th>
+                    <th className="p-3 text-right">Edit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTasks.map(task => (
+                    <tr key={task._id} className="border-t">
+                      <td className="p-3">{task.title}</td>
+                      <td className="p-3">{task.project}</td>
+                      <td className="p-3">
+                        <StatusBadge status={task.status} />
+                      </td>
+                      <td className="p-3">{task.assignedBy || '-'}</td>
+                      <td className="p-3 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setSelectedTask({
+                              ...task,
+                              status: normalizeStatus(task.status),
+                            })
+                          }
+                        >
+                          Edit
+                        </Button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {tasks.map((task) => (
-                      <tr key={task._id} className="border-t">
-                        <td className="p-3">{task.title}</td>
-                        <td className="p-3">{task.project}</td>
-                        <td className="p-3">
-                          <StatusBadge status={task.status} />
-                        </td>
-                        <td className="p-3">
-                          {new Date(task.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="p-3">{task.assignedBy || '-'}</td>
-                        <td className="p-3 text-right">
-                          <Button size="sm" variant="outline">
-                            Edit
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                  ))}
+                </tbody>
+              </table>
             </CardContent>
           </Card>
 
-          {/* RIGHT PANEL – SUBMIT FORM */}
+          {/* ---------------- RIGHT FORM ---------------- */}
           <Card>
             <CardHeader>
               <CardTitle>Submit Task</CardTitle>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4" onSubmit={handleTaskSubmit}>
+              <form className="space-y-4" onSubmit={handleSubmit}>
                 <Input
                   placeholder="Task Name*"
                   value={taskForm.title}
-                  onChange={(e) =>
+                  onChange={e =>
                     setTaskForm({ ...taskForm, title: e.target.value })
                   }
-                  required
                 />
 
-                <Input
-                  placeholder="Project*"
+                <Select
                   value={taskForm.project}
-                  onChange={(e) =>
-                    setTaskForm({ ...taskForm, project: e.target.value })
+                  onValueChange={v =>
+                    setTaskForm({ ...taskForm, project: v })
                   }
-                  required
-                />
-
-                <select
-                  className="w-full border rounded px-3 py-2"
-                  value={taskForm.status}
-                  onChange={(e) =>
-                    setTaskForm({ ...taskForm, status: e.target.value })
-                  }
-                  required
                 >
-                  <option value="">Status*</option>
-                  <option value="NOT_STARTED">Not Started</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="BLOCKED">Blocked</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Project*" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map(p => (
+                      <SelectItem key={p._id} value={p.name}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={taskForm.status}
+                  onValueChange={v =>
+                    setTaskForm({ ...taskForm, status: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map(s => (
+                      <SelectItem key={s} value={s}>
+                        {s.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
                 <Input
-                  placeholder="Assigned By (Optional)"
+                  placeholder="Assigned By"
                   value={taskForm.assignedBy}
-                  onChange={(e) =>
+                  onChange={e =>
                     setTaskForm({ ...taskForm, assignedBy: e.target.value })
                   }
                 />
 
                 <Textarea
-                  placeholder="Description (Optional)"
+                  placeholder="Description*"
                   value={taskForm.description}
-                  onChange={(e) =>
+                  onChange={e =>
                     setTaskForm({ ...taskForm, description: e.target.value })
                   }
                 />
 
-                <Button type="submit" className="w-full">
+                <Button
+                  type="submit"
+                  className="w-full bg-[#0F0E47] hover:bg-[#272757]"
+                >
                   Submit Task
                 </Button>
               </form>
             </CardContent>
           </Card>
         </div>
+
+        {/* ---------------- EDIT MODAL ---------------- */}
+        <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Task</DialogTitle>
+            </DialogHeader>
+
+            {selectedTask && (
+              <div className="space-y-4">
+                <Input
+                  value={selectedTask.title}
+                  onChange={e =>
+                    setSelectedTask({ ...selectedTask, title: e.target.value })
+                  }
+                />
+
+                <Select
+                  value={selectedTask.status}
+                  onValueChange={v =>
+                    setSelectedTask({ ...selectedTask, status: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map(s => (
+                      <SelectItem key={s} value={s}>
+                        {s.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button onClick={handleUpdateTask} className="w-full">
+                  Save Changes
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
 };
 
-export default InternDashboard;
+export default DailyUpdates;
+
+/* ---------------- KPI CARD ---------------- */
+const KpiCard = ({
+  title,
+  value,
+  icon,
+  onClick,
+}: {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) => (
+  <Card
+    onClick={onClick}
+    className="cursor-pointer transition hover:bg-muted/50"
+  >
+    <CardContent className="p-4 flex items-center gap-4">
+      {icon}
+      <div>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-xl font-bold">{value}</p>
+      </div>
+    </CardContent>
+  </Card>
+);

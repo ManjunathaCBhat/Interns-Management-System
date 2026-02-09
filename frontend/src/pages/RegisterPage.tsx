@@ -105,10 +105,10 @@ const RegisterPage: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col lg:flex-row">
         {/* Left Branding */}
-        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#2D0B59] via-[#5B1AA6] to-[#7C3AED] text-white p-16 flex-col justify-center">
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#0F0E47] via-[#272757] to-[#505081] text-white p-16 flex-col justify-center">
           <img src="/cirrus-logo.png" className="w-36 mb-10" alt="Logo" />
           <h1 className="text-5xl font-bold">
-            Interns<span className="text-pink-400">360</span>
+            Interns<span className="text-[#8686AC]">360</span>
           </h1>
           <p className="mt-6 max-w-md text-lg text-white/90">
             Manage interns, attendance, standups, and performance in one platform.
@@ -127,7 +127,7 @@ const RegisterPage: React.FC = () => {
             </p>
             <button
               onClick={() => navigate("/login")}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg font-medium"
+              className="w-full bg-[#0F0E47] hover:bg-[#272757] text-white py-2.5 rounded-lg font-medium"
             >
               Go to Login
             </button>
@@ -140,10 +140,10 @@ const RegisterPage: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#2D0B59] via-[#5B1AA6] to-[#7C3AED] text-white p-16 flex-col justify-center">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#0F0E47] via-[#272757] to-[#505081] text-white p-16 flex-col justify-center">
         <img src="/cirrus-logo.png" className="w-36 mb-10" alt="Logo" />
         <h1 className="text-5xl font-bold">
-          Interns<span className="text-pink-400">360</span>
+          Interns<span className="text-[#8686AC]">360</span>
         </h1>
         <p className="mt-6 max-w-md text-lg text-white/90">
           Manage interns, attendance, standups, and performance in one platform.
@@ -159,7 +159,7 @@ const RegisterPage: React.FC = () => {
           <div className="flex items-center mb-6">
             <Link
               to="/login"
-              className="text-gray-500 hover:text-purple-600 mr-3"
+              className="text-gray-500 hover:text-[#0F0E47] mr-3"
             >
               <ArrowLeft size={20} />
             </Link>
@@ -177,7 +177,7 @@ const RegisterPage: React.FC = () => {
               placeholder="Enter your full name"
               className={`w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 ${
                 errors.name ? "border-red-500" : "border-gray-300"
-              } focus:ring-purple-500`}
+              } focus:ring-[#0F0E47]`}
             />
             {errors.name && (
               <p className="text-xs text-red-500 mt-1">{errors.name}</p>
@@ -195,7 +195,7 @@ const RegisterPage: React.FC = () => {
               placeholder="your.email@company.com"
               className={`w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 ${
                 errors.email ? "border-red-500" : "border-gray-300"
-              } focus:ring-purple-500`}
+              } focus:ring-[#0F0E47]`}
             />
             {errors.email && (
               <p className="text-xs text-red-500 mt-1">{errors.email}</p>
@@ -213,7 +213,7 @@ const RegisterPage: React.FC = () => {
               placeholder="Choose a username"
               className={`w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 ${
                 errors.username ? "border-red-500" : "border-gray-300"
-              } focus:ring-purple-500`}
+              } focus:ring-[#0F0E47]`}
             />
             {errors.username && (
               <p className="text-xs text-red-500 mt-1">{errors.username}</p>
@@ -229,7 +229,7 @@ const RegisterPage: React.FC = () => {
               value={formData.employee_id}
               onChange={handleChange}
               placeholder="e.g., CL001"
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500"
+              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F0E47]"
             />
           </div>
 
@@ -245,7 +245,7 @@ const RegisterPage: React.FC = () => {
                 placeholder="Create a password"
                 className={`w-full mt-1 px-3 py-2 border rounded-md pr-10 focus:ring-2 ${
                   errors.password ? "border-red-500" : "border-gray-300"
-                } focus:ring-purple-500`}
+                } focus:ring-[#0F0E47]`}
               />
               <button
                 type="button"
@@ -272,7 +272,7 @@ const RegisterPage: React.FC = () => {
                 placeholder="Confirm your password"
                 className={`w-full mt-1 px-3 py-2 border rounded-md pr-10 focus:ring-2 ${
                   errors.confirmPassword ? "border-red-500" : "border-gray-300"
-                } focus:ring-purple-500`}
+                } focus:ring-[#0F0E47]`}
               />
               <button
                 type="button"
@@ -291,7 +291,7 @@ const RegisterPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"
+            className="w-full bg-[#0F0E47] hover:bg-[#272757] text-white py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="animate-spin h-4 w-4" />}
             {loading ? "Creating Account..." : "Create Account"}
@@ -305,7 +305,7 @@ const RegisterPage: React.FC = () => {
           {/* Login Link */}
           <p className="text-sm text-center mt-6 text-gray-600">
             Already have an account?{" "}
-            <Link to="/login" className="text-purple-600 hover:underline font-medium">
+            <Link to="/login" className="text-[#0F0E47] hover:underline font-medium">
               Login here
             </Link>
           </p>

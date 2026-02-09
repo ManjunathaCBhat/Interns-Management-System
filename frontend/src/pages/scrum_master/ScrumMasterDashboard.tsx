@@ -13,6 +13,8 @@ import {
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import apiClient from '@/services/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { COLORS, getStatusColor, getStatusBgColor } from '@/config/colors';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // --- Interfaces ---
 interface DashboardStats {
@@ -52,7 +54,7 @@ const StatCard: React.FC<{
   color: string;
 }> = ({ title, value, sub, icon, color }) => (
   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4 transition-all hover:shadow-md">
-    <div className={`${color} p-4 rounded-xl`}>{icon}</div>
+    <div className="p-4 rounded-xl" style={{ backgroundColor: color }}>{icon}</div>
     <div>
       <p className="text-slate-500 text-sm font-medium">{title}</p>
       <p className="text-2xl font-bold text-slate-800">{value}</p>
@@ -114,22 +116,17 @@ const ScrumMasterDashboard: React.FC = () => {
       .join('')
       .toUpperCase();
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      active: '#22c55e',
-      training: '#3b82f6',
-      onboarding: '#eab308',
-      completed: '#64748b',
-      dropped: '#ef4444',
-    };
-    return colors[status] || '#94a3b8';
-  };
-
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-full items-center justify-center">
-          <RefreshCw className="h-8 w-8 animate-spin text-purple-600" />
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-full" />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-32 w-full" />
+            ))}
+          </div>
+          <Skeleton className="h-64 w-full" />
         </div>
       </DashboardLayout>
     );
@@ -143,7 +140,8 @@ const ScrumMasterDashboard: React.FC = () => {
           <p className="text-red-600">{error}</p>
           <button
             onClick={fetchDashboardData}
-            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700"
+            className="flex items-center gap-2 rounded-lg text-white px-4 py-2 hover:opacity-90"
+            style={{ backgroundColor: COLORS.primary.purple }}
           >
             <RefreshCw size={16} /> Retry
           </button>
@@ -163,7 +161,8 @@ const ScrumMasterDashboard: React.FC = () => {
           </div>
           <button
             onClick={fetchDashboardData}
-            className="flex items-center gap-2 bg-purple-500/10 text-purple-600 px-4 py-2 rounded-lg font-semibold hover:bg-purple-500/20 transition-all"
+            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all"
+            style={{ backgroundColor: COLORS.primary.purple }}
           >
             <RefreshCw size={16} /> Refresh
           </button>
@@ -176,28 +175,28 @@ const ScrumMasterDashboard: React.FC = () => {
             value={stats.activeInterns}
             sub={`${stats.totalInterns} total`}
             icon={<Users className="text-white" />}
-            color="bg-blue-500"
+            color={COLORS.primary.purple}
           />
           <StatCard
             title="DSU Completion"
             value={`${stats.dsuCompletion}%`}
             sub={`${stats.submittedDSUs} submitted today`}
             icon={<CheckCircle className="text-white" />}
-            color={stats.dsuCompletion > 80 ? 'bg-green-500' : 'bg-yellow-500'}
+            color={stats.dsuCompletion > 80 ? COLORS.status.success : COLORS.status.warning}
           />
           <StatCard
             title="Task Completion"
             value={`${stats.taskCompletion}%`}
             sub={`${stats.completedTasks}/${stats.totalTasks} tasks`}
             icon={<Target className="text-white" />}
-            color="bg-cyan-500"
+            color={COLORS.primary.deepPurple}
           />
           <StatCard
             title="Pending DSUs"
             value={stats.pendingDSUs}
             sub="Need attention"
             icon={<Calendar className="text-white" />}
-            color="bg-orange-500"
+            color={COLORS.accent.pink}
           />
         </div>
 
@@ -206,11 +205,12 @@ const ScrumMasterDashboard: React.FC = () => {
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <Users size={20} className="text-purple-600" /> Team Members
+                <Users size={20} style={{ color: COLORS.primary.purple }} /> Team Members
               </h2>
               <Link
                 to="/scrum-master/interns"
-                className="text-blue-600 text-sm font-semibold flex items-center gap-1"
+                className="text-sm font-semibold flex items-center gap-1"
+                style={{ color: COLORS.primary.purple }}
               >
                 View All <ArrowRight size={14} />
               </Link>
@@ -239,7 +239,7 @@ const ScrumMasterDashboard: React.FC = () => {
                     <span
                       className="px-2 py-1 rounded-full text-xs font-medium capitalize"
                       style={{
-                        backgroundColor: `${getStatusColor(intern.status)}20`,
+                        backgroundColor: getStatusBgColor(intern.status),
                         color: getStatusColor(intern.status),
                       }}
                     >
@@ -255,7 +255,7 @@ const ScrumMasterDashboard: React.FC = () => {
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <ClipboardList size={20} className="text-purple-600" /> Today's DSU Status
+                <ClipboardList size={20} style={{ color: COLORS.primary.purple }} /> Today's DSU Status
               </h2>
               <Link
                 to="/scrum-master/dsu-board"
@@ -274,7 +274,7 @@ const ScrumMasterDashboard: React.FC = () => {
                     className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-all"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-sm font-semibold">
+                      <div className="w-10 h-10 rounded-full bg-[#8686AC]/20 flex items-center justify-center text-[#0F0E47] text-sm font-semibold">
                         {getInitials(dsu.internName || 'UN')}
                       </div>
                       <div>

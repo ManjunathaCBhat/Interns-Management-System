@@ -63,6 +63,58 @@ async def seed_database():
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc)
         },
+         {
+            "username": "Demo",
+            "email": "demo@cirruslabs.io",
+            "name": "Demo User",
+          
+            "role": "intern",
+            "hashed_password": default_password,
+            "is_active": True,
+            "is_approved": True,
+            "auth_provider": "password",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        },
+        {
+            "username": "Praharsha.HV",
+            "email": "Praharsha.HV@cirruslabs.io",
+            "name": "Praharsha",
+            "employee_id": "CL001",
+            "role": "admin",
+            "hashed_password": default_password,
+            "is_active": True,
+            "is_approved": True,
+            "auth_provider": "password",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        },
+        {
+            "username": "deekshitha.shetty",
+            "email": "deekshitha.shetty@cirruslabs.io",
+            "name": "Deekshitha Shetty",
+            "employee_id": "CL002",
+            "role": "admin",
+            "hashed_password": default_password,
+            "is_active": True,
+            "is_approved": True,
+            "auth_provider": "password",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        },
+          {
+            "username": "sherol.dsouza",
+            "email": " Sherol.Dsouza@cirruslabs.io",
+            "name": "Sherol Dsouza",
+            "employee_id": "CL002",
+            "role": "admin",
+            "hashed_password": default_password,
+            "is_active": True,
+            "is_approved": True,
+            "auth_provider": "password",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        },
         {
             "username": "karan.ry",
             "email": "karan.ry@cirruslabs.io",

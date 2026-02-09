@@ -15,7 +15,7 @@ import Navbar from '@/components/layout/Navbar';
 const HomePage: React.FC = () => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Update mouse position for the pink glow effect
+  // Update mouse position for the accent glow effect
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePos({ x: e.clientX, y: e.clientY });
@@ -40,24 +40,25 @@ const HomePage: React.FC = () => {
   ];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#2D0B59] text-white">
+    <div className="relative min-h-screen overflow-hidden bg-[#0F0E47] text-white">
       <Navbar />
 
       {/* Dynamic Cursor Glow Layer - Reduced Range */}
 <div 
   className="pointer-events-none fixed inset-0 z-20 transition-opacity duration-300"
   style={{
-    background: `radial-gradient(350px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255, 77, 166, 0.12), transparent 50%)`
+    background: `radial-gradient(350px circle at ${mousePos.x}px ${mousePos.y}px, rgba(134, 134, 172, 0.12), transparent 50%)`
   }}
 />
 
       {/* Hero Section */}
       <section className="relative flex flex-col items-center justify-center px-4 py-32 text-center md:py-48" 
-               style={{ background: 'radial-gradient(circle at center, #3B0F6F 0%, #2D0B59 100%)' }}>
+           style={{ background: 'radial-gradient(circle at center, #272757 0%, #0F0E47 100%)' }}>
         
         {/* Hero Content */}
+          
         <h1 className="mb-6 max-w-4xl text-5xl font-extrabold tracking-tight md:text-7xl">
-          Interns<span className="text-[#FF4DA6]">360</span>
+          Interns<span className="text-[#8686AC]">360</span>
         </h1>
         
         <p className="mx-auto mb-10 max-w-2xl text-lg text-white/85 md:text-xl leading-relaxed">
@@ -69,7 +70,7 @@ const HomePage: React.FC = () => {
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
           <Button 
             asChild 
-            className="h-14 px-8 text-lg font-semibold bg-[#FF4DA6] hover:bg-[#FF4DA6]/90 text-white rounded-xl shadow-[0_0_20px_rgba(255,77,166,0.35)] transition-all transform hover:scale-105"
+            className="h-14 px-8 text-lg font-semibold bg-[#0F0E47] hover:bg-[#272757] text-white rounded-xl shadow-[0_0_20px_rgba(15,14,71,0.35)] transition-all transform hover:scale-105"
           >
             <Link to="/login" className="flex items-center">
               Get Started <ArrowRight className="ml-2 h-5 w-5" />
@@ -87,22 +88,22 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Features Grid */}
-      <section className="relative z-10 bg-[#3B0F6F]/30 py-24">
+      <section className="relative z-10 bg-[#272757]/30 py-24">
         <div className="container mx-auto px-4">
           <div className="grid gap-8 md:grid-cols-3">
             {features.map((feature, index) => (
               <div 
                 key={index} 
-                className="group relative rounded-2xl border border-white/10 bg-[#2D0B59]/50 p-8 transition-all duration-300 hover:-translate-y-2 hover:border-[#FF4DA6]/50 hover:shadow-[0_0_30px_rgba(255,77,166,0.1)]"
+                className="group relative rounded-2xl border border-white/10 bg-[#0F0E47]/50 p-8 transition-all duration-300 hover:-translate-y-2 hover:border-[#8686AC]/50 hover:shadow-[0_0_30px_rgba(134,134,172,0.12)]"
               >
                 {/* Individual Card Hover Glow */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#FF4DA6]/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#8686AC]/8 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                 
                 <div className="relative z-10">
-                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-[#7C3AED]/20 text-[#FF4DA6] transition-colors group-hover:bg-[#FF4DA6] group-hover:text-white">
+                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-[#505081]/20 text-[#8686AC] transition-colors group-hover:bg-[#8686AC] group-hover:text-white">
                     <feature.icon className="h-6 w-6" />
                   </div>
-                  <h3 className="mb-3 text-xl font-bold transition-colors group-hover:text-[#FF4DA6]">{feature.title}</h3>
+                  <h3 className="mb-3 text-xl font-bold transition-colors group-hover:text-[#8686AC]">{feature.title}</h3>
                   <p className="text-white/70">{feature.description}</p>
                 </div>
               </div>
@@ -117,7 +118,7 @@ const HomePage: React.FC = () => {
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
             {stats.map((stat, index) => (
               <div key={index} className="text-center">
-                <div className="text-4xl font-black text-[#FF4DA6]">{stat.value}</div>
+                <div className="text-4xl font-black text-[#8686AC]">{stat.value}</div>
                 <div className="mt-1 text-sm font-medium uppercase tracking-widest text-white/60">{stat.label}</div>
               </div>
             ))}
@@ -128,7 +129,7 @@ const HomePage: React.FC = () => {
       {/* Footer */}
       <footer className="relative z-10 py-12 text-center text-white/50 border-t border-white/5">
         <div className="mb-4 text-xl font-bold text-white">
-          Interns<span className="text-[#FF4DA6]">360</span>
+          Interns<span className="text-[#8686AC]">360</span>
         </div>
         <p>© 2026 Interns360. Powered by Cirrus Labs.</p>
       </footer>

@@ -1,205 +1,201 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Save, Calendar, TrendingUp, CheckCircle, Clock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+} from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { taskService } from '@/services/taskService';
-import { dsuService } from '@/services/dsuService';
-import { projectService } from '@/services/projectService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import StatusBadge from '@/components/shared/StatusBadge';
+import { useToast } from '@/hooks/use-toast';
+import { taskService } from '@/services/taskService';
+import { projectService } from '@/services/projectService';
+import { Task, Project } from '@/types/intern';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
-  SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectContent,
+  SelectItem,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { Task, Project } from '@/types/intern';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const STATUS_OPTIONS = [
-  { value: 'NOT_STARTED', label: 'Not Started', color: 'bg-gray-100 text-gray-800' },
-  { value: 'ON_HOLD', label: 'On Hold', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'IN_PROGRESS', label: 'In Progress', color: 'bg-blue-100 text-blue-800' },
-  { value: 'BLOCKED', label: 'Blocked', color: 'bg-red-100 text-red-800' },
-  { value: 'DONE', label: 'Done', color: 'bg-green-100 text-green-800' },
+/* ---------------- TYPES ---------------- */
+
+type StatusFilter =
+  | 'ALL'
+  | 'NOT_STARTED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'BLOCKED'
+  | 'ON_HOLD';
+
+const STATUS_OPTIONS: StatusFilter[] = [
+  'NOT_STARTED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'BLOCKED',
+  'ON_HOLD',
 ];
 
-export default function DailyUpdates() {
+/* 🔧 FIX: normalize status everywhere */
+const normalizeStatus = (status: string) =>
+  status.toUpperCase().replace(/\s+/g, '_');
+
+/* ---------------- COMPONENT ---------------- */
+
+const DailyUpdates: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasSubmittedDSU, setHasSubmittedDSU] = useState(false);
-  
-  const [dsuData, setDsuData] = useState({
-    yesterday: '',
-    today: '',
-    blockers: '',
-    learnings: '',
-  });
-  
-  const [newTask, setNewTask] = useState({
+
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>('ALL');
+
+  const [selectedTask, setSelectedTask] =
+    useState<Task | null>(null);
+
+  const [taskForm, setTaskForm] = useState({
     title: '',
-    description: '',
     project: '',
     status: 'NOT_STARTED',
-    comments: '',
+    assignedBy: '',
+    description: '',
   });
-
-  const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     fetchData();
   }, []);
 
-
-const fetchData = async () => {
-  try {
+  const fetchData = async () => {
     setLoading(true);
-    const [tasksData, projectsData, dsuData] = await Promise.all([
-      taskService.getAll(user?.id),
-      projectService.getAll(),
-      dsuService.getByDate(user?.id || '', today),
+    const projectLoader = user?.role === 'intern'
+      ? projectService.getAssigned()
+      : projectService.getAll();
+
+    const [tasksData, projectsData] = await Promise.all([
+      taskService.getAll({ intern_id: user?.id }),
+      projectLoader,
     ]);
-    
-    // ✅ FIX: Safely filter tasks for today
-    const todayTasks = tasksData.filter((t: Task) => {
-      // Handle both 'date' and 'task_date' field names from backend
-      const taskDate = t.date || t.task_date || '';
-      return taskDate === today;
-    });
-    
-    setTasks(todayTasks);
+    setTasks(tasksData);
     setProjects(projectsData);
-    
-    // Check if DSU already submitted
-    if (dsuData) {
-      setHasSubmittedDSU(true);
-      setDsuData({
-        yesterday: dsuData.yesterday || '',
-        today: dsuData.today || '',
-        blockers: dsuData.blockers || '',
-        learnings: dsuData.learnings || '',
-      });
-    }
-  } catch (error: any) {
-    console.error('Failed to load data:', error);
-    toast({
-      title: 'Error',
-      description: 'Failed to load data',
-      variant: 'destructive',
-    });
-  } finally {
     setLoading(false);
-  }
-};
+  };
 
-  const handleSubmitDSU = async () => {
-    if (!dsuData.yesterday || !dsuData.today) {
+  /* ---------------- KPI COUNTS ---------------- */
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(
+    t => normalizeStatus(t.status) === 'COMPLETED'
+  ).length;
+  const inProgressTasks = tasks.filter(
+    t => normalizeStatus(t.status) === 'IN_PROGRESS'
+  ).length;
+  const blockedTasks = tasks.filter(
+    t => normalizeStatus(t.status) === 'BLOCKED'
+  ).length;
+  const onHoldTasks = tasks.filter(
+    t => t.status === 'ON_HOLD'
+  ).length;
+
+
+  /* ---------------- FILTER ---------------- */
+  const filteredTasks =
+    statusFilter === 'ALL'
+      ? tasks
+      : tasks.filter(
+          t => normalizeStatus(t.status) === statusFilter
+        );
+
+  /* ---------------- SUBMIT TASK ---------------- */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (
+      !taskForm.title ||
+      !taskForm.project ||
+      !taskForm.status ||
+      !taskForm.description
+    ) {
       toast({
         title: 'Missing fields',
-        description: 'Please fill in yesterday and today fields',
+        description: 'All * fields are required',
         variant: 'destructive',
       });
       return;
     }
 
-    try {
-      await dsuService.create({
-        internId: user?.id || '',
-        date: today,
-        ...dsuData,
-      });
-      
-      setHasSubmittedDSU(true);
-      toast({
-        title: 'Success',
-        description: 'Daily standup submitted successfully',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to submit DSU',
-        variant: 'destructive',
-      });
-    }
+    const created = await taskService.create({
+      ...taskForm,
+      status: normalizeStatus(taskForm.status),
+      internId: user?.id,
+    });
+
+    setTasks(prev => [created, ...prev]);
+    setTaskForm({
+      title: '',
+      project: '',
+      status: 'NOT_STARTED',
+      assignedBy: '',
+      description: '',
+    });
+
+    toast({ title: 'Task added successfully' });
   };
 
-  const handleAddTask = async () => {
-    if (!newTask.title || !newTask.project) {
-      toast({
-        title: 'Missing fields',
-        description: 'Please fill in task title and project',
-        variant: 'destructive',
-      });
-      return;
-    }
+  /* ---------------- EDIT TASK (FIXED) ---------------- */
+  const handleUpdateTask = async () => {
+    if (!selectedTask) return;
 
-    try {
-      const taskData = {
-        ...newTask,
-        internId: user?.id || '',
-        date: today,
-      };
-      
-      const created = await taskService.create(taskData);
-      setTasks([...tasks, created]);
-      setNewTask({
-        title: '',
-        description: '',
-        project: '',
-        status: 'NOT_STARTED',
-        comments: '',
-      });
-      
-      toast({
-        title: 'Success',
-        description: 'Task added successfully',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add task',
-        variant: 'destructive',
-      });
-    }
-  };
+    const payload = {
+      title: selectedTask.title,
+      status: normalizeStatus(selectedTask.status),
+    };
 
-  const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
-    try {
-      const updated = await taskService.update(id, updates);
-      setTasks(tasks.map(t => t._id === id ? updated : t));
-      
-      toast({
-        title: 'Success',
-        description: 'Task updated successfully',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update task',
-        variant: 'destructive',
-      });
-    }
-  };
+    await taskService.update(selectedTask._id, payload);
 
-  const stats = {
-    total: tasks.length,
-    completed: tasks.filter(t => t.status === 'DONE').length,
-    inProgress: tasks.filter(t => t.status === 'IN_PROGRESS').length,
+    setTasks(prev =>
+      prev.map(t =>
+        t._id === selectedTask._id
+          ? { ...t, ...payload }
+          : t
+      )
+    );
+
+    setSelectedTask(null);
+    toast({ title: 'Task updated' });
   };
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Skeleton key={index} className="h-24 w-full" />
+            ))}
+          </div>
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            <Skeleton className="h-96 w-full" />
+            <Skeleton className="h-96 w-full" />
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -208,315 +204,244 @@ const fetchData = async () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header with Welcome Message */}
-        <div className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 p-6 text-white">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">☀️</span>
-            <span className="text-lg font-medium">
-              Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}
-            </span>
-          </div>
-          <h1 className="text-3xl font-bold mb-2">{user?.name}!</h1>
-          <p className="text-blue-100">
-            {hasSubmittedDSU 
-              ? "You've submitted today's standup. Keep up the great work!"
-              : "Let's track your progress for today"}
-          </p>
+
+        {/* ---------------- KPI CARDS ---------------- */}
+        <div className="grid gap-4 md:grid-cols-5">
+          <KpiCard
+            title="Total Tasks"
+            value={totalTasks}
+            icon={<Clock className="text-blue-600" />}
+            onClick={() => setStatusFilter('ALL')}
+          />
+          <KpiCard
+            title="Completed"
+            value={completedTasks}
+            icon={<CheckCircle className="text-green-600" />}
+            onClick={() => setStatusFilter('COMPLETED')}
+          />
+          <KpiCard
+            title="In Progress"
+            value={inProgressTasks}
+            icon={<Clock className="text-orange-600" />}
+            onClick={() => setStatusFilter('IN_PROGRESS')}
+          />
+          <KpiCard
+            title="Blocked"
+            value={blockedTasks}
+            icon={<AlertTriangle className="text-red-600" />}
+            onClick={() => setStatusFilter('BLOCKED')}
+          />
+          <KpiCard
+            title="On Hold"
+            value={onHoldTasks}
+            icon={<Clock className="text-gray-600" />}
+            onClick={() => setStatusFilter('ON_HOLD')}
+          />
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 sm:grid-cols-4">
+        {/* ---------------- MAIN GRID ---------------- */}
+        <div className="grid gap-6 lg:grid-cols-2">
+
+          {/* ---------------- LEFT TABLE ---------------- */}
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.total}</p>
-                  <p className="text-xs text-muted-foreground">Active Tasks</p>
-                </div>
+            <CardHeader>
+              <CardTitle>Past Tasks</CardTitle>
+              <div className="flex gap-2 mt-2">
+                {STATUS_OPTIONS.map(s => (
+                  <StatusBadge key={s} status={s} />
+                ))}
               </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="p-3 text-left">Task</th>
+                    <th className="p-3 text-left">Project</th>
+                    <th className="p-3 text-left">Status</th>
+                    <th className="p-3 text-left">Assigned By</th>
+                    <th className="p-3 text-right">Edit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTasks.map(task => (
+                    <tr key={task._id} className="border-t">
+                      <td className="p-3">{task.title}</td>
+                      <td className="p-3">{task.project}</td>
+                      <td className="p-3">
+                        <StatusBadge status={task.status} />
+                      </td>
+                      <td className="p-3">{task.assignedBy || '-'}</td>
+                      <td className="p-3 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setSelectedTask({
+                              ...task,
+                              status: normalizeStatus(task.status),
+                            })
+                          }
+                        >
+                          Edit
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </CardContent>
           </Card>
 
+          {/* ---------------- RIGHT FORM ---------------- */}
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.completed}</p>
-                  <p className="text-xs text-muted-foreground">Completed</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                  <Clock className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.inProgress}</p>
-                  <p className="text-xs text-muted-foreground">In Progress</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-100">
-                  <TrendingUp className="h-5 w-5 text-cyan-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">7 days</p>
-                  <p className="text-xs text-muted-foreground">DSU Streak</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Daily Standup Update Section */}
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-cyan-600" />
-              Daily Standup Update
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            {hasSubmittedDSU ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-green-600 mb-4">
-                  <CheckCircle className="h-5 w-5" />
-                  <span className="font-medium">Submitted for today</span>
-                </div>
-                
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <p className="font-medium text-muted-foreground mb-1">Yesterday</p>
-                    <p>{dsuData.yesterday}</p>
-                  </div>
-                  <div>
-                    <p className="font-medium text-muted-foreground mb-1">Today</p>
-                    <p>{dsuData.today}</p>
-                  </div>
-                  {dsuData.blockers && (
-                    <div className="rounded-lg bg-red-50 p-3">
-                      <p className="font-medium text-red-600 mb-1">Blockers</p>
-                      <p className="text-red-900/80">{dsuData.blockers}</p>
-                    </div>
-                  )}
-                  {dsuData.learnings && (
-                    <div>
-                      <p className="font-medium text-muted-foreground mb-1">Learnings</p>
-                      <p>{dsuData.learnings}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Yesterday</label>
-                  <Textarea
-                    placeholder="What did you accomplish yesterday?"
-                    value={dsuData.yesterday}
-                    onChange={(e) => setDsuData({ ...dsuData, yesterday: e.target.value })}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Today</label>
-                  <Textarea
-                    placeholder="What are you working on today?"
-                    value={dsuData.today}
-                    onChange={(e) => setDsuData({ ...dsuData, today: e.target.value })}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Blockers (Optional)</label>
-                  <Textarea
-                    placeholder="Any obstacles or challenges?"
-                    value={dsuData.blockers}
-                    onChange={(e) => setDsuData({ ...dsuData, blockers: e.target.value })}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Learnings (Optional)</label>
-                  <Textarea
-                    placeholder="What did you learn?"
-                    value={dsuData.learnings}
-                    onChange={(e) => setDsuData({ ...dsuData, learnings: e.target.value })}
-                    rows={2}
-                  />
-                </div>
-
-                <Button onClick={handleSubmitDSU} className="w-full">
-                  <Save className="mr-2 h-4 w-4" />
-                  Submit Standup
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Add Task Section */}
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Add New Task
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Task *</label>
+            <CardHeader>
+              <CardTitle>Submit Task</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" onSubmit={handleSubmit}>
                 <Input
-                  placeholder="What are you working on?"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                  placeholder="Task Name*"
+                  value={taskForm.title}
+                  onChange={e =>
+                    setTaskForm({ ...taskForm, title: e.target.value })
+                  }
                 />
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Project *</label>
                 <Select
-                  value={newTask.project}
-                  onValueChange={(value) => setNewTask({ ...newTask, project: value })}
+                  value={taskForm.project}
+                  onValueChange={v =>
+                    setTaskForm({ ...taskForm, project: v })
+                  }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
+                    <SelectValue placeholder="Select Project*" />
                   </SelectTrigger>
                   <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project._id} value={project.name}>
-                        {project.name}
+                    {projects.map(p => (
+                      <SelectItem key={p._id} value={p.name}>
+                        {p.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
                 <Select
-                  value={newTask.status}
-                  onValueChange={(value) => setNewTask({ ...newTask, status: value })}
+                  value={taskForm.status}
+                  onValueChange={v =>
+                    setTaskForm({ ...taskForm, status: v })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {STATUS_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                    {STATUS_OPTIONS.map(s => (
+                      <SelectItem key={s} value={s}>
+                        {s.replace('_', ' ')}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium">Description (Optional)</label>
-                <Textarea
-                  placeholder="Details about the task..."
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  rows={2}
+                <Input
+                  placeholder="Assigned By"
+                  value={taskForm.assignedBy}
+                  onChange={e =>
+                    setTaskForm({ ...taskForm, assignedBy: e.target.value })
+                  }
                 />
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Comments</label>
                 <Textarea
-                  placeholder="Any notes or updates..."
-                  value={newTask.comments}
-                  onChange={(e) => setNewTask({ ...newTask, comments: e.target.value })}
-                  rows={2}
+                  placeholder="Description*"
+                  value={taskForm.description}
+                  onChange={e =>
+                    setTaskForm({ ...taskForm, description: e.target.value })
+                  }
                 />
-              </div>
-            </div>
 
-            <div className="mt-4">
-              <Button onClick={handleAddTask} className="w-full md:w-auto">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Task
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                <Button
+                  type="submit"
+                  className="w-full bg-[#0F0E47] hover:bg-[#272757]"
+                >
+                  Submit Task
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Active Tasks */}
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-600" />
-              Active Tasks
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {tasks.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground">
-                No tasks yet. Add your first task above!
-              </div>
-            ) : (
-              <div className="divide-y">
-                {tasks.map((task) => (
-                  <div key={task._id} className="p-4 hover:bg-muted/30 transition">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium mb-1">{task.title}</h3>
-                        {task.description && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {task.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-3 text-sm">
-                          <span className="text-muted-foreground">{task.project}</span>
-                          {task.comments && (
-                            <span className="text-muted-foreground">• {task.comments}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={task.status}
-                          onValueChange={(value) => handleUpdateTask(task._id, { status: value })}
-                        >
-                          <SelectTrigger className="w-[140px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STATUS_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+        {/* ---------------- EDIT MODAL ---------------- */}
+        <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Task</DialogTitle>
+            </DialogHeader>
+
+            {selectedTask && (
+              <div className="space-y-4">
+                <Input
+                  value={selectedTask.title}
+                  onChange={e =>
+                    setSelectedTask({ ...selectedTask, title: e.target.value })
+                  }
+                />
+
+                <Select
+                  value={selectedTask.status}
+                  onValueChange={v =>
+                    setSelectedTask({ ...selectedTask, status: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map(s => (
+                      <SelectItem key={s} value={s}>
+                        {s.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button onClick={handleUpdateTask} className="w-full">
+                  Save Changes
+                </Button>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
-}
+};
+
+export default DailyUpdates;
+
+/* ---------------- KPI CARD ---------------- */
+const KpiCard = ({
+  title,
+  value,
+  icon,
+  onClick,
+}: {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) => (
+  <Card
+    onClick={onClick}
+    className="cursor-pointer transition hover:bg-muted/50"
+  >
+    <CardContent className="p-4 flex items-center gap-4">
+      {icon}
+      <div>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-xl font-bold">{value}</p>
+      </div>
+    </CardContent>
+  </Card>
+);

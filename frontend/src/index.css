@@ -7,29 +7,29 @@
 @layer base {
   :root {
     /* Background & Surfaces */
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    --background: 240 20% 98%;
+    --foreground: 241 67% 17%;
     
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 241 67% 17%;
     
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 241 67% 17%;
     
-    /* Primary - Deep Slate */
-    --primary: 222 47% 11%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Blue Eclipse */
+    --primary: 241 67% 17%;
+    --primary-foreground: 0 0% 100%;
     
-    /* Secondary - Light Gray */
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 222 47% 11%;
+    /* Secondary - Soft Blue */
+    --secondary: 240 20% 94%;
+    --secondary-foreground: 241 67% 17%;
     
     /* Muted */
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 240 12% 92%;
+    --muted-foreground: 240 10% 45%;
     
-    /* Accent - Vibrant Teal */
-    --accent: 173 80% 40%;
+    /* Accent - Lavender */
+    --accent: 240 19% 60%;
     --accent-foreground: 0 0% 100%;
     
     /* Destructive */
@@ -37,9 +37,9 @@
     --destructive-foreground: 0 0% 100%;
     
     /* Borders & Inputs */
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 173 80% 40%;
+    --border: 240 12% 88%;
+    --input: 240 12% 88%;
+    --ring: 240 38% 25%;
     
     --radius: 0.625rem;
     
@@ -49,10 +49,10 @@
     --status-error: 0 84% 60%;
     --status-info: 199 89% 48%;
     
-    /* Gradient Tokens */
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 47% 20%) 50%, hsl(173 80% 30%) 100%);
+    /* Gradient Tokens - Blue Eclipse */
+    --gradient-hero: linear-gradient(135deg, #0F0E47 0%, #272757 50%, #505081 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(173 80% 40%) 0%, hsl(173 80% 50%) 100%);
+    --gradient-accent: linear-gradient(135deg, #272757 0%, #8686AC 100%);
     
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -62,15 +62,15 @@
     --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
     --shadow-elevated: 0 25px 50px -12px rgb(0 0 0 / 0.25);
     
-    /* Sidebar */
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 173 80% 40%;
+    /* Sidebar - Blue Eclipse theme */
+    --sidebar-background: 241 67% 17%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: #505081;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 18%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 173 80% 40%;
+    --sidebar-accent: #8686AC;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: #272757;
+    --sidebar-ring: #8686AC;
   }
 
   .dark {
@@ -92,7 +92,7 @@
     --muted: 222 47% 15%;
     --muted-foreground: 215 20% 65%;
     
-    --accent: 173 80% 40%;
+    --accent: 327 97% 50%;
     --accent-foreground: 0 0% 100%;
     
     --destructive: 0 62% 50%;

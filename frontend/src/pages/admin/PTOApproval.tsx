@@ -28,11 +28,12 @@ interface PTO {
   email: string;
   team: string;
   batch?: string;
+  type?: 'PTO' | 'WFH';
   startDate: string;
   endDate: string;
   numberOfDays: number;
   reason?: string;
-  leaveType: string;
+  leaveType?: string;
   status: string;
   approvedBy?: string;
   approvedAt?: string;
@@ -189,6 +190,7 @@ const PTOApproval: React.FC = () => {
       casual: 'bg-blue-100 text-blue-700 border-blue-200',
       sick: 'bg-red-100 text-red-700 border-red-200',
       emergency: 'bg-orange-100 text-orange-700 border-orange-200',
+      wfh: 'bg-teal-100 text-teal-700 border-teal-200',
     };
     return colors[type.toLowerCase()] || 'bg-gray-100 text-gray-700 border-gray-200';
   };
@@ -357,8 +359,8 @@ const PTOApproval: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    <Badge className={getLeaveTypeColor(pto.leaveType)}>
-                      {pto.leaveType}
+                    <Badge className={getLeaveTypeColor(pto.type === 'WFH' ? 'wfh' : (pto.leaveType || 'casual'))}>
+                      {pto.type === 'WFH' ? 'WFH' : (pto.leaveType || 'PTO')}
                     </Badge>
                   </div>
 

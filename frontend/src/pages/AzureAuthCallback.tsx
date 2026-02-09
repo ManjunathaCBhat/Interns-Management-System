@@ -41,7 +41,7 @@ const AzureAuthCallback: React.FC = () => {
         console.log('Authorization code received, exchanging for token...');
 
         // Get backend URL from environment
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+        const apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
 
         // Call your backend to exchange code for token and create/update user
         const response = await fetch(`${apiUrl}/auth/sso/azure/callback`, {

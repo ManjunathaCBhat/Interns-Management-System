@@ -1,14 +1,22 @@
-# Backend Dependencies
+# FastAPI and Web Server
 fastapi
 uvicorn[standard]
+
+# Database
 motor
 pymongo
+
+# Data Validation
 pydantic
 pydantic-settings
-python-jose[cryptography]
-bcrypt
-python-multipart
 email-validator
+
+# Authentication
+python-jose[cryptography]
+passlib[bcrypt]
+
+# Utilities
+python-multipart
 python-dotenv
 httpx
 
@@ -16,6 +24,6 @@ httpx
 pytest
 pytest-asyncio
 
-# Optional: Development tools
+# Development Tools
 black
 isort

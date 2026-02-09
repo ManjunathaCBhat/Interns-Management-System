@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Users,
   Briefcase,
@@ -11,26 +11,14 @@ import {
   Activity,
   Award,
   AlertTriangle,
+  Inbox,
 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import apiClient from '@/services/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
+import { COLORS } from '@/config/colors';
 
 // --- Interfaces ---
-interface Intern {
-  _id: string;
-  name: string;
-  domain: string;
-  status: 'active' | 'training' | 'onboarding' | 'completed' | 'dropped';
-  internType: 'project' | 'rs';
-  isPaid: boolean;
-  currentProject: string;
-  mentor: string;
-  taskCount: number;
-  completedTasks: number;
-  dsuStreak: number;
-}
-
 interface DSUEntry {
   _id: string;
   internId: string;
@@ -42,86 +30,141 @@ interface DSUEntry {
 
 interface DashboardStats {
   totalInterns: number;
-  activeInterns: number;
-  projectInterns: number;
-  rsInterns: number;
-  paidInterns: number;
-  totalTasks: number;
-  completedTasks: number;
-  taskCompletion: number;
+  dsuCompletion: number;
   submittedDSUs: number;
   pendingDSUs: number;
-  dsuCompletion: number;
+  projectInterns: number;
+  rsInterns: number;
+  taskCompletion: number;
+  completedTasks: number;
+  totalTasks: number;
   pendingPTOs: number;
   approvedPTOs: number;
-  totalBatches: number;
   activeBatches: number;
-  upcomingBatches: number;
 }
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentInterns, setRecentInterns] = useState<Intern[]>([]);
   const [blockedDSUs, setBlockedDSUs] = useState<DSUEntry[]>([]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
 
-      // Fetch all data in parallel
-      const [statsResponse, internsResponse, dsusResponse] = await Promise.all([
+      const [statsResponse, dsusResponse] = await Promise.all([
         apiClient.get('/admin/dashboard/stats'),
-        apiClient.get('/admin/dashboard/recent-interns?limit=5'),
         apiClient.get('/admin/dashboard/blocked-dsus?limit=5').catch(() => ({ data: [] })),
       ]);
 
       setStats(statsResponse.data);
-      setRecentInterns(internsResponse.data);
       setBlockedDSUs(dsusResponse.data);
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
       setError(err.response?.data?.detail || 'Failed to load dashboard data');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     fetchDashboardData();
+    const intervalId = window.setInterval(() => {
+      fetchDashboardData(true);
+    }, 10000);
+
+    return () => window.clearInterval(intervalId);
   }, []);
 
-  // --- Helper Functions ---
   const getInitials = (name: string) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || '??';
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = { active: '#22c55e', training: '#3b82f6', onboarding: '#eab308', completed: '#64748b', dropped: '#ef4444' };
-    return colors[status] || '#94a3b8';
-  };
 
+  // ========== LOADING SKELETON ==========
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex h-full items-center justify-center">
-          <RefreshCw className="h-8 w-8 animate-spin text-purple-600" />
+        <div className="flex flex-col space-y-6">
+          {/* Header Skeleton */}
+          <header className="bg-white border-b p-4 rounded-lg shadow-sm">
+            <div className="h-6 w-48 bg-slate-200 rounded animate-pulse mb-2"></div>
+            <div className="h-4 w-32 bg-slate-200 rounded animate-pulse"></div>
+          </header>
+          
+          {/* Stats Cards Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="space-y-2 flex-1">
+                    <div className="h-8 w-20 bg-slate-200 rounded animate-pulse"></div>
+                    <div className="h-4 w-32 bg-slate-200 rounded animate-pulse"></div>
+                  </div>
+                  <div className="w-12 h-12 bg-slate-200 rounded-xl animate-pulse"></div>
+                </div>
+                <div className="h-3 w-24 bg-slate-200 rounded animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom Sections Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[1, 2].map((i) => (
+              <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div className="h-6 w-40 bg-slate-200 rounded animate-pulse mb-4"></div>
+                <div className="space-y-3">
+                  {[1, 2, 3].map((j) => (
+                    <div key={j} className="h-16 bg-slate-100 rounded-lg animate-pulse"></div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </DashboardLayout>
     );
   }
 
+  // ========== ERROR STATE ==========
   if (error) {
     return (
       <DashboardLayout>
-        <div className="flex h-full flex-col items-center justify-center gap-4">
-          <AlertTriangle className="h-12 w-12 text-red-500" />
-          <p className="text-red-600">{error}</p>
+        <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
+          <AlertTriangle className="h-16 w-16 text-red-500" />
+          <h2 className="text-xl font-bold text-slate-800">Failed to Load Dashboard</h2>
+          <p className="text-red-600 text-center max-w-md">{error}</p>
           <button
             onClick={fetchDashboardData}
-            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700"
+            className="flex items-center gap-2 rounded-lg bg-[#0F0E47] px-6 py-3 text-white hover:bg-[#272757] transition-colors font-semibold"
           >
-            <RefreshCw size={16} /> Retry
+            <RefreshCw size={18} /> Retry
+          </button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // ========== EMPTY STATE (No Stats) ==========
+  if (!stats) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
+          <Inbox className="h-16 w-16 text-slate-300" />
+          <h2 className="text-xl font-bold text-slate-800">No Dashboard Data</h2>
+          <p className="text-slate-500 text-center max-w-md">
+            Dashboard statistics are not available at the moment.
+          </p>
+          <button
+            onClick={fetchDashboardData}
+            className="flex items-center gap-2 rounded-lg bg-[#0F0E47] px-6 py-3 text-white hover:bg-[#272757] transition-colors font-semibold"
+          >
+            <RefreshCw size={18} /> Load Data
           </button>
         </div>
       </DashboardLayout>
@@ -139,41 +182,59 @@ const AdminDashboard: React.FC = () => {
           </div>
           <button 
             onClick={fetchDashboardData}
-            className="flex items-center gap-2 bg-purple-500/10 text-purple-600 px-4 py-2 rounded-lg font-semibold hover:bg-purple-500/20 transition-all"
+            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all"
+            style={{ backgroundColor: COLORS.primary.purple }}
           >
             <RefreshCw size={16} /> Refresh
           </button>
         </header>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard 
+        {/* Live Stats Grid - 6 Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <ClickableStatCard 
             title="Total Interns" 
-            value={stats?.totalInterns || 0} 
-            sub={`${stats?.activeInterns || 0} active`} 
+            value={stats.totalInterns} 
+            sub="Active interns" 
             icon={<Users className="text-white" />} 
-            color="bg-blue-500" 
+            color={COLORS.primary.purple}
+            onClick={() => navigate('/admin/interns')}
+            isEmpty={stats.totalInterns === 0}
           />
-          <StatCard 
+          <ClickableStatCard 
             title="DSU Completion" 
-            value={`${stats?.dsuCompletion || 0}%`} 
-            sub={`${stats?.submittedDSUs || 0} submitted today`} 
+            value={`${stats.dsuCompletion}%`} 
+            sub={`${stats.submittedDSUs} submitted today`} 
             icon={<CheckCircle className="text-white" />} 
-            color={(stats?.dsuCompletion || 0) > 80 ? 'bg-green-500' : 'bg-yellow-500'} 
+            color={stats.dsuCompletion > 80 ? COLORS.status.success : COLORS.status.warning}
+            onClick={() => navigate('/admin/dsu-board')}
+            isEmpty={stats.submittedDSUs === 0}
           />
-          <StatCard 
-            title="Project / RS" 
-            value={`${stats?.projectInterns || 0} / ${stats?.rsInterns || 0}`} 
-            sub="Intern Types" 
+          <ClickableStatCard 
+            title="Intern Types" 
+            value={`${stats.projectInterns} / ${stats.rsInterns}`} 
+            sub="Project / RS" 
             icon={<Briefcase className="text-white" />} 
-            color="bg-pink-500" 
+            color={COLORS.accent.pink}
+            onClick={() => navigate('/admin/interns')}
+            isEmpty={stats.projectInterns === 0 && stats.rsInterns === 0}
           />
-          <StatCard 
+          <ClickableStatCard 
             title="Task Completion" 
-            value={`${stats?.taskCompletion || 0}%`} 
-            sub={`${stats?.completedTasks || 0}/${stats?.totalTasks || 0} tasks`} 
+            value={`${stats.taskCompletion}%`} 
+            sub={`${stats.completedTasks}/${stats.totalTasks} tasks`} 
             icon={<Target className="text-white" />} 
-            color="bg-cyan-500" 
+            color={COLORS.primary.deepPurple}
+            onClick={() => navigate('/admin/dsu-board')}
+            isEmpty={stats.totalTasks === 0}
+          />
+          <ClickableStatCard 
+            title="Pending PTO" 
+            value={stats.pendingPTOs} 
+            sub="Awaiting approval" 
+            icon={<Calendar className="text-white" />} 
+            color={COLORS.status.warning}
+            onClick={() => navigate('/admin/pto-requests')}
+            isEmpty={stats.pendingPTOs === 0}
           />
         </div>
 
@@ -181,16 +242,24 @@ const AdminDashboard: React.FC = () => {
           {/* DSU Status */}
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold flex items-center gap-2"><Calendar size={20} className="text-purple-600" /> Today's DSU Status</h2>
-              <Link to="/admin/dsu-board" className="text-blue-600 text-sm font-semibold flex items-center gap-1">View Board <ArrowRight size={14} /></Link>
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Calendar size={20} style={{ color: COLORS.primary.purple }} /> Today's DSU Status
+              </h2>
+              <button 
+                onClick={() => navigate('/admin/dsu-board')}
+                className="text-sm font-semibold flex items-center gap-1 hover:underline cursor-pointer" 
+                style={{ color: COLORS.primary.purple }}
+              >
+                View Board <ArrowRight size={14} />
+              </button>
             </div>
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-green-50 p-4 rounded-xl text-center">
-                <div className="text-2xl font-bold text-green-600">{stats?.submittedDSUs || 0}</div>
+                <div className="text-2xl font-bold text-green-600">{stats.submittedDSUs}</div>
                 <div className="text-xs text-slate-500 font-bold uppercase">Submitted</div>
               </div>
               <div className="bg-yellow-50 p-4 rounded-xl text-center">
-                <div className="text-2xl font-bold text-yellow-600">{stats?.pendingDSUs || 0}</div>
+                <div className="text-2xl font-bold text-yellow-600">{stats.pendingDSUs}</div>
                 <div className="text-xs text-slate-500 font-bold uppercase">Pending</div>
               </div>
               <div className="bg-red-50 p-4 rounded-xl text-center">
@@ -198,116 +267,113 @@ const AdminDashboard: React.FC = () => {
                 <div className="text-xs text-slate-500 font-bold uppercase">Blocked</div>
               </div>
             </div>
+            
+            {/* Empty State for Blocked DSUs */}
             {blockedDSUs.length > 0 ? (
               blockedDSUs.map(block => (
                 <div key={block._id} className="flex gap-4 p-3 bg-red-50/50 rounded-lg border border-red-100 mb-2">
-                  <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center text-white font-bold">{getInitials(block.internName || '')}</div>
-                  <div>
+                  <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center text-white font-bold">
+                    {getInitials(block.internName || '')}
+                  </div>
+                  <div className="flex-1 min-w-0">
                     <div className="font-bold text-slate-800">{block.internName || 'Unknown'}</div>
                     <div className="text-sm text-slate-500 truncate">{block.blockers}</div>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-slate-500 text-center py-4">No blockers reported today</p>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <CheckCircle className="h-12 w-12 text-green-400 mb-2" />
+                <p className="text-slate-600 font-medium">No blockers reported today</p>
+                <p className="text-sm text-slate-400">All interns are on track! 🎉</p>
+              </div>
             )}
           </section>
 
-          {/* Recent Activity */}
+          {/* Quick Stats */}
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-bold flex items-center gap-2 mb-6"><Activity size={20} className="text-purple-600" /> Quick Stats</h2>
+            <h2 className="text-lg font-bold flex items-center gap-2 mb-6">
+              <Activity size={20} style={{ color: COLORS.primary.purple }} /> Quick Stats
+            </h2>
             <div className="space-y-4">
-              <div className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-xl transition-colors">
-                <div className="p-2 bg-purple-50 rounded-lg text-purple-600"><Award size={20} /></div>
-                <div className="flex-1">
-                  <div className="font-bold text-slate-800 text-sm">Pending PTO Requests</div>
-                  <div className="text-xs text-slate-500">Awaiting approval</div>
-                </div>
-                <div className="text-lg font-bold text-orange-500">{stats?.pendingPTOs || 0}</div>
-              </div>
-              <div className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-xl transition-colors">
-                <div className="p-2 bg-green-50 rounded-lg text-green-600"><CheckCircle size={20} /></div>
-                <div className="flex-1">
-                  <div className="font-bold text-slate-800 text-sm">Approved PTOs</div>
-                  <div className="text-xs text-slate-500">This month</div>
-                </div>
-                <div className="text-lg font-bold text-green-500">{stats?.approvedPTOs || 0}</div>
-              </div>
-              <div className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-xl transition-colors">
-                <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><Users size={20} /></div>
-                <div className="flex-1">
-                  <div className="font-bold text-slate-800 text-sm">Active Batches</div>
-                  <div className="text-xs text-slate-500">{stats?.upcomingBatches || 0} upcoming</div>
-                </div>
-                <div className="text-lg font-bold text-blue-500">{stats?.activeBatches || 0}</div>
-              </div>
+              <QuickStatRow 
+                icon={<Award size={20} className="text-orange-600" />}
+                bgColor="bg-orange-50"
+                label="Pending PTO Requests"
+                sublabel="Awaiting approval"
+                value={stats.pendingPTOs}
+                valueColor="text-orange-500"
+                onClick={() => navigate('/admin/pto-requests')}
+                isEmpty={stats.pendingPTOs === 0}
+              />
+              <QuickStatRow 
+                icon={<CheckCircle size={20} className="text-green-600" />}
+                bgColor="bg-green-50"
+                label="Approved PTOs"
+                sublabel="This month"
+                value={stats.approvedPTOs}
+                valueColor="text-green-500"
+                onClick={() => navigate('/admin/pto-requests')}
+                isEmpty={stats.approvedPTOs === 0}
+              />
+              <QuickStatRow 
+                icon={<Users size={20} className="text-blue-600" />}
+                bgColor="bg-blue-50"
+                label="Active Batches"
+                sublabel="Currently running"
+                value={stats.activeBatches}
+                valueColor="text-blue-500"
+                onClick={() => navigate('/admin/batch-management')}
+                isEmpty={stats.activeBatches === 0}
+              />
             </div>
           </section>
         </div>
-
-        {/* Interns Table */}
-        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-lg font-bold flex items-center gap-2"><Users size={20} className="text-purple-600" /> Recent Interns</h2>
-            <Link to="/admin/interns" className="text-blue-600 text-sm font-semibold flex items-center gap-1">View All <ArrowRight size={14} /></Link>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
-                <tr>
-                  <th className="px-6 py-4">Intern</th>
-                  <th className="px-6 py-4">Type</th>
-                  <th className="px-6 py-4">Project</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Mentor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y text-sm">
-                {recentInterns.length > 0 ? (
-                  recentInterns.map(intern => (
-                    <tr key={intern._id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center text-xs font-bold">{getInitials(intern.name)}</div>
-                        <div>
-                          <div className="font-bold text-slate-800">{intern.name}</div>
-                          <div className="text-slate-400 text-xs">{intern.domain}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-bold text-purple-600 uppercase text-xs">{intern.internType}</td>
-                      <td className="px-6 py-4 text-slate-600">{intern.currentProject}</td>
-                      <td className="px-6 py-4">
-                        <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `${getStatusColor(intern.status)}15`, color: getStatusColor(intern.status) }}>
-                          {intern.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-slate-500">{intern.mentor}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">No interns found</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
       </div>
     </DashboardLayout>
   );
 };
 
-// --- Sub-components ---
-const StatCard = ({ title, value, sub, icon, color }: any) => (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:-translate-y-1 transition-transform">
-    <div className="flex justify-between items-start mb-4">
-      <div>
-        <div className="text-3xl font-bold text-[#1e1145]">{value}</div>
-        <div className="text-sm font-medium text-slate-500">{title}</div>
+// --- Clickable Stat Card Component with Empty State ---
+const ClickableStatCard = ({ title, value, sub, icon, color, onClick, isEmpty }: any) => (
+  <div 
+    onClick={onClick}
+    className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:-translate-y-1 hover:shadow-lg transition-all cursor-pointer relative overflow-hidden"
+  >
+    {isEmpty && (
+      <div className="absolute top-2 right-2">
+        <Inbox className="h-4 w-4 text-slate-300" />
       </div>
-      <div className={`${color} p-3 rounded-xl shadow-lg shadow-black/5`}>{icon}</div>
+    )}
+    <div className="flex justify-between items-start mb-3">
+      <div>
+        <div className={`text-2xl font-bold ${isEmpty ? 'text-slate-300' : 'text-[#1e1145]'}`}>
+          {value}
+        </div>
+        <div className="text-xs font-semibold text-slate-500">{title}</div>
+      </div>
+      <div className="p-2 rounded-lg shadow-md shadow-black/5" style={{ backgroundColor: isEmpty ? '#e2e8f0' : color }}>
+        {icon}
+      </div>
     </div>
-    <div className="text-xs text-slate-400 font-medium">{sub}</div>
+    <div className="text-[11px] text-slate-400 font-medium">{sub}</div>
+  </div>
+);
+
+// --- Quick Stat Row Component with Empty State ---
+const QuickStatRow = ({ icon, bgColor, label, sublabel, value, valueColor, onClick, isEmpty }: any) => (
+  <div 
+    onClick={onClick}
+    className={`flex items-center gap-4 p-3 ${isEmpty ? 'bg-slate-50' : bgColor} rounded-xl hover:shadow-md transition-all cursor-pointer`}
+  >
+    <div className={`p-2 ${isEmpty ? 'bg-slate-200' : 'bg-white'} rounded-lg shadow-sm`}>
+      {isEmpty ? <Inbox size={20} className="text-slate-400" /> : icon}
+    </div>
+    <div className="flex-1">
+      <div className="font-bold text-slate-800 text-sm">{label}</div>
+      <div className="text-xs text-slate-500">{isEmpty ? 'No data' : sublabel}</div>
+    </div>
+    <div className={`text-lg font-bold ${isEmpty ? 'text-slate-400' : valueColor}`}>{value}</div>
   </div>
 );
 

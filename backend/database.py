@@ -22,7 +22,7 @@ async def get_database():
 
 async def connect_db():
     """Connect to MongoDB with timeout"""
-    MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+    MONGODB_URL = os.getenv("MONGODB_URL")
     MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "intern_lifecycle")
     
     try:

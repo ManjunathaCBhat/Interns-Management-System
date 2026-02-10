@@ -203,7 +203,7 @@ app = FastAPI(
 
 
 # CORS
-CORS_ORIGINS = eval(os.getenv("BACKEND_CORS_ORIGINS", '["http://localhost:5173"]'))
+CORS_ORIGINS = eval(os.getenv("BACKEND_CORS_ORIGINS"))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -318,7 +318,7 @@ async def forgot_password(payload: ForgotPasswordRequest, db = Depends(get_datab
     if not user:
         raise HTTPException(status_code=404, detail="Email not found")
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    frontend_url = os.getenv("FRONTEND_URL").rstrip("/")
     reset_link = f"{frontend_url}/forgot-password?email={quote(email)}"
 
     await send_reset_email(email, reset_link)
@@ -410,7 +410,7 @@ async def azure_sso_callback(request: dict, db = Depends(get_database)):
         tenant_id = os.getenv("tenant_id")
         client_id = os.getenv("client_id")
         secret_key = os.getenv("AZURE_SECRET_KEY")
-        redirect_uri = os.getenv("AZURE_REDIRECT_URI", "http://localhost:5173/auth/azure-callback")
+        redirect_uri = os.getenv("AZURE_REDIRECT_URI")
         
         print(f"[Azure SSO] tenant_id: {tenant_id}")
         print(f"[Azure SSO] client_id: {client_id}")
@@ -442,7 +442,7 @@ async def azure_sso_callback(request: dict, db = Depends(get_database)):
                 error_text = token_response.text
                 print(f"[Azure SSO] Token exchange error: {error_text}")
                 print(f"[Azure SSO] Status code: {token_response.status_code}")
-                print(f"[Azure SSO] Redirect URI used: {os.getenv('AZURE_REDIRECT_URI', 'http://localhost:5173/auth/azure-callback')}")
+                print(f"[Azure SSO] Redirect URI used: {os.getenv('AZURE_REDIRECT_URI')}")
                 try:
                     error_data = token_response.json()
                     print(f"[Azure SSO] Error response: {error_data}")

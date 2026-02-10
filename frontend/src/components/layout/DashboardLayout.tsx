@@ -43,7 +43,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { to: '/admin/dsu-board', icon: ClipboardList, label: 'DSU Board' },
     { to: '/admin/pto', icon: Calendar, label: 'PTO/WFH Requests' },
     { to: '/admin/users', icon: UserCheck, label: 'User Approvals' },
-    { to: '/admin/performance', icon: BarChart3, label: 'Performance' }, // ✅ NEW: Performance Link
+    { to: '/admin/performance', icon: BarChart3, label: 'Performance' },
+    { to: '/admin/approvals', icon: UserCheck, label: 'Admin Approvals' }
   ];
 
   // Navigation links for Scrum Master role

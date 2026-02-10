@@ -19,6 +19,7 @@ import ReferenceManagement from '@/pages/admin/ReferenceManagement';
 import BatchManagement from '@/pages/admin/BatchManagement';
 import CreateBatch from '@/pages/admin/CreateBatch';
 import ProjectManagement from '@/pages/admin/ProjectManagement';
+import AdminApprovals from "./pages/admin/AdminApprovals";
 
 // Scrum Master Pages
 import ScrumMasterDashboard from '@/pages/scrum_master/ScrumMasterDashboard';
@@ -210,6 +211,15 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/approvals"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminApprovals />
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/admin/batches/new"
         element={

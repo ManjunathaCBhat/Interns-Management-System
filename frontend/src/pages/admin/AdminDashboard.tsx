@@ -77,11 +77,7 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-    const intervalId = window.setInterval(() => {
-      fetchDashboardData(true);
-    }, 10000);
-
-    return () => window.clearInterval(intervalId);
+    return undefined;
   }, []);
 
   const getInitials = (name: string) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || '??';

@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from urllib.parse import quote
+import json
 import httpx
 
 # Load .env from backend folder first, then from root folder
@@ -203,7 +204,18 @@ app = FastAPI(
 
 
 # CORS
-CORS_ORIGINS = eval(os.getenv("BACKEND_CORS_ORIGINS"))
+def parse_cors_origins(value: Optional[str]) -> List[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+        if isinstance(parsed, list):
+            return [str(origin).strip() for origin in parsed if str(origin).strip()]
+    except json.JSONDecodeError:
+        pass
+    return [origin.strip() for origin in value.split(",") if origin.strip()]
+
+CORS_ORIGINS = parse_cors_origins(os.getenv("BACKEND_CORS_ORIGINS"))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,

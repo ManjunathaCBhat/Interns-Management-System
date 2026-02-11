@@ -114,8 +114,19 @@ async def get_graph_access_token() -> str:
     client_id = os.getenv("client_id")
     client_secret = os.getenv("AZURE_SECRET_KEY")
 
-    if not tenant_id or not client_id or not client_secret:
-        raise HTTPException(status_code=503, detail="Microsoft Graph is not configured")
+    missing = []
+    if not tenant_id:
+        missing.append("tenant_id")
+    if not client_id:
+        missing.append("client_id")
+    if not client_secret:
+        missing.append("AZURE_SECRET_KEY")
+
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Microsoft Graph is not configured. Missing: {', '.join(missing)}"
+        )
 
     token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
     data = {
@@ -143,7 +154,10 @@ async def get_graph_access_token() -> str:
 
 async def send_reset_email(to_email: str, reset_link: str) -> None:
     if not RESET_SENDER_EMAIL:
-        raise HTTPException(status_code=503, detail="SENDER_MAIL is not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="SENDER_MAIL is not configured. Missing: SENDER_MAIL"
+        )
     token = await get_graph_access_token()
 
     subject = "Reset your Interns360 password"
@@ -407,7 +421,13 @@ async def forgot_password(payload: ForgotPasswordRequest, db = Depends(get_datab
     if not user:
         raise HTTPException(status_code=404, detail="Email not found")
 
-    frontend_url = os.getenv("FRONTEND_URL").rstrip("/")
+    frontend_url = os.getenv("FRONTEND_URL")
+    if not frontend_url:
+        raise HTTPException(
+            status_code=503,
+            detail="FRONTEND_URL is not configured. Missing: FRONTEND_URL"
+        )
+    frontend_url = frontend_url.rstrip("/")
     reset_link = f"{frontend_url}/forgot-password?email={quote(email)}"
 
     await send_reset_email(email, reset_link)

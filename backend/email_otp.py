@@ -15,8 +15,16 @@ def generate_and_send_otp(email: str):
     sender_email = os.getenv("SMTP_EMAIL")
     sender_password = os.getenv("SMTP_PASSWORD")
 
-    if not sender_email or not sender_password:
-        raise Exception("SMTP credentials not found in .env")
+    missing = []
+    if not sender_email:
+        missing.append("SMTP_EMAIL")
+    if not sender_password:
+        missing.append("SMTP_PASSWORD")
+
+    if missing:
+        raise Exception(
+            "SMTP credentials not found in .env. Missing: " + ", ".join(missing)
+        )
 
     msg = EmailMessage()
     msg["Subject"] = "Interns360 Email Verification OTP"

@@ -500,7 +500,10 @@ const LoginPage: React.FC = () => {
       setForgotOpen(false);
       setForgotEmail("");
     } catch (error: any) {
-      const message = error?.response?.data?.detail || "Failed to send reset email";
+      const detail = error?.response?.data?.detail;
+      const message = detail
+        ? `Unable to send reset email. ${detail}`
+        : "Unable to send reset email. Please try again later.";
       setForgotError(message);
     } finally {
       setForgotLoading(false);

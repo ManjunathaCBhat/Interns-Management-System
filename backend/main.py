@@ -13,6 +13,11 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from urllib.parse import quote
+import httpx
+from utils.security import hash_password
+
+=======
+from urllib.parse import quote
 import json
 import httpx
 
@@ -31,7 +36,6 @@ else:
 # Import our modules
 from database import connect_db, close_db, get_database
 from auth import (
-    get_password_hash, 
     verify_password, 
     create_access_token,
     get_current_active_user,

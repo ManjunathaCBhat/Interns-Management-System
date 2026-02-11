@@ -4,13 +4,67 @@ Authentication and security utilities
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import APIRouter,Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
+import re
 from dotenv import load_dotenv
 from models import User
 from database import get_database
+from utils.security import verify_password, hash_password
+from pydantic import BaseModel, EmailStr
+
+
+
+router = APIRouter()
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    new_password: str
+    confirm_password: str
+
+
+@router.post("/auth/reset-password")
+async def reset_password(
+    data: ResetPasswordRequest,
+    db = Depends(get_database)
+):
+    user = await db.users.find_one({"email": data.email})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if data.new_password != data.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+
+    # Password rules
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    if not re.search(r"[A-Z]", data.new_password) or \
+       not re.search(r"[0-9]", data.new_password) or \
+       not re.search(r"[!@#$%^&*]", data.new_password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain uppercase, number, and special character"
+        )
+
+    hashed_password = hash_password(data.new_password)
+
+    await db.users.update_one(
+        {"email": data.email},
+        {
+            "$set": {
+                "hashed_password": hashed_password,
+                "reset_password_used": True,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+
+    return {"message": "Password reset successful"}
+
 
 load_dotenv()
 
@@ -20,16 +74,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440
 
 security = HTTPBearer(auto_error=False)  # Don't auto-error, we'll handle it
 
-# ==================== PASSWORD FUNCTIONS ====================
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password"""
-    if isinstance(hashed_password, str):
-        hashed_password = hashed_password.encode('utf-8')
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password)
 
-def get_password_hash(password: str) -> str:
-    """Hash password"""
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 # ==================== JWT FUNCTIONS ====================
 def create_access_token(data: dict) -> str:
@@ -110,3 +155,5 @@ async def get_admin_user(current_user: User = Depends(get_current_active_user)) 
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
+
+

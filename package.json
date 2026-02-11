@@ -27,6 +27,7 @@
     "concurrently": "^9.2.1"
   },
   "dependencies": {
+    "@fullcalendar/interaction": "^6.1.20",
     "react-datepicker": "^9.1.0"
   }
 }

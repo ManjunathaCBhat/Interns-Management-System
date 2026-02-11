@@ -1,23 +1,23 @@
 /**
  * Color Coding System for Intern Lifecycle Manager
- * Follows the purple + pink + white scheme
+ * Follows the Blue Eclipse palette
  */
 
 export const COLORS = {
-  // Primary (Purple – Buttons & Accents)
+  // Primary (Blue Eclipse – Buttons & Accents)
   primary: {
-    purple: '#7C3AED',        // Primary Purple
-    deepPurple: '#9333EA',    // Deep Purple
-    darkViolet: '#5B1AA6',    // Dark Violet
-    midViolet: '#3B0F6F',     // Mid Violet
-    basePurple: '#2D0B59',    // Base Purple
+    purple: '#505081',        // Mid Blue
+    deepPurple: '#272757',    // Deep Blue
+    darkViolet: '#0F0E47',    // Dark Blue
+    midViolet: '#505081',     // Mid Blue
+    basePurple: '#0F0E47',    // Base Dark Blue
   },
 
-  // Accent (Pink – Cursor Glow & Highlights)
+  // Accent (Muted Lavender – Highlights)
   accent: {
-    pink: '#FF4DA6',          // Accent Pink
-    glowStrong: 'rgba(255, 77, 166, 0.35)',  // Soft Pink Glow
-    glowLight: 'rgba(255, 77, 166, 0.15)',   // Light Pink Glow
+    pink: '#8686AC',          // Accent Lavender
+    glowStrong: 'rgba(134, 134, 172, 0.35)',  // Soft Glow
+    glowLight: 'rgba(134, 134, 172, 0.15)',   // Light Glow
   },
 
   // Neutral (Text & Borders)
@@ -76,10 +76,10 @@ export const getStatusBgColor = (status: string): string => {
  * Tailwind color utility helpers
  */
 export const colorClasses = {
-  primaryButton: 'bg-[#7C3AED] hover:bg-[#9333EA] text-white',
-  primaryButtonOutline: 'border border-[#7C3AED] text-[#7C3AED] hover:bg-[#7C3AED]/10',
-  accentButton: 'bg-[#FF4DA6] hover:bg-[#FF4DA6]/90 text-white',
-  darkBg: 'bg-[#2D0B59]',
-  purpleText: 'text-[#7C3AED]',
+  primaryButton: 'bg-[#0F0E47] hover:bg-[#272757] text-white',
+  primaryButtonOutline: 'border border-[#0F0E47] text-[#0F0E47] hover:bg-[#0F0E47]/10',
+  accentButton: 'bg-[#8686AC] hover:bg-[#8686AC]/90 text-white',
+  darkBg: 'bg-[#0F0E47]',
+  purpleText: 'text-[#505081]',
   whiteText: 'text-white',
 } as const;

@@ -9,7 +9,7 @@ export const AZURE_CONFIG = {
   tenantId: import.meta.env.VITE_AZURE_TENANT_ID || "",
   
   // Redirect URI after Azure login - must match your App Registration
-  redirectUri: import.meta.env.VITE_AZURE_REDIRECT_URI || `${window.location.origin}/auth/azure-callback`,
+  redirectUri: import.meta.env.VITE_AZURE_REDIRECT_URI || "",
   
   // Scopes needed - must match backend and Azure app registration
   scopes: ["User.Read", "openid", "profile", "email"],

@@ -4,6 +4,15 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getAzureLoginUrl } from "@/config/azure";
+import apiClient from "@/services/apiClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const injectStyles = () => {
   const styleId = "login-animations";
@@ -99,7 +108,7 @@ const AnimatedCharacters: React.FC<CharacterProps> = ({ showPassword, hasError, 
         style={{
           width: "70px",
           height: "130px",
-          background: "linear-gradient(180deg, #7c3aed 0%, #5b21b6 100%)",
+          background: "linear-gradient(180deg, #505081 0%, #272757 100%)",
           borderRadius: "35px 35px 30px 30px",
           position: "relative",
           animation: hasError ? "shake 0.4s ease-in-out, sad 1.5s ease-in-out infinite" : "floatSlow 4s ease-in-out infinite",
@@ -420,6 +429,10 @@ const LoginPage: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [mouseX, setMouseX] = useState(50);
   const [mouseY, setMouseY] = useState(50);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const typingTimeout = useRef<NodeJS.Timeout>();
 
   const { login } = useAuth();
@@ -458,6 +471,43 @@ const LoginPage: React.FC = () => {
     if (!password) newErrors.password = "Password is required";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) {
+      setForgotError("Email is required");
+      return;
+    }
+    if (!/\S+@\S+\.\S+/.test(forgotEmail)) {
+      setForgotError("Invalid email format");
+      return;
+    }
+
+    setForgotError(null);
+    setForgotLoading(true);
+
+    try {
+      await apiClient.post("/auth/forgot-password", {
+        email: forgotEmail.trim(),
+      });
+
+      toast({
+        title: "Reset email sent",
+        description: `A reset link was sent from interns360@cirruslabs.io to ${forgotEmail}.`,
+      });
+
+      setForgotOpen(false);
+      setForgotEmail("");
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const message = detail
+        ? `Unable to send reset email. ${detail}`
+        : "Unable to send reset email. Please try again later.";
+      setForgotError(message);
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -580,7 +630,7 @@ const LoginPage: React.FC = () => {
               zIndex: 10,
             }}
           >
-            Interns<span style={{ color: "#a855f7" }}>360</span>
+            Interns<span style={{ color: "#8686AC" }}>360</span>
           </h1>
           </Link>
           <p
@@ -658,8 +708,8 @@ const LoginPage: React.FC = () => {
                   boxSizing: "border-box",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "#a855f7";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(168,85,247,0.1)";
+                  e.currentTarget.style.borderColor = "#0F0E47";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,14,71,0.12)";
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = errors.email ? "#ef4444" : "#e2e8f0";
@@ -693,8 +743,8 @@ const LoginPage: React.FC = () => {
                     boxSizing: "border-box",
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "#a855f7";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(168,85,247,0.1)";
+                    e.currentTarget.style.borderColor = "#0F0E47";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,14,71,0.12)";
                   }}
                   onBlur={(e) => {
                     e.currentTarget.style.borderColor = errors.password ? "#ef4444" : "#e2e8f0";
@@ -718,7 +768,7 @@ const LoginPage: React.FC = () => {
                     display: "flex",
                     transition: "color 0.2s ease",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#a855f7")}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#0F0E47")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#64748b")}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -738,12 +788,21 @@ const LoginPage: React.FC = () => {
                     fontSize: "13px",
                   }}
                 >
-                  <Link
-                    to="/forgot-password"
-                    style={{ color: "#a855f7", fontWeight: 600, textDecoration: "none" }}
+                  <button
+                    type="button"
+                    onClick={() => setForgotOpen(true)}
+                    style={{
+                      color: "#0F0E47",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
                   >
                     Forgot password?
-                  </Link>
+                  </button>
                 </div>
 
 
@@ -803,7 +862,7 @@ const LoginPage: React.FC = () => {
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = "#f8fafc";
-              e.currentTarget.style.borderColor = "#a855f7";
+              e.currentTarget.style.borderColor = "#0F0E47";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "#fff";
@@ -822,12 +881,50 @@ const LoginPage: React.FC = () => {
           {/* Register Link */}
           <p style={{ textAlign: "center", marginTop: "24px", fontSize: "14px", color: "#64748b" }}>
             Don't have an account?{" "}
-            <Link to="/register" style={{ color: "#a855f7", fontWeight: 600, textDecoration: "none" }}>
+            <Link to="/register" style={{ color: "#0F0E47", fontWeight: 600, textDecoration: "none" }}>
               Sign up
             </Link>
           </p>
         </div>
       </div>
+
+      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset your password</DialogTitle>
+            <DialogDescription>
+              Enter your email to receive a reset link from interns360@cirruslabs.io.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleForgotSubmit}>
+            <div className="space-y-3">
+              <label className="text-sm font-semibold text-slate-700">Email</label>
+              <input
+                type="email"
+                value={forgotEmail}
+                onChange={(e) => {
+                  setForgotEmail(e.target.value);
+                  setForgotError(null);
+                }}
+                placeholder="you@company.com"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#0F0E47]"
+              />
+              {forgotError && (
+                <p className="text-xs text-red-500">{forgotError}</p>
+              )}
+            </div>
+            <DialogFooter className="mt-6">
+              <button
+                type="submit"
+                disabled={forgotLoading}
+                className="inline-flex items-center justify-center rounded-lg bg-[#1e1145] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {forgotLoading ? "Sending..." : "Send password reset"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

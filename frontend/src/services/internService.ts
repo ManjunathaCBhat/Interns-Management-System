@@ -1,4 +1,3 @@
-// src/services/internService.ts
 import apiClient from '@/lib/api';
 import { Intern } from '@/types/intern';
 
@@ -18,17 +17,16 @@ export interface InternListResponse {
 }
 
 export const internService = {
-  // Updated getAll with pagination support
-  async getAll(params?: InternListParams): Promise<InternListResponse | Intern[]> {
+  async getAll(params?: InternListParams): Promise<InternListResponse> {
     const searchParams = new URLSearchParams();
-    
+
     if (params?.status) searchParams.append('status', params.status);
     if (params?.internType) searchParams.append('internType', params.internType);
     if (params?.batch) searchParams.append('batch', params.batch);
-    if (params?.skip !== undefined) searchParams.append('skip', params.skip.toString());
-    if (params?.limit !== undefined) searchParams.append('limit', params.limit.toString());
-    
-    const response = await apiClient.get(`/interns/?${searchParams}`);
+    if (params?.skip !== undefined) searchParams.append('skip', String(params.skip));
+    if (params?.limit !== undefined) searchParams.append('limit', String(params.limit));
+
+    const response = await apiClient.get(`/interns/?${searchParams.toString()}`);
     return response.data;
   },
 

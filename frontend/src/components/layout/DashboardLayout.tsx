@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Users,
   ClipboardList,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -13,6 +12,9 @@ import {
   Calendar,
   FileText,
   UserCheck,
+  BarChart3,
+  Layers,
+  FolderKanban,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,11 +37,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const adminLinks = [
     { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/interns', icon: Users, label: 'User Management' },
-    { to: '/admin/references', icon: FileText, label: 'References' },
+    { to: '/admin/batches', icon: Layers, label: 'Batch Management' },
+    { to: '/admin/projects', icon: FolderKanban, label: 'Projects' },
+    { to: '/admin/references', icon: FileText, label: 'Referral' },
     { to: '/admin/dsu-board', icon: ClipboardList, label: 'DSU Board' },
     { to: '/admin/pto', icon: Calendar, label: 'PTO/WFH Requests' },
     { to: '/admin/users', icon: UserCheck, label: 'User Approvals' },
-   
+    { to: '/admin/performance', icon: BarChart3, label: 'Performance' },
+    { to: '/admin/approvals', icon: UserCheck, label: 'Admin Approvals' }
   ];
 
   // Navigation links for Scrum Master role
@@ -47,6 +52,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { to: '/scrum-master', icon: LayoutDashboard, label: 'Overview' },
     { to: '/scrum-master/dsu-board', icon: ClipboardList, label: 'DSU Board' },
     { to: '/scrum-master/daily-updates', icon: Calendar, label: 'Daily Updates' },
+    { to: '/mentor', icon: User, label: 'Mentor' },
     { to: '/scrum-master/profile', icon: User, label: 'Profile' },
   ];
 
@@ -54,7 +60,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const internLinks = [
     { to: '/intern', icon: LayoutDashboard, label: 'Overview' },
     { to: '/intern/daily-updates', icon: Calendar, label: 'Daily Updates' },
-    { to: '/intern/pto', icon: Calendar, label: 'PTO/WFH Requests' },
+    { to: '/intern/pto-requests', icon: Calendar, label: 'PTO/WFH Requests' },
+    { to: '/mentor', icon: User, label: 'Mentor' },
     { to: '/intern/profile', icon: User, label: 'Profile' },
   ];
 

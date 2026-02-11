@@ -344,7 +344,7 @@ const InternDetails: React.FC = () => {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <GraduationCap className="h-8 w-8 mx-auto mb-2 text-purple-600" />
+                <GraduationCap className="h-8 w-8 mx-auto mb-2 text-[#0F0E47]" />
                 <p className="text-sm text-muted-foreground">Academic Year</p>
                 <p className="text-3xl font-bold mt-1">{intern.year}</p>
                 <p className="text-xs text-muted-foreground mt-1 truncate">

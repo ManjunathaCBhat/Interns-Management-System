@@ -74,7 +74,7 @@ const InternDashboard: React.FC = () => {
     try {
       setLoading(true);
       const [tasksData, dsuData, internDetail] = await Promise.all([
-        taskService.getAll(user?.id),
+        taskService.getAll({ intern_id: user?.id }),
         dsuService.getByDate(user?.id || '', today),
         internService.getById(user?.id || ''), // ✅ NEW: Fetch intern details
       ]);

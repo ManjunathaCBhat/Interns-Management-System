@@ -9,7 +9,6 @@ import {
   BarChart3,
   ArrowRight,
   Sparkles,
-  Play,
   ChevronDown,
 } from 'lucide-react';
 
@@ -258,7 +257,7 @@ const HomePage: React.FC = () => {
         borderRadius: '50%',
         pointerEvents: 'none',
         zIndex: 1,
-        transition: 'left 0.1s, top 0.1s',
+        transition: 'left 0.01s, top 0.01s',
         filter: 'blur(40px)',
       }} />
 
@@ -321,24 +320,16 @@ const HomePage: React.FC = () => {
               fontWeight: 500,
               transition: 'all 0.3s ease',
               borderRadius: '10px',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'rgba(255, 255, 255, 1)';
+              e.currentTarget.style.background = 'rgba(168, 85, 247, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'rgba(255, 255, 255, 0.8)';
+              e.currentTarget.style.background = 'transparent';
             }}>
               Sign In
-            </Link>
-            <Link to="/login" style={{
-              padding: '0.6rem 1.8rem',
-              background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
-              color: '#fff',
-              textDecoration: 'none',
-              fontSize: '0.95rem',
-              fontWeight: 600,
-              borderRadius: '10px',
-              boxShadow: '0 4px 20px rgba(168, 85, 247, 0.4)',
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-            }}>
-              Get Started <ArrowRight size={16} />
             </Link>
           </div>
         </div>
@@ -408,7 +399,7 @@ const HomePage: React.FC = () => {
             attendance, and performance — all in one powerful platform.
           </p>
 
-          {/* CTA Buttons */}
+          {/* CTA Button */}
           <div style={{
             display: 'flex',
             gap: '1rem',
@@ -429,26 +420,17 @@ const HomePage: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '0.75rem',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)';
+              e.currentTarget.style.boxShadow = '0 12px 50px rgba(168, 85, 247, 0.7)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+              e.currentTarget.style.boxShadow = '0 8px 40px rgba(168, 85, 247, 0.5)';
             }}>
-              Get Started Free <ArrowRight size={20} />
+              Get Started <ArrowRight size={20} />
             </Link>
-            <button style={{
-              padding: '1rem 2.5rem',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              color: '#fff',
-              fontSize: '1.1rem',
-              fontWeight: 600,
-              borderRadius: '14px',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              backdropFilter: 'blur(10px)',
-            }}>
-              <Play size={20} fill="#fff" /> Watch Demo
-            </button>
           </div>
 
           {/* Hero Visual - 3D Card */}
@@ -619,22 +601,6 @@ const HomePage: React.FC = () => {
                   }}>
                     {feature.description}
                   </p>
-
-                  {/* Arrow indicator */}
-                  <div style={{
-                    marginTop: '1.5rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    color: '#a855f7',
-                    fontSize: '0.9rem',
-                    fontWeight: 600,
-                    opacity: isActive ? 1 : 0,
-                    transform: isActive ? 'translateX(0)' : 'translateX(-10px)',
-                    transition: 'all 0.3s ease',
-                  }}>
-                    Learn more <ArrowRight size={16} />
-                  </div>
                 </div>
               );
             })}
@@ -758,6 +724,14 @@ const HomePage: React.FC = () => {
             borderRadius: '16px',
             boxShadow: '0 10px 50px rgba(168, 85, 247, 0.5)',
             transition: 'all 0.3s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)';
+            e.currentTarget.style.boxShadow = '0 15px 60px rgba(168, 85, 247, 0.7)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 10px 50px rgba(168, 85, 247, 0.5)';
           }}>
             Start Free Trial <ArrowRight size={22} />
           </Link>
@@ -774,36 +748,8 @@ const HomePage: React.FC = () => {
         <div style={{
           maxWidth: '1200px',
           margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '1rem',
+          textAlign: 'center',
         }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-          }}>
-            <div style={{
-              width: 35,
-              height: 35,
-              background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
-              borderRadius: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <Sparkles size={18} color="#fff" />
-            </div>
-            <span style={{
-              fontSize: '1.2rem',
-              fontWeight: 700,
-              color: '#fff',
-            }}>
-              Interns360
-            </span>
-          </div>
           <p style={{
             fontSize: '0.9rem',
             color: 'rgba(255, 255, 255, 0.4)',

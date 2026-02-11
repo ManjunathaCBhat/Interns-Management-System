@@ -4,6 +4,15 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getAzureLoginUrl } from "@/config/azure";
+import apiClient from "@/services/apiClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const injectStyles = () => {
   const styleId = "login-animations";
@@ -37,6 +46,10 @@ const injectStyles = () => {
       10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
       20%, 40%, 60%, 80% { transform: translateX(4px); }
     }
+    .input-shake {
+      animation: shake 0.4s ease-in-out;
+    }
+
     @keyframes sad {
       0%, 100% { transform: translateY(0) rotate(0deg); }
       50% { transform: translateY(3px) rotate(-2deg); }
@@ -95,7 +108,7 @@ const AnimatedCharacters: React.FC<CharacterProps> = ({ showPassword, hasError, 
         style={{
           width: "70px",
           height: "130px",
-          background: "linear-gradient(180deg, #7c3aed 0%, #5b21b6 100%)",
+          background: "linear-gradient(180deg, #505081 0%, #272757 100%)",
           borderRadius: "35px 35px 30px 30px",
           position: "relative",
           animation: hasError ? "shake 0.4s ease-in-out, sad 1.5s ease-in-out infinite" : "floatSlow 4s ease-in-out infinite",
@@ -416,6 +429,10 @@ const LoginPage: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [mouseX, setMouseX] = useState(50);
   const [mouseY, setMouseY] = useState(50);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const typingTimeout = useRef<NodeJS.Timeout>();
 
   const { login } = useAuth();
@@ -456,6 +473,40 @@ const LoginPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) {
+      setForgotError("Email is required");
+      return;
+    }
+    if (!/\S+@\S+\.\S+/.test(forgotEmail)) {
+      setForgotError("Invalid email format");
+      return;
+    }
+
+    setForgotError(null);
+    setForgotLoading(true);
+
+    try {
+      await apiClient.post("/auth/forgot-password", {
+        email: forgotEmail.trim(),
+      });
+
+      toast({
+        title: "Reset email sent",
+        description: `A reset link was sent from interns360@cirruslabs.io to ${forgotEmail}.`,
+      });
+
+      setForgotOpen(false);
+      setForgotEmail("");
+    } catch (error: any) {
+      const message = error?.response?.data?.detail || "Failed to send reset email";
+      setForgotError(message);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) {
@@ -491,15 +542,22 @@ const LoginPage: React.FC = () => {
         }
         navigate(redirectPath);
       }
-    } else {
-      setHasLoginError(true);
-      setTimeout(() => setHasLoginError(false), 2000);
-      toast({
-        title: "Login failed",
-        description: result.error || "Invalid credentials",
-        variant: "destructive",
-      });
-    }
+    } 
+      else {
+        setErrors({
+          password: "Invalid password",
+        });
+
+        setHasLoginError(true);
+        setTimeout(() => setHasLoginError(false), 400);
+
+        toast({
+          title: "Login failed",
+          description: result.error || "Invalid email or password",
+          variant: "destructive",
+        });
+      }
+
 
     setLoading(false);
   };
@@ -558,7 +616,7 @@ const LoginPage: React.FC = () => {
             mouseX={mouseX}
             mouseY={mouseY}
           />
-
+          <Link to="/" style={{ textDecoration: "none" }}>
           <h1
             style={{
               fontSize: "28px",
@@ -569,8 +627,9 @@ const LoginPage: React.FC = () => {
               zIndex: 10,
             }}
           >
-            Interns<span style={{ color: "#a855f7" }}>360</span>
+            Interns<span style={{ color: "#8686AC" }}>360</span>
           </h1>
+          </Link>
           <p
             style={{
               fontSize: "15px",
@@ -634,6 +693,7 @@ const LoginPage: React.FC = () => {
                 placeholder="Enter your email"
                 value={email}
                 onChange={handleInputChange(setEmail, "email")}
+                className={hasLoginError && errors.email ? "input-shake" : ""}
                 style={{
                   width: "100%",
                   padding: "12px 16px",
@@ -645,8 +705,8 @@ const LoginPage: React.FC = () => {
                   boxSizing: "border-box",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "#a855f7";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(168,85,247,0.1)";
+                  e.currentTarget.style.borderColor = "#0F0E47";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,14,71,0.12)";
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = errors.email ? "#ef4444" : "#e2e8f0";
@@ -667,6 +727,7 @@ const LoginPage: React.FC = () => {
                   placeholder="Enter your password"
                   value={password}
                   onChange={handleInputChange(setPassword, "password")}
+                  className={hasLoginError && errors.password ? "input-shake" : ""}
                   style={{
                     width: "100%",
                     padding: "12px 16px",
@@ -679,14 +740,15 @@ const LoginPage: React.FC = () => {
                     boxSizing: "border-box",
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "#a855f7";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(168,85,247,0.1)";
+                    e.currentTarget.style.borderColor = "#0F0E47";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,14,71,0.12)";
                   }}
                   onBlur={(e) => {
                     e.currentTarget.style.borderColor = errors.password ? "#ef4444" : "#e2e8f0";
                     e.currentTarget.style.boxShadow = "none";
                   }}
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -703,7 +765,7 @@ const LoginPage: React.FC = () => {
                     display: "flex",
                     transition: "color 0.2s ease",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#a855f7")}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#0F0E47")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#64748b")}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -713,14 +775,33 @@ const LoginPage: React.FC = () => {
             </div>
 
             {/* Remember & Forgot */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", fontSize: "13px" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#64748b", cursor: "pointer" }}>
-                <input type="checkbox" style={{ accentColor: "#a855f7", cursor: "pointer" }} /> Remember for 30 days
-              </label>
-              <a href="#" style={{ color: "#a855f7", fontWeight: 600, textDecoration: "none" }}>
-                Forgot password?
-              </a>
-            </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "20px",
+                    fontSize: "13px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setForgotOpen(true)}
+                    style={{
+                      color: "#0F0E47",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
 
             {/* Login Button */}
             <button
@@ -778,7 +859,7 @@ const LoginPage: React.FC = () => {
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = "#f8fafc";
-              e.currentTarget.style.borderColor = "#a855f7";
+              e.currentTarget.style.borderColor = "#0F0E47";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "#fff";
@@ -797,12 +878,50 @@ const LoginPage: React.FC = () => {
           {/* Register Link */}
           <p style={{ textAlign: "center", marginTop: "24px", fontSize: "14px", color: "#64748b" }}>
             Don't have an account?{" "}
-            <Link to="/register" style={{ color: "#a855f7", fontWeight: 600, textDecoration: "none" }}>
+            <Link to="/register" style={{ color: "#0F0E47", fontWeight: 600, textDecoration: "none" }}>
               Sign up
             </Link>
           </p>
         </div>
       </div>
+
+      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset your password</DialogTitle>
+            <DialogDescription>
+              Enter your email to receive a reset link from interns360@cirruslabs.io.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleForgotSubmit}>
+            <div className="space-y-3">
+              <label className="text-sm font-semibold text-slate-700">Email</label>
+              <input
+                type="email"
+                value={forgotEmail}
+                onChange={(e) => {
+                  setForgotEmail(e.target.value);
+                  setForgotError(null);
+                }}
+                placeholder="you@company.com"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#0F0E47]"
+              />
+              {forgotError && (
+                <p className="text-xs text-red-500">{forgotError}</p>
+              )}
+            </div>
+            <DialogFooter className="mt-6">
+              <button
+                type="submit"
+                disabled={forgotLoading}
+                className="inline-flex items-center justify-center rounded-lg bg-[#1e1145] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {forgotLoading ? "Sending..." : "Send password reset"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

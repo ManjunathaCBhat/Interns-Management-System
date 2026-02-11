@@ -612,6 +612,12 @@ const RegisterPage: React.FC = () => {
           <img src="/cirrus-logo.png" className="w-36 mb-10" alt="Logo" />
           <h1 className="text-5xl font-bold">
             Interns<span className="text-[#8686AD]">360</span>
+
+        {/* Left Branding */}
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#0F0E47] via-[#272757] to-[#505081] text-white p-16 flex-col justify-center">
+          <img src="/cirrus-logo.png" className="w-36 mb-10" alt="Logo" />
+          <h1 className="text-5xl font-bold">
+            Interns<span className="text-[#8686AC]">360</span>
           </h1>
           <p className="mt-6 max-w-md text-lg text-white/90">
             Manage interns, attendance, standups, and performance in one platform.
@@ -631,6 +637,7 @@ const RegisterPage: React.FC = () => {
             <button
               onClick={() => navigate("/login")}
               className="w-full bg-[#605081] hover:bg-[#0F0E47] text-white py-2.5 rounded-lg font-medium transition-colors"
+              className="w-full bg-[#0F0E47] hover:bg-[#272757] text-white py-2.5 rounded-lg font-medium"
             >
               Go to Login
             </button>
@@ -647,7 +654,12 @@ const RegisterPage: React.FC = () => {
         <img src="/cirrus-logo.png" className="w-36 mb-10" alt="Logo" />
         <h1 className="text-5xl font-bold">
           Interns<span className="text-[#8686AD]">360</span>
-        </h1>
+      {/* Left Branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#0F0E47] via-[#272757] to-[#505081] text-white p-16 flex-col justify-center">
+        <img src="/cirrus-logo.png" className="w-36 mb-10" alt="Logo" />
+        <h1 className="text-5xl font-bold">
+          Interns<span className="text-[#8686AC]">360</span>
+          </h1>
         <p className="mt-6 max-w-md text-lg text-white/90">
           Manage interns, attendance, standups, and performance in one platform.
         </p>
@@ -663,6 +675,7 @@ const RegisterPage: React.FC = () => {
             <Link
               to="/login"
               className="text-gray-500 hover:text-[#605081] mr-3"
+              className="text-gray-500 hover:text-[#0F0E47] mr-3"
             >
               <ArrowLeft size={20} />
             </Link>
@@ -681,6 +694,7 @@ const RegisterPage: React.FC = () => {
               className={`w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 ${
                 errors.name ? "border-red-500" : "border-gray-300"
               } focus:ring-[#605081]`}
+              } focus:ring-[#0F0E47]`}
             />
             {errors.name && (
               <p className="text-xs text-red-500 mt-1">{errors.name}</p>
@@ -699,6 +713,7 @@ const RegisterPage: React.FC = () => {
               className={`w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 ${
                 errors.email ? "border-red-500" : "border-gray-300"
               } focus:ring-[#605081]`}
+              } focus:ring-[#0F0E47]`}
             />
             {errors.email && (
               <p className="text-xs text-red-500 mt-1">{errors.email}</p>
@@ -717,6 +732,7 @@ const RegisterPage: React.FC = () => {
               className={`w-full mt-1 px-3 py-2 border rounded-md focus:ring-2 ${
                 errors.username ? "border-red-500" : "border-gray-300"
               } focus:ring-[#605081]`}
+              } focus:ring-[#0F0E47]`}
             />
             {errors.username && (
               <p className="text-xs text-red-500 mt-1">{errors.username}</p>
@@ -732,7 +748,7 @@ const RegisterPage: React.FC = () => {
               value={formData.employee_id}
               onChange={handleChange}
               placeholder="e.g., CL001"
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#605081]"
+              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0F0E47]"
             />
           </div>
 
@@ -802,7 +818,7 @@ const RegisterPage: React.FC = () => {
                 placeholder="Create a password"
                 className={`w-full mt-1 px-3 py-2 border rounded-md pr-10 focus:ring-2 ${
                   errors.password ? "border-red-500" : "border-gray-300"
-                } focus:ring-[#605081]`}
+                } focus:ring-[#0F0E47]`}
               />
               <button
                 type="button"
@@ -829,7 +845,7 @@ const RegisterPage: React.FC = () => {
                 placeholder="Confirm your password"
                 className={`w-full mt-1 px-3 py-2 border rounded-md pr-10 focus:ring-2 ${
                   errors.confirmPassword ? "border-red-500" : "border-gray-300"
-                } focus:ring-[#605081]`}
+                } focus:ring-[#0F0E47]`}
               />
               <button
                 type="button"
@@ -848,7 +864,7 @@ const RegisterPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#605081] hover:bg-[#0F0E47] text-white py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+            className="w-full bg-[#0F0E47] hover:bg-[#272757] text-white py-2.5 rounded-lg font-medium flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="animate-spin h-4 w-4" />}
             {loading ? "Processing..." : "Register"}
@@ -862,7 +878,7 @@ const RegisterPage: React.FC = () => {
           {/* Login Link */}
           <p className="text-sm text-center mt-6 text-gray-600">
             Already have an account?{" "}
-            <Link to="/login" className="text-[#605081] hover:underline font-medium">
+            <Link to="/login" className="text-[#0F0E47] hover:underline font-medium">
               Login here
             </Link>
           </p>

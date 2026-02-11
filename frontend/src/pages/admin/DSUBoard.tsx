@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import PageLoader from '@/components/shared/PageLoader';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api';
 
@@ -49,6 +49,7 @@ interface DSU {
   today: string;
   blockers: string;
   learnings: string;
+  status?: string;
 }
 
 interface Project {
@@ -61,7 +62,30 @@ interface User {
   _id: string;
   name: string;
   email: string;
-  role: "admin" | "scrum_master" | "user";
+  role: "admin" | "scrum_master" | "intern";
+}
+
+interface UserSummary {
+  id: string;
+  name: string;
+  email: string;
+  role: "intern" | "scrum_master";
+}
+
+interface ScrumMasterUser {
+  id: string;
+  name: string;
+  email: string;
+  role: "scrum_master";
+}
+
+interface BoardMember {
+  _id: string;
+  name: string;
+  email: string;
+  role: "intern" | "scrum_master";
+  domain?: string;
+  currentProject?: string;
 }
 
 /* ================= MOCK DATA ================= */
@@ -71,8 +95,8 @@ interface User {
 /* ================= API FUNCTIONS ================= */
 const fetchInterns = async (): Promise<Intern[]> => {
   try {
-    const response = await apiClient.get('/admin/interns');
-    return response.data || [];
+    const response = await apiClient.get('/interns/');
+    return Array.isArray(response.data) ? response.data : (response.data.items || []);
   } catch (error) {
     console.error('Failed to fetch interns:', error);
     return [];
@@ -81,8 +105,8 @@ const fetchInterns = async (): Promise<Intern[]> => {
 
 const fetchProjects = async (): Promise<Project[]> => {
   try {
-    const response = await apiClient.get('/admin/projects');
-    return response.data || [];
+    const response = await apiClient.get('/projects/');
+    return Array.isArray(response.data) ? response.data : (response.data.items || []);
   } catch (error) {
     console.error('Failed to fetch projects:', error);
     return [];
@@ -91,8 +115,8 @@ const fetchProjects = async (): Promise<Project[]> => {
 
 const fetchTasks = async (): Promise<Task[]> => {
   try {
-    const response = await apiClient.get('/admin/tasks');
-    return response.data || [];
+    const response = await apiClient.get('/tasks/');
+    return Array.isArray(response.data) ? response.data : (response.data.items || []);
   } catch (error) {
     console.error('Failed to fetch tasks:', error);
     return [];
@@ -101,10 +125,30 @@ const fetchTasks = async (): Promise<Task[]> => {
 
 const fetchDSUs = async (): Promise<DSU[]> => {
   try {
-    const response = await apiClient.get('/admin/dsus');
-    return response.data || [];
+    const response = await apiClient.get('/dsu-entries/');
+    return Array.isArray(response.data) ? response.data : (response.data.items || []);
   } catch (error) {
     console.error('Failed to fetch DSUs:', error);
+    return [];
+  }
+};
+
+const fetchScrumMasters = async (): Promise<ScrumMasterUser[]> => {
+  try {
+    const response = await apiClient.get('/users?role=scrum_master');
+    return Array.isArray(response.data) ? response.data : (response.data.items || []);
+  } catch (error) {
+    console.error('Failed to fetch scrum masters:', error);
+    return [];
+  }
+};
+
+const fetchInternUsers = async (): Promise<UserSummary[]> => {
+  try {
+    const response = await apiClient.get('/users?role=intern');
+    return Array.isArray(response.data) ? response.data : (response.data.items || []);
+  } catch (error) {
+    console.error('Failed to fetch intern users:', error);
     return [];
   }
 };
@@ -140,9 +184,9 @@ const getInitials = (name: string) => {
 
 const getAvatarColor = (name: string) => {
   const colors = [
-    "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899",
-    "#f43f5e", "#ef4444", "#f97316", "#eab308", "#84cc16",
-    "#22c55e", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6",
+    "#0F0E47", "#272757", "#505081", "#8686AC", "#6D6D9A",
+    "#5A5A86", "#3F3F72", "#2C2C5E", "#1E1E54", "#4C4C7A",
+    "#7A7AA3", "#59598A", "#3A3A6B", "#515180", "#2B2B58",
   ];
   const index = name.charCodeAt(0) % colors.length;
   return colors[index];
@@ -164,28 +208,55 @@ const getStatusBadge = (status: string) => {
 /* ================= MAIN COMPONENT ================= */
 const Index: React.FC = () => {
   const [interns, setInterns] = useState<Intern[]>([]);
+  const [internUsers, setInternUsers] = useState<UserSummary[]>([]);
+  const [scrumMasters, setScrumMasters] = useState<ScrumMasterUser[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [dsus, setDsus] = useState<DSU[]>([]);
   const [loading, setLoading] = useState(true);
+  const [attendanceByMember, setAttendanceByMember] = useState<Record<string, "present" | "absent">>({});
   const { user } = useAuth();
 
   const isAdmin = user?.role === 'admin';
   const isAuthorized = user?.role === 'admin' || user?.role === 'scrum_master';
 
+  const fetchAttendance = async (dateValue: string) => {
+    try {
+      const response = await apiClient.get('/office-attendance', {
+        params: { date: dateValue },
+      });
+      const records = Array.isArray(response.data) ? response.data : (response.data.items || []);
+      const nextState: Record<string, "present" | "absent"> = {};
+      records.forEach((record: { internId?: string; status?: string }) => {
+        if (!record?.internId) return;
+        if (record.status === "present" || record.status === "absent") {
+          nextState[record.internId] = record.status;
+        }
+      });
+      setAttendanceByMember(nextState);
+    } catch (error) {
+      console.error('Failed to load attendance:', error);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [internsRes, projectsRes, tasksRes, dsusRes] = await Promise.all([
+      const [internsRes, projectsRes, tasksRes, dsusRes, scrumMastersRes, internUsersRes] = await Promise.all([
         fetchInterns(),
         fetchProjects(),
         fetchTasks(),
-        fetchDSUs()
+        fetchDSUs(),
+        fetchScrumMasters(),
+        fetchInternUsers(),
       ]);
       setInterns(internsRes);
       setProjects(projectsRes);
       setTasks(tasksRes);
       setDsus(dsusRes);
+      setScrumMasters(scrumMastersRes);
+      setInternUsers(internUsersRes);
+      await fetchAttendance(selectedDate);
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -207,36 +278,63 @@ const Index: React.FC = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // Sidebar state removed - now using DashboardLayout
+  useEffect(() => {
+    fetchAttendance(selectedDate);
+  }, [selectedDate]);
 
-  const CARDS_VISIBLE = 3;
+  // Sidebar state removed - now using DashboardLayout
 
   const yesterday = new Date(selectedDate);
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().split("T")[0];
 
-  const filteredInterns = interns.filter((i) => {
-    if (internFilter !== "all" && i._id !== internFilter) return false;
-    if (projectFilter !== "all" && i.currentProject !== projectFilter) return false;
+  const includeScrumMasters = internFilter === "all" && projectFilter === "all";
+  const normalizeEmail = (email: string) => email.toLowerCase().trim();
+  const internsByEmail = new Map(
+    interns.map((intern) => [normalizeEmail(intern.email), intern])
+  );
+
+  const internMembers: BoardMember[] = internUsers.map((user) => {
+    const match = internsByEmail.get(normalizeEmail(user.email));
+    return {
+      _id: match?._id || user.id,
+      name: user.name,
+      email: user.email,
+      role: "intern",
+      domain: match?.domain,
+      currentProject: match?.currentProject,
+    };
+  });
+
+  const scrumMasterMembers: BoardMember[] = scrumMasters.map((user) => {
+    const match = internsByEmail.get(normalizeEmail(user.email));
+    return {
+      _id: match?._id || user.id,
+      name: user.name,
+      email: user.email,
+      role: "scrum_master",
+      domain: match?.domain || "Scrum Master",
+      currentProject: match?.currentProject || "Leadership",
+    };
+  });
+
+  const boardMembers = includeScrumMasters
+    ? [...internMembers, ...scrumMasterMembers]
+    : internMembers;
+
+  const filteredMembers = boardMembers.filter((member) => {
+    if (internFilter !== "all" && member._id !== internFilter) return false;
+    if (projectFilter !== "all" && (member.currentProject || "") !== projectFilter) return false;
     return true;
   });
 
-  const paddedInterns: (Intern | null)[] = [];
+  const CARDS_VISIBLE = 3;
+  const paddedMembers: (BoardMember | null)[] = [null, ...filteredMembers, null];
 
-  if (filteredInterns.length === 1) {
-    paddedInterns.push(null, filteredInterns[0], null);
-  } else if (filteredInterns.length === 2) {
-    paddedInterns.push(null, filteredInterns[0], filteredInterns[1]);
-  } else {
-    for (let i = 0; i < filteredInterns.length; i++) {
-      paddedInterns.push(filteredInterns[i]);
-    }
-  }
+  const displayMembers = paddedMembers.slice(startIndex, startIndex + CARDS_VISIBLE);
 
-  const displayInterns = paddedInterns.slice(startIndex, startIndex + CARDS_VISIBLE);
-
-  while (displayInterns.length < CARDS_VISIBLE) {
-    displayInterns.push(null);
+  while (displayMembers.length < CARDS_VISIBLE) {
+    displayMembers.push(null);
   }
 
   const getTasks = (internId: string, date: string) =>
@@ -247,16 +345,39 @@ const Index: React.FC = () => {
         (statusFilter === "all" || t.status === statusFilter)
     );
 
-  const internsWithDSU = new Set(
-    dsus.filter((d) => d.date?.startsWith(selectedDate)).map((d) => d.internId)
+  const dsusForDate = dsus.filter((d) => d.date?.startsWith(selectedDate));
+  const submittedMembers = new Set(
+    dsusForDate
+      .filter((d) => !d.status || d.status === "submitted")
+      .map((d) => d.internId)
   );
 
+  const totalMembers = boardMembers.length;
+
   const stats = {
-    total: interns.length,
-    submitted: internsWithDSU.size,
-    notSubmitted: interns.length - internsWithDSU.size,
-    blocked: tasks.filter((t) => t.status === "blocked").length,
+    total: totalMembers,
+    submitted: submittedMembers.size,
+    notSubmitted: Math.max(0, totalMembers - submittedMembers.size),
+    blocked: tasks.filter(
+      (t) => t.status === "blocked" && t.created_at?.startsWith(selectedDate)
+    ).length,
   };
+
+  const markAttendance = async (memberId: string, statusValue: "present" | "absent") => {
+    try {
+      await apiClient.post('/office-attendance', {
+        internId: memberId,
+        date: selectedDate,
+        status: statusValue,
+      });
+      setAttendanceByMember((prev) => ({ ...prev, [memberId]: statusValue }));
+    } catch (error) {
+      console.error('Failed to mark attendance:', error);
+    }
+  };
+
+  const canGoLeft = startIndex > 0;
+  const canGoRight = startIndex + CARDS_VISIBLE < paddedMembers.length;
 
   const exportCSV = () => {
     const filteredTasks = tasks.filter((t) => {
@@ -294,9 +415,6 @@ const Index: React.FC = () => {
     a.click();
     setExportOpen(false);
   };
-
-  const canGoLeft = startIndex > 0;
-  const canGoRight = startIndex + CARDS_VISIBLE < paddedInterns.length;
 
   /* ================= INLINE STYLES ================= */
   const containerStyle: React.CSSProperties = {
@@ -483,10 +601,11 @@ const Index: React.FC = () => {
   });
 
   const cardsGridStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    display: "flex",
     gap: "20px",
-    alignItems: "start",
+    justifyContent: "center",
+    alignItems: "stretch",
+    flexWrap: "nowrap",
   };
 
   const internCardStyle = (isCenter: boolean): React.CSSProperties => ({
@@ -502,6 +621,10 @@ const Index: React.FC = () => {
       ? "0 15px 40px rgba(30, 17, 69, 0.25)"
       : "0 2px 8px rgba(0,0,0,0.05)",
     color: isCenter ? "#ffffff" : "#1e1145",
+    flex: "0 0 320px",
+    minHeight: "440px",
+    display: "flex",
+    flexDirection: "column",
   });
 
   const cardHeaderStyle: React.CSSProperties = {
@@ -601,10 +724,15 @@ const Index: React.FC = () => {
   const attendanceButtonsStyle: React.CSSProperties = {
     display: "flex",
     gap: "8px",
-    marginTop: "12px",
+    marginTop: "auto",
+    paddingTop: "12px",
+  };
+  const emptySlotStyle: React.CSSProperties = {
+    minHeight: "440px",
+    flex: "0 0 320px",
   };
 
-  const attendBtnStyle = (type: "present" | "absent"): React.CSSProperties => ({
+  const attendBtnStyle = (type: "present" | "absent", active = false): React.CSSProperties => ({
     flex: 1,
     padding: "10px",
     borderRadius: "10px",
@@ -620,11 +748,9 @@ const Index: React.FC = () => {
       ? "linear-gradient(135deg, #22c55e, #16a34a)"
       : "linear-gradient(135deg, #ef4444, #dc2626)",
     color: "white",
+    boxShadow: active ? "0 0 0 2px rgba(30, 17, 69, 0.2)" : "none",
+    opacity: active ? 1 : 0.9,
   });
-
-  const emptySlotStyle: React.CSSProperties = {
-    minHeight: "350px",
-  };
 
   const modalStyle: React.CSSProperties = {
     position: "fixed",
@@ -709,29 +835,23 @@ const Index: React.FC = () => {
     border: "2px solid rgba(239, 68, 68, 0.3)",
   };
 
-  const loadingContainerStyle: React.CSSProperties = {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "linear-gradient(135deg, #1e1145 0%, #2d1b69 100%)",
-    gap: "20px",
-  };
-
-  const spinnerStyle: React.CSSProperties = {
-    width: "56px",
-    height: "56px",
-    borderRadius: "50%",
-    border: "4px solid rgba(168, 85, 247, 0.2)",
-    borderTopColor: "#a855f7",
-    animation: "spin 1s linear infinite",
-  };
-
   if (loading) {
     return (
       <DashboardLayout>
-        <PageLoader message="Loading DSU Board..." />
+        <div className="space-y-6 p-6">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-7 w-56" />
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="h-9 w-24" />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-64 w-full" />
+            ))}
+          </div>
+        </div>
       </DashboardLayout>
     );
   }
@@ -844,10 +964,10 @@ const Index: React.FC = () => {
                   }}
                   style={selectStyle}
                 >
-                  <option value="all">All Interns</option>
-                  {interns.map((i) => (
-                    <option key={i._id} value={i._id}>
-                      {i.name}
+                  <option value="all">All Members</option>
+                  {boardMembers.map((member) => (
+                    <option key={member._id} value={member._id}>
+                      {member.name} ({member.role.replace("_", " ")})
                     </option>
                   ))}
                 </select>
@@ -887,7 +1007,7 @@ const Index: React.FC = () => {
             </div>
           </div>
 
-          {/* CAROUSEL */}
+          {/* CARDS */}
           <div style={carouselContainerStyle}>
             <button
               style={{ ...carouselNavStyle(!canGoLeft), left: 0 }}
@@ -898,23 +1018,27 @@ const Index: React.FC = () => {
             </button>
 
             <div style={cardsGridStyle}>
-              {displayInterns.map((intern, idx) => {
-                if (!intern) {
+              {displayMembers.map((member, idx) => {
+                if (!member) {
                   return <div key={`empty-${idx}`} style={emptySlotStyle} />;
                 }
 
-                const todayTasks = getTasks(intern._id, selectedDate);
-                const yesterdayTasks = getTasks(intern._id, yesterdayStr);
+                const todayTasks = getTasks(member._id, selectedDate);
+                const yesterdayTasks = getTasks(member._id, yesterdayStr);
                 const isCenter = idx === 1;
+                const roleLabel = member.role === "scrum_master" ? "Scrum Master" : member.domain || "Intern";
+                const projectLabel = member.role === "scrum_master"
+                  ? "Leadership"
+                  : member.currentProject || "Unassigned";
 
                 return (
-                  <div key={intern._id} style={internCardStyle(isCenter)}>
+                  <div key={member._id} style={internCardStyle(isCenter)}>
                     <div style={cardHeaderStyle}>
-                      <div style={avatarStyle(getAvatarColor(intern.name))}>
-                        {getInitials(intern.name)}
+                      <div style={avatarStyle(getAvatarColor(member.name))}>
+                        {getInitials(member.name)}
                       </div>
                       <div>
-                        <div style={cardNameStyle}>{intern.name}</div>
+                        <div style={cardNameStyle}>{member.name}</div>
                         <div style={cardDomainStyle(isCenter)}>
                           <span
                             style={{
@@ -924,7 +1048,7 @@ const Index: React.FC = () => {
                               background: "#22c55e",
                             }}
                           />
-                          {intern.domain} • {intern.currentProject}
+                          {roleLabel} • {projectLabel}
                         </div>
                       </div>
                     </div>
@@ -982,10 +1106,16 @@ const Index: React.FC = () => {
 
                     {/* ATTENDANCE BUTTONS - BELOW CARD CONTENT */}
                     <div style={attendanceButtonsStyle}>
-                      <button style={attendBtnStyle("present")}>
+                      <button
+                        style={attendBtnStyle("present", attendanceByMember[member._id] === "present")}
+                        onClick={() => markAttendance(member._id, "present")}
+                      >
                         <CheckCircle size={14} /> Present
                       </button>
-                      <button style={attendBtnStyle("absent")}>
+                      <button
+                        style={attendBtnStyle("absent", attendanceByMember[member._id] === "absent")}
+                        onClick={() => markAttendance(member._id, "absent")}
+                      >
                         <XCircle size={14} /> Absent
                       </button>
                     </div>
@@ -997,7 +1127,7 @@ const Index: React.FC = () => {
             <button
               style={{ ...carouselNavStyle(!canGoRight), right: 0 }}
               disabled={!canGoRight}
-              onClick={() => setStartIndex((i) => Math.min(paddedInterns.length - CARDS_VISIBLE, i + 1))}
+              onClick={() => setStartIndex((i) => Math.min(paddedMembers.length - CARDS_VISIBLE, i + 1))}
             >
               <ChevronRight size={20} />
             </button>

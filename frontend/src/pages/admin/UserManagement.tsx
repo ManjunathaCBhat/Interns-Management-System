@@ -13,6 +13,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -195,77 +196,88 @@ const UserManagement: React.FC = () => {
         {/* Table */}
         <Card>
           <CardContent className="p-0 overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b bg-muted/30">
-                <tr>
-                  <th className="px-4 py-3 text-left">User</th>
-                  <th className="px-4 py-3 text-left">Role</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y">
-                {filteredUsers.map((user) => (
-                  <tr key={user._id} className="hover:bg-muted/20">
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
-                    </td>
-
-                    <td className="px-4 py-3">
-                      <Badge variant="outline" className="capitalize">
-                        {user.role.replace('_', ' ')}
-                      </Badge>
-                    </td>
-
-                    <td className="px-4 py-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => handleRoleChange(user._id, 'admin')}
-                          >
-                            <Shield className="mr-2 h-4 w-4" />
-                            Make Admin
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              handleRoleChange(user._id, 'scrum_master')
-                            }
-                          >
-                            <Users className="mr-2 h-4 w-4" />
-                            Make Scrum Master
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleRoleChange(user._id, 'user')}
-                          >
-                            Intern
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => handleDelete(user)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete User
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
+            {loading ? (
+              <div className="p-6 space-y-3">
+                <Skeleton className="h-6 w-40" />
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Skeleton key={index} className="h-10 w-full" />
                 ))}
-              </tbody>
-            </table>
-
-            {filteredUsers.length === 0 && (
-              <div className="p-10 text-center text-muted-foreground">
-                No users found
               </div>
+            ) : (
+              <>
+                <table className="w-full">
+                  <thead className="border-b bg-muted/30">
+                    <tr>
+                      <th className="px-4 py-3 text-left">User</th>
+                      <th className="px-4 py-3 text-left">Role</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y">
+                    {filteredUsers.map((user) => (
+                      <tr key={user._id} className="hover:bg-muted/20">
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{user.name}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <Badge variant="outline" className="capitalize">
+                            {user.role.replace('_', ' ')}
+                          </Badge>
+                        </td>
+
+                        <td className="px-4 py-3 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => handleRoleChange(user._id, 'admin')}
+                              >
+                                <Shield className="mr-2 h-4 w-4" />
+                                Make Admin
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleRoleChange(user._id, 'scrum_master')
+                                }
+                              >
+                                <Users className="mr-2 h-4 w-4" />
+                                Make Scrum Master
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleRoleChange(user._id, 'user')}
+                              >
+                                Intern
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => handleDelete(user)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete User
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {filteredUsers.length === 0 && (
+                  <div className="p-10 text-center text-muted-foreground">
+                    No users found
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

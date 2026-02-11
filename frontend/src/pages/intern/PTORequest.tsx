@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import PageLoader from '@/components/shared/PageLoader';
+import { Skeleton } from '@/components/ui/skeleton';
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -83,7 +83,7 @@ const PTORequest: React.FC = () => {
   });
 
   const fetchRequests = async () => {
-    const data = await ptoService.getAll();
+    const data = await ptoService.getAll({ intern_id: user?.id });
     setRequests(Array.isArray(data) ? data : []);
     setLoading(false);
   };
@@ -103,6 +103,7 @@ const PTORequest: React.FC = () => {
         name: user.name,
         email: user.email,
         team: 'Engineering',
+        type: 'PTO',
         leaveType: formData.leaveType,
         startDate: formData.startDate,
         endDate: formData.endDate,
@@ -117,8 +118,21 @@ const PTORequest: React.FC = () => {
     }
 
     if (activeTab === "WFH") {
+      await ptoService.create({
+        internId: user.id,
+        name: user.name,
+        email: user.email,
+        team: 'Engineering',
+        type: 'WFH',
+        startDate: wfhData.startDate,
+        endDate: wfhData.endDate,
+        numberOfDays: calculateDays(wfhData.startDate, wfhData.endDate),
+        reason: wfhData.reason,
+        status: 'pending',
+      });
+      setWfhData({ reason: '', startDate: '', endDate: '' });
       setOpen(false);
-      alert("WFH request submitted (demo)");
+      fetchRequests();
     }
   };
 
@@ -133,7 +147,20 @@ const PTORequest: React.FC = () => {
         "orange"
     }));
 
-  if (loading) return <DashboardLayout><PageLoader message="Loading PTO..." /></DashboardLayout>;
+  const ptoRequests = requests.filter((req) => (req.type || 'PTO') === 'PTO');
+  const wfhRequests = requests.filter((req) => req.type === 'WFH');
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-56" />
+          <Skeleton className="h-12 w-72" />
+          <Skeleton className="h-[420px] w-full" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -160,7 +187,7 @@ const PTORequest: React.FC = () => {
                   <span className="w-3 h-3 rounded-full bg-green-500"></span> Approved
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded-full bg-pink-500"></span> Rejected
+                  <span className="w-3 h-3 rounded-full bg-[#8686AC]"></span> Rejected
                 </span>
               </div>
             </div>
@@ -169,12 +196,12 @@ const PTORequest: React.FC = () => {
               <FullCalendar
                 plugins={[dayGridPlugin, interactionPlugin]}
                 initialView="dayGridMonth"
-                events={tab==="PTO"?toCalendarEvents(requests):[]}
+                events={tab==="PTO" ? toCalendarEvents(ptoRequests) : toCalendarEvents(wfhRequests)}
                 nowIndicator
                 height="550px"
                 aspectRatio={1.8}
                 dayMaxEventRows={1}
-                dayCellClassNames={(arg)=>arg.isToday?['bg-purple-200','border','border-purple-600']:[]}
+                dayCellClassNames={(arg)=>arg.isToday?['bg-[#8686AC]/20','border','border-[#0F0E47]']:[]}
                 dateClick={(info:any)=>{
                   if(isPastDate(info.dateStr)){
                     setError("The selected day is over");

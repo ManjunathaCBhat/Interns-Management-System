@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { batchService } from '@/services/batchService';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +14,9 @@ interface Batch {
   _id: string;
   batchId: string;
   batchName: string;
+  year?: string;
+  month?: string;
+  organization?: string;
   startDate: string;
   endDate: string;
   coordinator: string;
@@ -53,7 +57,7 @@ const BatchManagement: React.FC = () => {
       upcoming: 'bg-blue-100 text-blue-700 border-blue-200',
       active: 'bg-green-100 text-green-700 border-green-200',
       completed: 'bg-gray-100 text-gray-700 border-gray-200',
-      archived: 'bg-purple-100 text-purple-700 border-purple-200',
+      archived: 'bg-[#8686AC]/20 text-[#272757] border-[#8686AC]/40',
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
@@ -61,8 +65,29 @@ const BatchManagement: React.FC = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-10 w-40" />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Card key={index}>
+                <CardHeader className="border-b">
+                  <Skeleton className="h-5 w-36" />
+                  <Skeleton className="h-4 w-24" />
+                </CardHeader>
+                <CardContent className="pt-4 space-y-3">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-10 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -101,6 +126,14 @@ const BatchManagement: React.FC = () => {
                   <div>
                     <p className="text-muted-foreground">Coordinator</p>
                     <p className="font-medium">{batch.coordinator}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Category</p>
+                    <p className="font-medium">
+                      {[batch.year, batch.month, batch.organization]
+                        .filter(Boolean)
+                        .join(' • ') || 'Uncategorized'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Duration</p>

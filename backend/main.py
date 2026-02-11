@@ -203,6 +203,83 @@ app = FastAPI(
 )
 
 
+
+
+
+import random
+from datetime import timedelta
+
+# Temporary OTP Store (for testing)
+otp_store = {}
+
+# ================= OTP SEND ROUTE =================
+@app.post("/api/auth/send-otp")
+async def send_otp_route(payload: dict):
+    email = payload.get("email")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email required")
+
+    otp = str(random.randint(100000, 999999))
+
+    # Store OTP with expiry (5 min)
+    otp_store[email] = {
+        "otp": otp,
+        "expires": datetime.now() + timedelta(minutes=5)
+    }
+
+    print("OTP SENT TO EMAIL:", email)
+    print("OTP =", otp)
+
+    return {"message": "OTP sent successfully"}
+
+
+# ================= REGISTER ROUTE =================
+@app.post("/api/auth/register")
+async def register_with_otp(payload: dict, db=Depends(get_database)):
+
+    email = payload.get("email")
+    otp = payload.get("otp")
+    password = payload.get("password")
+
+    if email not in otp_store:
+        raise HTTPException(status_code=400, detail="OTP not requested")
+
+    saved = otp_store[email]
+
+    if datetime.now() > saved["expires"]:
+        raise HTTPException(status_code=400, detail="OTP expired")
+
+    if otp != saved["otp"]:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    # OTP verified → remove OTP
+    otp_store.pop(email)
+
+    # Check if email already exists
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Create user
+    user_doc = {
+        "name": payload.get("fullName"),
+        "email": email,
+        "hashed_password": get_password_hash(password),
+        "role": "intern",
+        "is_active": True,
+        "is_approved": False,
+        "created_at": datetime.now(timezone.utc)
+    }
+
+    await db.users.insert_one(user_doc)
+
+    return {"message": "Registration successful"}
+
+
+
+
+
 # CORS
 def parse_cors_origins(value: Optional[str]) -> List[str]:
     if not value:

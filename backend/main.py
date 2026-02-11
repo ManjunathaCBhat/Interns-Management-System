@@ -499,6 +499,13 @@ from bson import ObjectId
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+<<<<<<< Updated upstream
+=======
+from urllib.parse import quote
+import httpx
+from utils.security import hash_password
+
+>>>>>>> Stashed changes
 
 # Load .env from backend folder first, then from root folder
 env_path = Path(__file__).parent / '.env'
@@ -515,7 +522,6 @@ else:
 # Import our modules
 from database import connect_db, close_db, get_database
 from auth import (
-    get_password_hash, 
     verify_password, 
     create_access_token,
     get_current_active_user,

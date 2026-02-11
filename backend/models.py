@@ -5,7 +5,7 @@ Roles: admin, scrum_master, intern
 
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone,timedelta
 from enum import Enum
 
 
@@ -54,6 +54,7 @@ class LeaveStatus(str, Enum):
 # USERS (UPDATED)
 # =========================
 
+
 class User(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -63,14 +64,23 @@ class User(BaseModel):
     name: str
     employee_id: Optional[str] = None
     role: UserRole = UserRole.intern
+
+    # 🔐 AUTH
     hashed_password: Optional[str] = None
+
+    # 🔁 RESET PASSWORD (NEW)
+    reset_password_id: Optional[str] = None
+    reset_password_expires_at: Optional[datetime] = None
+    reset_password_used: bool = False
+
+    # 🔐 STATUS
     is_active: bool = True
     is_approved: bool = False
     azure_oid: Optional[str] = None
     auth_provider: Optional[str] = None
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
 
 # =========================
 # INTERNS (UPDATED)

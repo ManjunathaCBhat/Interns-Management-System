@@ -487,13 +487,6 @@ const HomePage: React.FC = () => {
             </div>
           </div>
 
-          {/* Scroll Indicator */}
-          <div style={{
-            marginTop: '4rem',
-            animation: 'bounce-subtle 2s ease-in-out infinite',
-          }}>
-            <ChevronDown size={32} color="rgba(255, 255, 255, 0.4)" />
-          </div>
         </div>
       </section>
 
@@ -709,7 +702,7 @@ const HomePage: React.FC = () => {
             color: 'rgba(255, 255, 255, 0.6)',
             marginBottom: '2.5rem',
           }}>
-            Join hundreds of companies already using Interns360 to manage their talent pipeline.
+            {/* Join hundreds of companies already using Interns360 to manage their talent pipeline. */}
           </p>
           <Link to="/login" style={{
             display: 'inline-flex',
@@ -733,7 +726,7 @@ const HomePage: React.FC = () => {
             e.currentTarget.style.transform = 'translateY(0) scale(1)';
             e.currentTarget.style.boxShadow = '0 10px 50px rgba(168, 85, 247, 0.5)';
           }}>
-            Start Free Trial <ArrowRight size={22} />
+            Start Free <ArrowRight size={22} />
           </Link>
         </div>
       </section>

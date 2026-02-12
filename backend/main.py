@@ -2,16 +2,23 @@
 Intern Lifecycle Manager - Complete Backend with Batch Management
 All routes in one file - Enhanced Version
 """
-from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi import FastAPI, Depends, HTTPException, status, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 from typing import Optional, List
 from bson import ObjectId
 from pydantic import BaseModel, EmailStr
 import os
+import hashlib
+import secrets
+import re
 from pathlib import Path
 from dotenv import load_dotenv
+from urllib.parse import quote
+import httpx
+from utils.security import hash_password
+
 from urllib.parse import quote
 import json
 import httpx
@@ -31,7 +38,6 @@ else:
 # Import our modules
 from database import connect_db, close_db, get_database
 from auth import (
-    get_password_hash, 
     verify_password, 
     create_access_token,
     get_current_active_user,
@@ -91,6 +97,12 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+    confirm_password: str
+
+
 class BatchYearCreate(BaseModel):
     year: int
     label: Optional[str] = None
@@ -114,8 +126,19 @@ async def get_graph_access_token() -> str:
     client_id = os.getenv("client_id")
     client_secret = os.getenv("AZURE_SECRET_KEY")
 
-    if not tenant_id or not client_id or not client_secret:
-        raise HTTPException(status_code=503, detail="Microsoft Graph is not configured")
+    missing = []
+    if not tenant_id:
+        missing.append("tenant_id")
+    if not client_id:
+        missing.append("client_id")
+    if not client_secret:
+        missing.append("AZURE_SECRET_KEY")
+
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Microsoft Graph is not configured. Missing: {', '.join(missing)}"
+        )
 
     token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
     data = {
@@ -126,7 +149,13 @@ async def get_graph_access_token() -> str:
     }
 
     async with httpx.AsyncClient() as client:
-        resp = await client.post(token_url, data=data, timeout=10.0)
+        try:
+            resp = await client.post(token_url, data=data, timeout=30.0)
+        except httpx.ReadTimeout:
+            raise HTTPException(
+                status_code=503,
+                detail="Microsoft Graph token request timed out. Please try again."
+            )
 
     if resp.status_code != 200:
         raise HTTPException(
@@ -143,7 +172,10 @@ async def get_graph_access_token() -> str:
 
 async def send_reset_email(to_email: str, reset_link: str) -> None:
     if not RESET_SENDER_EMAIL:
-        raise HTTPException(status_code=503, detail="SENDER_MAIL is not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="SENDER_MAIL is not configured. Missing: SENDER_MAIL"
+        )
     token = await get_graph_access_token()
 
     subject = "Reset your Interns360 password"
@@ -203,6 +235,83 @@ app = FastAPI(
 )
 
 
+
+
+
+import random
+from datetime import timedelta
+
+# Temporary OTP Store (for testing)
+otp_store = {}
+
+# ================= OTP SEND ROUTE =================
+@app.post("/api/auth/send-otp")
+async def send_otp_route(payload: dict):
+    email = payload.get("email")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email required")
+
+    otp = str(random.randint(100000, 999999))
+
+    # Store OTP with expiry (5 min)
+    otp_store[email] = {
+        "otp": otp,
+        "expires": datetime.now() + timedelta(minutes=5)
+    }
+
+    print("OTP SENT TO EMAIL:", email)
+    print("OTP =", otp)
+
+    return {"message": "OTP sent successfully"}
+
+
+# ================= REGISTER ROUTE =================
+@app.post("/api/auth/register")
+async def register_with_otp(payload: dict, db=Depends(get_database)):
+
+    email = payload.get("email")
+    otp = payload.get("otp")
+    password = payload.get("password")
+
+    if email not in otp_store:
+        raise HTTPException(status_code=400, detail="OTP not requested")
+
+    saved = otp_store[email]
+
+    if datetime.now() > saved["expires"]:
+        raise HTTPException(status_code=400, detail="OTP expired")
+
+    if otp != saved["otp"]:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    # OTP verified → remove OTP
+    otp_store.pop(email)
+
+    # Check if email already exists
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Create user
+    user_doc = {
+        "name": payload.get("fullName"),
+        "email": email,
+        "hashed_password": get_password_hash(password),
+        "role": "intern",
+        "is_active": True,
+        "is_approved": False,
+        "created_at": datetime.now(timezone.utc)
+    }
+
+    await db.users.insert_one(user_doc)
+
+    return {"message": "Registration successful"}
+
+
+
+
+
 # CORS
 def parse_cors_origins(value: Optional[str]) -> List[str]:
     if not value:
@@ -216,6 +325,13 @@ def parse_cors_origins(value: Optional[str]) -> List[str]:
     return [origin.strip() for origin in value.split(",") if origin.strip()]
 
 CORS_ORIGINS = parse_cors_origins(os.getenv("BACKEND_CORS_ORIGINS"))
+if not CORS_ORIGINS:
+    CORS_ORIGINS = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -330,12 +446,108 @@ async def forgot_password(payload: ForgotPasswordRequest, db = Depends(get_datab
     if not user:
         raise HTTPException(status_code=404, detail="Email not found")
 
-    frontend_url = os.getenv("FRONTEND_URL").rstrip("/")
-    reset_link = f"{frontend_url}/forgot-password?email={quote(email)}"
+    frontend_url = os.getenv("FRONTEND_URL")
+    if not frontend_url:
+        raise HTTPException(
+            status_code=503,
+            detail="FRONTEND_URL is not configured. Missing: FRONTEND_URL"
+        )
+    frontend_url = frontend_url.rstrip("/")
+    reset_token = secrets.token_urlsafe(32)
+    reset_token_hash = hashlib.sha256(reset_token.encode("utf-8")).hexdigest()
+    reset_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
 
-    await send_reset_email(email, reset_link)
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {
+            "$set": {
+                "reset_password_id": reset_token_hash,
+                "reset_password_expires_at": reset_expires_at,
+                "reset_password_used": False,
+                "updated_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+
+    reset_link = f"{frontend_url}/forgot-password?token={quote(reset_token)}"
+
+    # Try to send email, but don't fail if it times out
+    try:
+        await send_reset_email(email, reset_link)
+        print(f"[ForgotPassword] Reset email sent to {email}")
+    except Exception as e:
+        print(f"[ForgotPassword] Email send failed: {type(e).__name__}: {str(e)}")
+        print(f"[ForgotPassword] Reset token saved. Manual reset link: {reset_link}")
 
     return {"message": "Password reset email sent"}
+
+
+@app.post("/api/v1/auth/reset-password")
+async def reset_password(payload: ResetPasswordRequest, db = Depends(get_database)):
+    token = payload.token.strip() if payload.token else ""
+    if not token:
+        print("[ResetPassword] No token provided")
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    print(f"[ResetPassword] Looking for token hash: {token_hash[:16]}...")
+    user = await db.users.find_one({"reset_password_id": token_hash})
+    if not user:
+        # Check if ANY user has a reset token to help debug
+        any_reset = await db.users.find_one({"reset_password_id": {"$exists": True, "$ne": None}})
+        if any_reset:
+            print(f"[ResetPassword] Token hash not found, but other reset tokens exist")
+        else:
+            print("[ResetPassword] Token hash not found, no reset tokens in database")
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    if user.get("reset_password_used"):
+        print("[ResetPassword] Token already used")
+        raise HTTPException(status_code=400, detail="Reset link already used")
+
+    expires_at = user.get("reset_password_expires_at")
+    if not expires_at:
+        print("[ResetPassword] No expiry time set")
+        raise HTTPException(status_code=400, detail="Reset link has expired")
+    
+    # Handle timezone-naive datetime from database
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    
+    if expires_at < datetime.now(timezone.utc):
+        print(f"[ResetPassword] Token expired at: {expires_at}")
+        raise HTTPException(status_code=400, detail="Reset link has expired")
+
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    if not re.search(r"[A-Z]", payload.new_password) or \
+       not re.search(r"[0-9]", payload.new_password) or \
+       not re.search(r"[!@#$%^&*]", payload.new_password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain uppercase, number, and special character"
+        )
+
+    hashed_password = hash_password(payload.new_password)
+
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {
+            "$set": {
+                "hashed_password": hashed_password,
+                "reset_password_used": True,
+                "reset_password_id": None,
+                "reset_password_expires_at": None,
+                "updated_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+
+    return {"message": "Password reset successful"}
 
 
 @app.post("/api/v1/auth/sso/azure", response_model=Token)
@@ -1225,30 +1437,26 @@ async def create_batch(
     if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Check if batch ID already exists
-    existing = await db.batches.find_one({"batchId": batch_data.batchId})
-    if existing:
-        raise HTTPException(status_code=400, detail="Batch ID already exists")
+    # Generate unique batch ID from batch name and timestamp
+    batch_name_slug = batch_data.batchName.lower().replace(" ", "_").replace("-", "_")
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    generated_batch_id = f"{batch_name_slug}_{timestamp}"
     
-    # Validate category references if provided
-    if batch_data.yearId:
-        year = await db.batch_years.find_one({"_id": parse_object_id(batch_data.yearId, "batch year")})
-        if not year:
-            raise HTTPException(status_code=404, detail="Batch year not found")
-    if batch_data.monthId:
-        month = await db.batch_months.find_one({"_id": parse_object_id(batch_data.monthId, "batch month")})
-        if not month:
-            raise HTTPException(status_code=404, detail="Batch month not found")
-    if batch_data.organizationId:
-        org = await db.organizations.find_one({"_id": parse_object_id(batch_data.organizationId, "organization")})
-        if not org:
-            raise HTTPException(status_code=404, detail="Organization not found")
-
-    # Determine status based on start/end date
+    # Check if batch ID already exists (very unlikely but safe to check)
+    existing = await db.batches.find_one({"batchId": generated_batch_id})
+    if existing:
+        # Add random suffix if collision occurs
+        import random
+        generated_batch_id = f"{generated_batch_id}_{random.randint(1000, 9999)}"
+    
+    # Determine status and calculate end date
     start_date = parse_date(batch_data.startDate)
-    end_date = parse_date(batch_data.endDate)
     today = date.today()
-
+    
+    # Default duration is 90 days (3 months) if not specified
+    default_duration = 90
+    end_date = start_date + timedelta(days=default_duration)
+    
     if start_date > today:
         status = "upcoming"
     elif end_date < today:
@@ -1257,11 +1465,15 @@ async def create_batch(
         status = "active"
     
     batch_dict = batch_data.model_dump()
-    if not batch_dict.get("duration"):
-        batch_dict["duration"] = max((end_date - start_date).days, 0)
+    batch_dict["batchId"] = generated_batch_id
+    # Convert dates to datetime for MongoDB
+    batch_dict["startDate"] = datetime.combine(start_date, datetime.min.time())
+    batch_dict["endDate"] = datetime.combine(end_date, datetime.min.time())
+    batch_dict["duration"] = default_duration
     if not batch_dict.get("maxInterns"):
         batch_dict["maxInterns"] = 50
     batch_dict["status"] = status
+    batch_dict["internIds"] = []
     batch_dict["totalInterns"] = 0
     batch_dict["activeInterns"] = 0
     batch_dict["completedInterns"] = 0
@@ -1293,6 +1505,12 @@ async def list_batches(
     batches = []
     async for batch in db.batches.find(query).sort("startDate", -1):
         batch["_id"] = str(batch["_id"])
+        
+        # Convert date objects to datetime for serialization
+        if isinstance(batch.get("startDate"), date) and not isinstance(batch.get("startDate"), datetime):
+            batch["startDate"] = datetime.combine(batch["startDate"], datetime.min.time())
+        if isinstance(batch.get("endDate"), date) and not isinstance(batch.get("endDate"), datetime):
+            batch["endDate"] = datetime.combine(batch["endDate"], datetime.min.time())
 
         if batch.get("yearId"):
             try:
@@ -1316,25 +1534,33 @@ async def list_batches(
             except HTTPException:
                 pass
         
-        # Update intern counts
-        batch_interns = await db.interns.count_documents({"batch": batch["batchId"]})
-        active_interns = await db.interns.count_documents({
-            "batch": batch["batchId"],
-            "status": "active"
-        })
-        completed_interns = await db.interns.count_documents({
-            "batch": batch["batchId"],
-            "status": "completed"
-        })
-        dropped_interns = await db.interns.count_documents({
-            "batch": batch["batchId"],
-            "status": "dropped"
-        })
+        # Update intern counts (handle batches without batchId)
+        batch_id = batch.get("batchId")
+        if batch_id:
+            batch_interns = await db.interns.count_documents({"batch": batch_id})
+            active_interns = await db.interns.count_documents({
+                "batch": batch_id,
+                "status": "active"
+            })
+            completed_interns = await db.interns.count_documents({
+                "batch": batch_id,
+                "status": "completed"
+            })
+            dropped_interns = await db.interns.count_documents({
+                "batch": batch_id,
+                "status": "dropped"
+            })
+        else:
+            batch_interns = active_interns = completed_interns = dropped_interns = 0
         
         batch["totalInterns"] = batch_interns
         batch["activeInterns"] = active_interns
         batch["completedInterns"] = completed_interns
         batch["droppedInterns"] = dropped_interns
+        
+        # Ensure averageTaskCompletion exists
+        if "averageTaskCompletion" not in batch:
+            batch["averageTaskCompletion"] = 0.0
         
         batches.append(batch)
     
@@ -1348,7 +1574,12 @@ async def get_batch(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get batch by ID with intern details"""
-    batch = await db.batches.find_one({"batchId": batch_id})
+    # Try to find by MongoDB _id first, then by batchId
+    try:
+        batch = await db.batches.find_one({"_id": parse_object_id(batch_id, "batch")})
+    except HTTPException:
+        batch = await db.batches.find_one({"batchId": batch_id})
+    
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
     
@@ -1480,6 +1711,119 @@ async def get_batch_interns(
         interns.append(intern)
     
     return interns
+
+
+@app.post("/api/v1/batches/{batch_id}/users", status_code=200)
+async def add_users_to_batch(
+    batch_id: str,
+    user_ids: List[str] = Body(..., embed=True),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Add interns or scrum masters to a batch"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Verify batch exists - try by batchId first, then by _id
+    batch = await db.batches.find_one({"batchId": batch_id})
+    if not batch:
+        try:
+            batch = await db.batches.find_one({"_id": parse_object_id(batch_id, "batch")})
+            if batch:
+                # Use the batchId from the found batch
+                batch_id = batch["batchId"]
+        except HTTPException:
+            pass
+    
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    added_users = []
+    failed_users = []
+    
+    for user_id in user_ids:
+        try:
+            # Check if user exists in any user collection
+            user = await db.users.find_one({"_id": parse_object_id(user_id, "user")})
+            
+            if not user:
+                failed_users.append({"id": user_id, "reason": "User not found"})
+                continue
+            
+            # Update user's batch field
+            await db.users.update_one(
+                {"_id": parse_object_id(user_id, "user")},
+                {
+                    "$set": {
+                        "batch": batch_id,
+                        "updated_at": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            
+            # Add user ID to batch's internIds if not already present
+            if user_id not in batch.get("internIds", []):
+                await db.batches.update_one(
+                    {"batchId": batch_id},
+                    {
+                        "$addToSet": {"internIds": user_id},
+                        "$set": {"updated_at": datetime.now(timezone.utc)}
+                    }
+                )
+            
+            added_users.append({
+                "id": user_id,
+                "name": user.get("name", "Unknown"),
+                "role": user.get("role", "intern")
+            })
+            
+        except Exception as e:
+            failed_users.append({"id": user_id, "reason": str(e)})
+    
+    return {
+        "message": f"Added {len(added_users)} users to batch {batch_id}",
+        "added": added_users,
+        "failed": failed_users
+    }
+
+
+@app.delete("/api/v1/batches/{batch_id}/users/{user_id}", status_code=200)
+async def remove_user_from_batch(
+    batch_id: str,
+    user_id: str,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Remove a user from a batch"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Verify batch exists
+    batch = await db.batches.find_one({"batchId": batch_id})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    # Remove user from batch
+    await db.users.update_one(
+        {"_id": parse_object_id(user_id, "user")},
+        {
+            "$set": {
+                "batch": None,
+                "updated_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    # Remove user ID from batch's internIds
+    await db.batches.update_one(
+        {"batchId": batch_id},
+        {
+            "$pull": {"internIds": user_id},
+            "$set": {"updated_at": datetime.now(timezone.utc)}
+        }
+    )
+    
+    return {"message": f"User {user_id} removed from batch {batch_id}"}
 
 
 # ==================== BATCH CATEGORY ROUTES ====================

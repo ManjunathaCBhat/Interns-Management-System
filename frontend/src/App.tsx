@@ -10,14 +10,12 @@ import MentorHub from '@/pages/mentor/MentorHub';
 // Admin Pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import UserManagement from '@/pages/admin/UserManagement';
-import AdminUserApproval from '@/pages/admin/AdminUserApproval';
 import InternDetails from '@/pages/admin/InternDetails';
 import DSUBoard from '@/pages/admin/DSUBoard';
 import TasksOverview from '@/pages/admin/TasksOverview';
-import PTOApproval from '@/pages/admin/PTOApproval';
 import ReferenceManagement from '@/pages/admin/ReferenceManagement';
 import BatchManagement from '@/pages/admin/BatchManagement';
-import CreateBatch from '@/pages/admin/CreateBatch';
+import BatchDetails from '@/pages/admin/BatchDetails';
 import ProjectManagement from '@/pages/admin/ProjectManagement';
 import AdminApprovals from "./pages/admin/AdminApprovals";
 
@@ -180,22 +178,6 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/admin/pto"
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <PTOApproval />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/users"
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminUserApproval />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/admin/references"
         element={
           <ProtectedRoute allowedRoles={['admin']}>
@@ -212,19 +194,18 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
+        path="/admin/batches/:id"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <BatchDetails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin/approvals"
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminApprovals />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/batches/new"
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <CreateBatch />
           </ProtectedRoute>
         }
       />

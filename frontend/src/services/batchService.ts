@@ -5,12 +5,6 @@ export interface Batch {
   _id: string;
   batchId: string;
   batchName: string;
-  yearId?: string;
-  monthId?: string;
-  organizationId?: string;
-  year?: string;
-  month?: string;
-  organization?: string;
   startDate: string;
   endDate: string;
   duration: number;
@@ -32,14 +26,8 @@ export interface Batch {
 }
 
 export interface BatchCreate {
-  batchId: string;
   batchName: string;
-  yearId?: string;
-  monthId?: string;
-  organizationId?: string;
   startDate: string;
-  endDate: string;
-  duration: number;
   coordinator: string;
   description?: string;
   maxInterns?: number;
@@ -48,9 +36,6 @@ export interface BatchCreate {
 
 export interface BatchUpdate {
   batchName?: string;
-  yearId?: string;
-  monthId?: string;
-  organizationId?: string;
   endDate?: string;
   startDate?: string;
   duration?: number;
@@ -59,23 +44,6 @@ export interface BatchUpdate {
   status?: string;
   maxInterns?: number;
   domains?: string[];
-}
-
-export interface BatchYear {
-  _id: string;
-  year: number;
-  label?: string;
-}
-
-export interface BatchMonth {
-  _id: string;
-  name: string;
-  order: number;
-}
-
-export interface Organization {
-  _id: string;
-  name: string;
 }
 
 export const batchService = {
@@ -111,33 +79,12 @@ export const batchService = {
     return response.data;
   },
 
-  async getYears(): Promise<BatchYear[]> {
-    const response = await apiClient.get('/batch-years/');
+  async addUsersToBatch(batchId: string, userIds: string[]): Promise<any> {
+    const response = await apiClient.post(`/batches/${batchId}/users`, userIds);
     return response.data;
   },
 
-  async createYear(data: Omit<BatchYear, '_id'>): Promise<BatchYear> {
-    const response = await apiClient.post('/batch-years/', data);
-    return response.data;
-  },
-
-  async getMonths(): Promise<BatchMonth[]> {
-    const response = await apiClient.get('/batch-months/');
-    return response.data;
-  },
-
-  async createMonth(data: Omit<BatchMonth, '_id'>): Promise<BatchMonth> {
-    const response = await apiClient.post('/batch-months/', data);
-    return response.data;
-  },
-
-  async getOrganizations(): Promise<Organization[]> {
-    const response = await apiClient.get('/organizations/');
-    return response.data;
-  },
-
-  async createOrganization(data: Omit<Organization, '_id'>): Promise<Organization> {
-    const response = await apiClient.post('/organizations/', data);
-    return response.data;
+  async removeUserFromBatch(batchId: string, userId: string): Promise<void> {
+    await apiClient.delete(`/batches/${batchId}/users/${userId}`);
   },
 };

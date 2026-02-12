@@ -494,13 +494,16 @@ const LoginPage: React.FC = () => {
 
       toast({
         title: "Reset email sent",
-        description: `A reset link was sent from interns360@cirruslabs.io to ${forgotEmail}.`,
+        description: `Check ${forgotEmail} for a reset link. The link expires in 1 hour.`,
       });
 
       setForgotOpen(false);
       setForgotEmail("");
     } catch (error: any) {
-      const message = error?.response?.data?.detail || "Failed to send reset email";
+      const detail = error?.response?.data?.detail;
+      const message = detail
+        ? `Unable to send reset email. ${detail}`
+        : "Unable to send reset email. Please try again later.";
       setForgotError(message);
     } finally {
       setForgotLoading(false);

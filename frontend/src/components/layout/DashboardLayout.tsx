@@ -41,10 +41,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { to: '/admin/projects', icon: FolderKanban, label: 'Projects' },
     { to: '/admin/references', icon: FileText, label: 'Referral' },
     { to: '/admin/dsu-board', icon: ClipboardList, label: 'DSU Board' },
-    { to: '/admin/pto', icon: Calendar, label: 'PTO/WFH Requests' },
-    { to: '/admin/users', icon: UserCheck, label: 'User Approvals' },
-    { to: '/admin/performance', icon: BarChart3, label: 'Performance' },
-    { to: '/admin/approvals', icon: UserCheck, label: 'Admin Approvals' }
+    { to: '/admin/approvals', icon: UserCheck, label: 'Approvals' },
+    { to: '/admin/performance', icon: BarChart3, label: 'Performance' }
   ];
 
   // Navigation links for Scrum Master role

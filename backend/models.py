@@ -5,7 +5,7 @@ Roles: admin, scrum_master, intern
 
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone,timedelta
 from enum import Enum
 
 
@@ -60,6 +60,7 @@ class MentorRequestStatus(str, Enum):
 # USERS (UPDATED)
 # =========================
 
+
 class User(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -69,14 +70,23 @@ class User(BaseModel):
     name: str
     employee_id: Optional[str] = None
     role: UserRole = UserRole.intern
+
+    # 🔐 AUTH
     hashed_password: Optional[str] = None
+
+    # 🔁 RESET PASSWORD (NEW)
+    reset_password_id: Optional[str] = None
+    reset_password_expires_at: Optional[datetime] = None
+    reset_password_used: bool = False
+
+    # 🔐 STATUS
     is_active: bool = True
     is_approved: bool = False
     azure_oid: Optional[str] = None
     auth_provider: Optional[str] = None
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
 
 # =========================
 # INTERNS (UPDATED)
@@ -547,9 +557,6 @@ class Batch(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     batchId: str
     batchName: str
-    yearId: Optional[str] = None
-    monthId: Optional[str] = None
-    organizationId: Optional[str] = None
     startDate: date
     endDate: date
     duration: Optional[int] = None
@@ -564,14 +571,8 @@ class Batch(BaseModel):
 
 
 class BatchCreate(BaseModel):
-    batchId: str
     batchName: str
-    yearId: Optional[str] = None
-    monthId: Optional[str] = None
-    organizationId: Optional[str] = None
     startDate: date
-    endDate: date
-    duration: Optional[int] = None
     coordinator: str
     description: Optional[str] = None
     maxInterns: Optional[int] = None
@@ -580,9 +581,6 @@ class BatchCreate(BaseModel):
 
 class BatchUpdate(BaseModel):
     batchName: Optional[str] = None
-    yearId: Optional[str] = None
-    monthId: Optional[str] = None
-    organizationId: Optional[str] = None
     startDate: Optional[date] = None
     endDate: Optional[date] = None
     duration: Optional[int] = None

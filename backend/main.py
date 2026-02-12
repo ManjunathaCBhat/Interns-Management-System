@@ -2,7 +2,7 @@
 Intern Lifecycle Manager - Complete Backend with Batch Management
 All routes in one file - Enhanced Version
 """
-from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi import FastAPI, Depends, HTTPException, status, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from datetime import datetime, date, timezone, timedelta
@@ -1716,7 +1716,7 @@ async def get_batch_interns(
 @app.post("/api/v1/batches/{batch_id}/users", status_code=200)
 async def add_users_to_batch(
     batch_id: str,
-    user_ids: List[str],
+    user_ids: List[str] = Body(..., embed=True),
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -1724,8 +1724,17 @@ async def add_users_to_batch(
     if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Verify batch exists
+    # Verify batch exists - try by batchId first, then by _id
     batch = await db.batches.find_one({"batchId": batch_id})
+    if not batch:
+        try:
+            batch = await db.batches.find_one({"_id": parse_object_id(batch_id, "batch")})
+            if batch:
+                # Use the batchId from the found batch
+                batch_id = batch["batchId"]
+        except HTTPException:
+            pass
+    
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
     

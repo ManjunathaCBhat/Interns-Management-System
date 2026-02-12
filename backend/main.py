@@ -1716,7 +1716,7 @@ async def get_batch_interns(
 @app.post("/api/v1/batches/{batch_id}/users", status_code=200)
 async def add_users_to_batch(
     batch_id: str,
-    user_ids: List[str] = Body(..., embed=True),
+    user_ids: List[str] = Body(...),
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):

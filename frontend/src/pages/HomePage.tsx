@@ -9,6 +9,7 @@ import {
   BarChart3,
   ArrowRight,
   Sparkles,
+  ChevronDown,
 } from 'lucide-react';
 
 const HomePage: React.FC = () => {
@@ -430,6 +431,60 @@ const HomePage: React.FC = () => {
             }}>
               Get Started <ArrowRight size={20} />
             </Link>
+          </div>
+
+          {/* Hero Visual - 3D Card */}
+          <div style={{
+            position: 'relative',
+            maxWidth: '900px',
+            margin: '0 auto',
+            perspective: '1000px',
+          }}>
+            <div style={{
+              background: 'linear-gradient(145deg, rgba(30, 17, 69, 0.8) 0%, rgba(15, 10, 30, 0.9) 100%)',
+              borderRadius: '24px',
+              border: '1px solid rgba(168, 85, 247, 0.3)',
+              padding: '2rem',
+              boxShadow: '0 25px 100px rgba(168, 85, 247, 0.3), 0 0 0 1px rgba(168, 85, 247, 0.1) inset',
+              transform: `rotateX(${(mousePos.y - window.innerHeight / 2) * 0.01}deg) rotateY(${(mousePos.x - window.innerWidth / 2) * 0.01}deg)`,
+              transition: 'transform 0.1s ease-out',
+            }}>
+              {/* Mock Dashboard Preview */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '1rem',
+              }}>
+                {[1, 2, 3].map((i) => (
+                  <div key={i} style={{
+                    background: 'rgba(168, 85, 247, 0.1)',
+                    borderRadius: '12px',
+                    padding: '1.5rem',
+                    border: '1px solid rgba(168, 85, 247, 0.2)',
+                  }}>
+                    <div style={{
+                      width: '100%',
+                      height: '80px',
+                      background: `linear-gradient(135deg, rgba(168, 85, 247, ${0.2 + i * 0.1}) 0%, rgba(99, 102, 241, ${0.2 + i * 0.1}) 100%)`,
+                      borderRadius: '8px',
+                      marginBottom: '1rem',
+                    }} />
+                    <div style={{
+                      height: '12px',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '6px',
+                      marginBottom: '0.5rem',
+                    }} />
+                    <div style={{
+                      height: '12px',
+                      width: '60%',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: '6px',
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
         </div>

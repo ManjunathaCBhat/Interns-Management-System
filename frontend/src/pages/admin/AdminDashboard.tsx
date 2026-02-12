@@ -229,7 +229,7 @@ const AdminDashboard: React.FC = () => {
             sub="Awaiting approval" 
             icon={<Calendar className="text-white" />} 
             color={COLORS.status.warning}
-            onClick={() => navigate('/admin/pto-requests')}
+            onClick={() => navigate('/admin/approvals')}
             isEmpty={stats.pendingPTOs === 0}
           />
         </div>
@@ -299,7 +299,7 @@ const AdminDashboard: React.FC = () => {
                 sublabel="Awaiting approval"
                 value={stats.pendingPTOs}
                 valueColor="text-orange-500"
-                onClick={() => navigate('/admin/pto-requests')}
+                onClick={() => navigate('/admin/approvals')}
                 isEmpty={stats.pendingPTOs === 0}
               />
               <QuickStatRow 
@@ -309,7 +309,7 @@ const AdminDashboard: React.FC = () => {
                 sublabel="This month"
                 value={stats.approvedPTOs}
                 valueColor="text-green-500"
-                onClick={() => navigate('/admin/pto-requests')}
+                onClick={() => navigate('/admin/approvals')}
                 isEmpty={stats.approvedPTOs === 0}
               />
               <QuickStatRow 

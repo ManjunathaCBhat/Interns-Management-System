@@ -443,7 +443,8 @@ const RegisterPage: React.FC = () => {
       setIsLoading(true);
 
       // Check if email already exists
-      const checkEmailResponse = await fetch(`http://localhost:8000/api/v1/users/check-email?email=${email}`);
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+      const checkEmailResponse = await fetch(`${API_BASE_URL}/users/check-email?email=${email}`);
 
       const emailData = await checkEmailResponse.json();
 

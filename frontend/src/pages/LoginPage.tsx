@@ -494,7 +494,7 @@ const LoginPage: React.FC = () => {
 
       toast({
         title: "Reset email sent",
-        description: `A reset link was sent from interns360@cirruslabs.io to ${forgotEmail}.`,
+        description: `Check ${forgotEmail} for a reset link. The link expires in 1 hour.`,
       });
 
       setForgotOpen(false);

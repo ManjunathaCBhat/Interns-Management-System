@@ -437,8 +437,7 @@ const forgetpassword: React.FC = () => {
   const [forgotLoading, setForgotLoading] = useState(false);
   const typingTimeout = useRef<NodeJS.Timeout>();
   const [params] = useSearchParams();
-  // const resetId = params.get("resetId");
-  const email = params.get("email");
+  const token = params.get("token");
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -492,7 +491,7 @@ const forgetpassword: React.FC = () => {
 
       toast({
         title: "Reset email sent",
-        description: `A reset link was sent from interns360@cirruslabs.io to ${forgotEmail}.`,
+        description: `Check ${forgotEmail} for a reset link. The link expires in 1 hour.`,
       });
 
       setForgotOpen(false);
@@ -542,11 +541,18 @@ const forgetpassword: React.FC = () => {
       try {
         setLoading(true);
 
+        if (!token) {
+          setErrors({
+            newPassword: "Invalid or expired reset link",
+          });
+          return;
+        }
+
         await apiClient.post("/auth/reset-password", {
-        email,
-        new_password: newPassword,
-        confirm_password: confirmPassword,
-      });
+          token,
+          new_password: newPassword,
+          confirm_password: confirmPassword,
+        });
 
 
         setSuccess(true);
@@ -690,7 +696,7 @@ useEffect(() => {
           
 
           <form onSubmit={handleResetPassword}>
-  {email && (
+  {token && (
     <>
       {/* ================= NEW PASSWORD ================= */}
       <div style={{ marginBottom: "20px" }}>

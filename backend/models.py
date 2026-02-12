@@ -557,9 +557,6 @@ class Batch(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     batchId: str
     batchName: str
-    yearId: Optional[str] = None
-    monthId: Optional[str] = None
-    organizationId: Optional[str] = None
     startDate: date
     endDate: date
     duration: Optional[int] = None
@@ -574,14 +571,8 @@ class Batch(BaseModel):
 
 
 class BatchCreate(BaseModel):
-    batchId: str
     batchName: str
-    yearId: Optional[str] = None
-    monthId: Optional[str] = None
-    organizationId: Optional[str] = None
     startDate: date
-    endDate: date
-    duration: Optional[int] = None
     coordinator: str
     description: Optional[str] = None
     maxInterns: Optional[int] = None
@@ -590,9 +581,6 @@ class BatchCreate(BaseModel):
 
 class BatchUpdate(BaseModel):
     batchName: Optional[str] = None
-    yearId: Optional[str] = None
-    monthId: Optional[str] = None
-    organizationId: Optional[str] = None
     startDate: Optional[date] = None
     endDate: Optional[date] = None
     duration: Optional[int] = None

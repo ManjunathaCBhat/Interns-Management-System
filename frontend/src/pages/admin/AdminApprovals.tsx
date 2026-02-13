@@ -112,7 +112,9 @@ export default function AdminApprovals() {
       const response = await apiClient.get('/pto/', {
         params: { status: ptoFilter },
       });
-      const data = response.data;
+      
+      // Handle paginated response - backend now returns {items: [], total, skip, limit}
+      const data = response.data.items || response.data;
       
       // Separate PTO and WFH
       const ptoList = data.filter((item: PTOApproval) => item.type !== 'WFH');
@@ -132,10 +134,12 @@ export default function AdminApprovals() {
       
       if (userFilter === 'pending') {
         const response = await apiClient.get('/admin/users/pending');
-        data = response.data;
+        // Handle paginated response
+        data = response.data.items || response.data;
       } else {
         const response = await apiClient.get('/admin/users');
-        data = response.data;
+        // Handle paginated response
+        data = response.data.items || response.data;
         
         if (userFilter === 'approved') {
           data = data.filter((u) => u.is_approved);

@@ -42,10 +42,13 @@ const ReferenceManagement: React.FC = () => {
   const fetchInterns = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/admin/interns');
+      const res = await apiClient.get('/interns/');
+      
+      // Handle paginated response
+      const responseData = res.data.items || res.data;
 
-      const mapped: ReferenceIntern[] = res.data.length
-        ? res.data.map((i: any) => ({
+      const mapped: ReferenceIntern[] = responseData.length
+        ? responseData.map((i: any) => ({
             _id: i._id,
             name: i.name || '-',
             email: i.email || '-',
@@ -69,7 +72,7 @@ const ReferenceManagement: React.FC = () => {
   }, []);
 
   const updateField = async (id: string, payload: any) => {
-    await apiClient.patch(`/admin/interns/${id}`, payload);
+    await apiClient.patch(`/interns/${id}`, payload);
     fetchInterns();
   };
 

@@ -27,6 +27,15 @@ export interface PTOListParams {
   intern_id?: string;
   status?: string;
   type?: 'PTO' | 'WFH';
+  skip?: number;
+  limit?: number;
+}
+
+export interface PTOListResponse {
+  items: PTORequest[];
+  total: number;
+  skip: number;
+  limit: number;
 }
 
 export const ptoService = {
@@ -40,6 +49,25 @@ export const ptoService = {
     if (params?.intern_id) searchParams.append('intern_id', params.intern_id);
     if (params?.status) searchParams.append('status', params.status);
     if (params?.type) searchParams.append('type', params.type);
+    if (params?.skip !== undefined) searchParams.append('skip', params.skip.toString());
+    if (params?.limit !== undefined) searchParams.append('limit', params.limit.toString());
+    
+    const response = await apiClient.get(`/pto/?${searchParams}`);
+    
+    // Handle both paginated and non-paginated responses for backward compatibility
+    if (response.data.items) {
+      return response.data.items;
+    }
+    return response.data;
+  },
+
+  async getAllPaginated(params?: PTOListParams): Promise<PTOListResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.intern_id) searchParams.append('intern_id', params.intern_id);
+    if (params?.status) searchParams.append('status', params.status);
+    if (params?.type) searchParams.append('type', params.type);
+    if (params?.skip !== undefined) searchParams.append('skip', params.skip.toString());
+    if (params?.limit !== undefined) searchParams.append('limit', params.limit.toString());
     
     const response = await apiClient.get(`/pto/?${searchParams}`);
     return response.data;

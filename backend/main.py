@@ -13,6 +13,7 @@ import os
 import hashlib
 import secrets
 import re
+import asyncio
 from pathlib import Path
 from dotenv import load_dotenv
 from urllib.parse import quote
@@ -782,10 +783,12 @@ async def list_basic_users(
 async def list_users(
     pending_only: bool = Query(False, description="Filter to show only pending approval users"),
     role: Optional[str] = Query(None, description="Filter by role"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """List all users (admin only)"""
+    """List all users (admin only) - Optimized with pagination and projection"""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
 
@@ -795,8 +798,23 @@ async def list_users(
     if role:
         query["role"] = role
 
+    total = await db.users.count_documents(query)
+    
+    # Use projection to fetch only needed fields
+    projection = {
+        "username": 1,
+        "email": 1,
+        "name": 1,
+        "employee_id": 1,
+        "role": 1,
+        "is_active": 1,
+        "is_approved": 1,
+        "auth_provider": 1,
+        "created_at": 1
+    }
+
     users = []
-    async for user in db.users.find(query).sort("created_at", -1):
+    async for user in db.users.find(query, projection).sort("created_at", -1).skip(skip).limit(limit):
         users.append({
             "id": str(user["_id"]),
             "username": user.get("username"),
@@ -810,7 +828,12 @@ async def list_users(
             "created_at": user.get("created_at")
         })
 
-    return users
+    return {
+        "items": users,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
 
 
 @app.get("/api/v1/admin/users/pending")
@@ -908,79 +931,72 @@ async def get_dashboard_stats(
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Fetch real-time dashboard statistics"""
+    """Fetch real-time dashboard statistics - Optimized with parallel queries"""
     
     if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     try:
-        # 1. Total Interns (from users collection)
-        total_interns = await db.users.count_documents({
-            "role": {"$in": ["intern", "scrum_master"]},
-            "is_approved": True
-        })
-        active_interns = await db.users.count_documents({
-            "role": {"$in": ["intern", "scrum_master"]},
-            "is_approved": True,
-            "is_active": True
-        })
-        
-        # 2. DSU Completion (today)
         today_str = date.today().isoformat()
+        month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
-        # Count active interns for DSU percentage calculation
+        # Run ALL queries in parallel using asyncio.gather
+        results = await asyncio.gather(
+            # User counts
+            db.users.count_documents({
+                "role": {"$in": ["intern", "scrum_master"]},
+                "is_approved": True
+            }),
+            db.users.count_documents({
+                "role": {"$in": ["intern", "scrum_master"]},
+                "is_approved": True,
+                "is_active": True
+            }),
+            # DSU counts
+            db.dsu_entries.count_documents({
+                "date": today_str,
+                "status": {"$in": ["submitted", "approved", "completed"]}
+            }),
+            db.dsu_entries.count_documents({
+                "date": today_str,
+                "status": "pending"
+            }),
+            # Intern types
+            db.interns.count_documents({"internType": "project"}),
+            db.interns.count_documents({"internType": "rs"}),
+            db.interns.count_documents({"type": "project"}),
+            db.interns.count_documents({"type": "rs"}),
+            # Task counts
+            db.tasks.count_documents({}),
+            db.tasks.count_documents({
+                "status": {"$in": ["completed", "done", "finished", "COMPLETED", "DONE", "FINISHED"]}
+            }),
+            # PTO counts
+            db.pto.count_documents({"status": "pending"}),
+            db.pto.count_documents({
+                "status": "approved",
+                "created_at": {"$gte": month_start}
+            }),
+            # Batch count
+            db.batches.count_documents({"status": "active"}),
+            return_exceptions=False
+        )
         
-        submitted_dsus = await db.dsu_entries.count_documents({
-            "date": today_str,
-            "status": {"$in": ["submitted", "approved", "completed"]}
-        })
+        # Unpack results
+        (total_interns, active_interns, submitted_dsus, pending_dsus,
+         project_interns_1, rs_interns_1, project_interns_2, rs_interns_2,
+         total_tasks, completed_tasks, pending_ptos, approved_ptos,
+         active_batches) = results
         
-        pending_dsus = await db.dsu_entries.count_documents({
-            "date": today_str,
-            "status": "pending"
-        })
+        # Use fallback field names if primary ones return 0
+        project_interns = project_interns_1 if project_interns_1 > 0 else project_interns_2
+        rs_interns = rs_interns_1 if rs_interns_1 > 0 else rs_interns_2
         
+        # Calculate percentages
         dsu_completion = round((submitted_dsus / active_interns * 100), 1) if active_interns > 0 else 0
-        
-        print(f"📊 DSU Stats - Submitted: {submitted_dsus}, Pending: {pending_dsus}, Completion: {dsu_completion}%")
-        
-        # 3. Intern Types (Project / RS)
-        # First try with all interns
-        project_interns = await db.interns.count_documents({"internType": "project"})
-        rs_interns = await db.interns.count_documents({"internType": "rs"})
-        
-        # If both are 0, try different field names:
-        if project_interns == 0 and rs_interns == 0:
-            project_interns = await db.interns.count_documents({"type": "project"})
-            rs_interns = await db.interns.count_documents({"type": "rs"})
-        
-        print(f"📊 Intern Types - Project: {project_interns}, RS: {rs_interns}")
-        
-        # 4. Task Completion
-        total_tasks = await db.tasks.count_documents({})
-        completed_tasks = await db.tasks.count_documents({
-            "status": {"$in": ["completed", "done", "finished", "COMPLETED", "DONE", "FINISHED"]}
-        })
         task_completion = round((completed_tasks / total_tasks * 100), 1) if total_tasks > 0 else 0
         
-        print(f"📊 Tasks - Total: {total_tasks}, Completed: {completed_tasks}, Completion: {task_completion}%")
-        
-        # 5. PTO Stats
-        pending_ptos = await db.pto.count_documents({"status": "pending"})
-        
-        # Approved PTOs this month
-        month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        approved_ptos = await db.pto.count_documents({
-            "status": "approved",
-            "created_at": {"$gte": month_start}
-        })
-        
-        print(f"📊PTOs - Pending: {pending_ptos}, Approved: {approved_ptos}")
-        
-        # 6. Active Batches
-        active_batches = await db.batches.count_documents({"status": "active"})
-        
-        print(f"📊 Batches - Active: {active_batches}")
+        print(f"📊 Dashboard Stats (Parallel) - DSU: {dsu_completion}%, Tasks: {task_completion}%, PTOs: {pending_ptos}")
         
         return {
             "totalInterns": total_interns,
@@ -1029,26 +1045,59 @@ async def get_blocked_interns(
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Get interns with blockers from today's DSU"""
+    """Get interns with blockers from today's DSU - Optimized with aggregation pipeline"""
     if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     today = date.today().isoformat()
     
+    # Use aggregation pipeline to join intern data in a single query
+    pipeline = [
+        {
+            "$match": {
+                "date": today,
+                "blockers": {"$nin": ["", None], "$exists": True}
+            }
+        },
+        {
+            "$lookup": {
+                "from": "interns",
+                "let": {"internIdStr": {"$toString": "$internId"}},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {"$eq": [{"$toString": "$_id"}, "$$internIdStr"]}
+                        }
+                    },
+                    {
+                        "$project": {"name": 1, "email": 1, "batch": 1}
+                    }
+                ],
+                "as": "internDetails"
+            }
+        },
+        {
+            "$addFields": {
+                "internName": {
+                    "$ifNull": [
+                        {"$arrayElemAt": ["$internDetails.name", 0]},
+                        "Unknown"
+                    ]
+                },
+                "internEmail": {"$arrayElemAt": ["$internDetails.email", 0]},
+                "batch": {"$arrayElemAt": ["$internDetails.batch", 0]}
+            }
+        },
+        {
+            "$project": {
+                "internDetails": 0  # Remove the array field
+            }
+        }
+    ]
+    
     blocked = []
-    async for dsu in db.dsu_entries.find({
-        "date": today,
-        "blockers": {"$ne": "", "$ne": None, "$exists": True}
-    }):
+    async for dsu in db.dsu_entries.aggregate(pipeline):
         dsu["_id"] = str(dsu["_id"])
-        
-        # Get intern details
-        intern = await db.interns.find_one({"_id": ObjectId(dsu["internId"])})
-        if intern:
-            dsu["internName"] = intern.get("name", "Unknown")
-            dsu["internEmail"] = intern.get("email", "")
-            dsu["batch"] = intern.get("batch", "")
-        
         blocked.append(dsu)
     
     return blocked
@@ -1060,27 +1109,62 @@ async def get_blocked_dsus(
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Get DSUs with blockers from today - alias for blocked-interns"""
+    """Get DSUs with blockers from today - Optimized with aggregation pipeline"""
     if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     today = date.today().isoformat()
     
+    # Use aggregation pipeline to join intern data in a single query
+    pipeline = [
+        {
+            "$match": {
+                "date": today,
+                "blockers": {"$nin": ["", None], "$exists": True}
+            }
+        },
+        {
+            "$limit": limit
+        },
+        {
+            "$lookup": {
+                "from": "interns",
+                "let": {"internIdStr": {"$toString": "$internId"}},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {"$eq": [{"$toString": "$_id"}, "$$internIdStr"]}
+                        }
+                    },
+                    {
+                        "$project": {"name": 1, "email": 1, "batch": 1}
+                    }
+                ],
+                "as": "internDetails"
+            }
+        },
+        {
+            "$addFields": {
+                "internName": {
+                    "$ifNull": [
+                        {"$arrayElemAt": ["$internDetails.name", 0]},
+                        "Unknown"
+                    ]
+                },
+                "internEmail": {"$arrayElemAt": ["$internDetails.email", 0]},
+                "batch": {"$arrayElemAt": ["$internDetails.batch", 0]}
+            }
+        },
+        {
+            "$project": {
+                "internDetails": 0  # Remove the array field
+            }
+        }
+    ]
+    
     blocked = []
-    async for dsu in db.dsu_entries.find({
-        "date": today,
-        "blockers": {"$nin": ["", None]}
-    }).limit(limit):
+    async for dsu in db.dsu_entries.aggregate(pipeline):
         dsu["_id"] = str(dsu["_id"])
-        
-        # Get intern details
-        try:
-            intern = await db.interns.find_one({"_id": ObjectId(dsu["internId"])})
-            if intern:
-                dsu["internName"] = intern.get("name", "Unknown")
-        except:
-            dsu["internName"] = "Unknown"
-        
         blocked.append(dsu)
     
     return blocked
@@ -1321,10 +1405,12 @@ async def create_mentor_request(
 @app.get("/api/v1/mentor-requests")
 async def list_mentor_requests(
     status: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """List mentorship requests (admin/scrum master)"""
+    """List mentorship requests (admin/scrum master) - Optimized with pagination"""
     if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -1332,11 +1418,19 @@ async def list_mentor_requests(
     if status:
         query["status"] = status
 
+    total = await db.mentor_requests.count_documents(query)
+
     requests = []
-    async for req in db.mentor_requests.find(query).sort("created_at", -1):
+    async for req in db.mentor_requests.find(query).sort("created_at", -1).skip(skip).limit(limit):
         req["_id"] = str(req["_id"])
         requests.append(req)
-    return requests
+    
+    return {
+        "items": requests,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
 
 
 @app.get("/api/v1/mentor-requests/me")
@@ -1497,13 +1591,133 @@ async def list_batches(
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """List all batches with stats"""
-    query = {}
+    """List all batches with stats - Optimized with aggregation pipeline"""
+    match_stage = {}
     if status:
-        query["status"] = status
+        match_stage["status"] = status
+    
+    # Use aggregation pipeline to join all related data in single query
+    pipeline = [
+        {"$match": match_stage} if match_stage else {"$match": {}},
+        {"$sort": {"startDate": -1}},
+        # Lookup year
+        {
+            "$lookup": {
+                "from": "batch_years",
+                "let": {"yearIdStr": "$yearId"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": [{"$toString": "$_id"}, "$$yearIdStr"]}}},
+                    {"$project": {"label": 1, "year": 1}}
+                ],
+                "as": "yearDetails"
+            }
+        },
+        # Lookup month
+        {
+            "$lookup": {
+                "from": "batch_months",
+                "let": {"monthIdStr": "$monthId"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": [{"$toString": "$_id"}, "$$monthIdStr"]}}},
+                    {"$project": {"name": 1}}
+                ],
+                "as": "monthDetails"
+            }
+        },
+        # Lookup organization
+        {
+            "$lookup": {
+                "from": "organizations",
+                "let": {"orgIdStr": "$organizationId"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": [{"$toString": "$_id"}, "$$orgIdStr"]}}},
+                    {"$project": {"name": 1}}
+                ],
+                "as": "orgDetails"
+            }
+        },
+        # Lookup and count interns by status
+        {
+            "$lookup": {
+                "from": "interns",
+                "let": {"batchId": "$batchId"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": ["$batch", "$$batchId"]}}},
+                    {
+                        "$group": {
+                            "_id": "$status",
+                            "count": {"$sum": 1}
+                        }
+                    }
+                ],
+                "as": "internStats"
+            }
+        },
+        # Add computed fields
+        {
+            "$addFields": {
+                "year": {
+                    "$ifNull": [
+                        {"$arrayElemAt": ["$yearDetails.label", 0]},
+                        {"$toString": {"$arrayElemAt": ["$yearDetails.year", 0]}}
+                    ]
+                },
+                "month": {"$arrayElemAt": ["$monthDetails.name", 0]},
+                "organization": {"$arrayElemAt": ["$orgDetails.name", 0]},
+                "totalInterns": {
+                    "$sum": "$internStats.count"
+                },
+                "activeInterns": {
+                    "$let": {
+                        "vars": {
+                            "activeStats": {
+                                "$filter": {
+                                    "input": "$internStats",
+                                    "as": "stat",
+                                    "cond": {"$eq": ["$$stat._id", "active"]}
+                                }
+                            }
+                        },
+                        "in": {"$ifNull": [{"$arrayElemAt": ["$$activeStats.count", 0]}, 0]}
+                    }
+                },
+                "completedInterns": {
+                    "$let": {
+                        "vars": {
+                            "completedStats": {
+                                "$filter": {
+                                    "input": "$internStats",
+                                    "as": "stat",
+                                    "cond": {"$eq": ["$$stat._id", "completed"]}
+                                }
+                            }
+                        },
+                        "in": {"$ifNull": [{"$arrayElemAt": ["$$completedStats.count", 0]}, 0]}
+                    }
+                },
+                "droppedInterns": {
+                    "$let": {
+                        "vars": {
+                            "droppedStats": {
+                                "$filter": {
+                                    "input": "$internStats",
+                                    "as": "stat",
+                                    "cond": {"$eq": ["$$stat._id", "dropped"]}
+                                }
+                            }
+                        },
+                        "in": {"$ifNull": [{"$arrayElemAt": ["$$droppedStats.count", 0]}, 0]}
+                    }
+                },
+                "averageTaskCompletion": {"$ifNull": ["$averageTaskCompletion", 0.0]}
+            }
+        },
+        # Remove lookup arrays
+        {"$project": {"yearDetails": 0, "monthDetails": 0, "orgDetails": 0, "internStats": 0}}
+    ]
     
     batches = []
-    async for batch in db.batches.find(query).sort("startDate", -1):
+    async for batch in db.batches.aggregate(pipeline):
         batch["_id"] = str(batch["_id"])
         
         # Convert date objects to datetime for serialization
@@ -1511,56 +1725,6 @@ async def list_batches(
             batch["startDate"] = datetime.combine(batch["startDate"], datetime.min.time())
         if isinstance(batch.get("endDate"), date) and not isinstance(batch.get("endDate"), datetime):
             batch["endDate"] = datetime.combine(batch["endDate"], datetime.min.time())
-
-        if batch.get("yearId"):
-            try:
-                year_doc = await db.batch_years.find_one({"_id": parse_object_id(batch["yearId"], "batch year")})
-                if year_doc:
-                    batch["year"] = year_doc.get("label") or str(year_doc.get("year"))
-            except HTTPException:
-                pass
-        if batch.get("monthId"):
-            try:
-                month_doc = await db.batch_months.find_one({"_id": parse_object_id(batch["monthId"], "batch month")})
-                if month_doc:
-                    batch["month"] = month_doc.get("name")
-            except HTTPException:
-                pass
-        if batch.get("organizationId"):
-            try:
-                org_doc = await db.organizations.find_one({"_id": parse_object_id(batch["organizationId"], "organization")})
-                if org_doc:
-                    batch["organization"] = org_doc.get("name")
-            except HTTPException:
-                pass
-        
-        # Update intern counts (handle batches without batchId)
-        batch_id = batch.get("batchId")
-        if batch_id:
-            batch_interns = await db.interns.count_documents({"batch": batch_id})
-            active_interns = await db.interns.count_documents({
-                "batch": batch_id,
-                "status": "active"
-            })
-            completed_interns = await db.interns.count_documents({
-                "batch": batch_id,
-                "status": "completed"
-            })
-            dropped_interns = await db.interns.count_documents({
-                "batch": batch_id,
-                "status": "dropped"
-            })
-        else:
-            batch_interns = active_interns = completed_interns = dropped_interns = 0
-        
-        batch["totalInterns"] = batch_interns
-        batch["activeInterns"] = active_interns
-        batch["completedInterns"] = completed_interns
-        batch["droppedInterns"] = dropped_interns
-        
-        # Ensure averageTaskCompletion exists
-        if "averageTaskCompletion" not in batch:
-            batch["averageTaskCompletion"] = 0.0
         
         batches.append(batch)
     
@@ -2094,39 +2258,85 @@ async def list_dsu_entries(
     batch: Optional[str] = Query(None),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """List DSU entries with filters"""
-    query = {}
+    """List DSU entries with filters - Optimized with aggregation pipeline"""
+    match_stage = {}
+    
     if intern_id:
-        query["internId"] = intern_id
+        match_stage["internId"] = intern_id
+    
     if batch:
-        # Get all interns in batch first
+        # Get all interns in batch first (one query)
         intern_ids = []
-        async for intern in db.interns.find({"batch": batch}):
+        async for intern in db.interns.find({"batch": batch}, {"_id": 1}):
             intern_ids.append(str(intern["_id"]))
-        query["internId"] = {"$in": intern_ids}
+        match_stage["internId"] = {"$in": intern_ids}
+    
     if date_from or date_to:
-        query["date"] = {}
+        match_stage["date"] = {}
         if date_from:
-            query["date"]["$gte"] = str(date_from)
+            match_stage["date"]["$gte"] = str(date_from)
         if date_to:
-            query["date"]["$lte"] = str(date_to)
+            match_stage["date"]["$lte"] = str(date_to)
+    
+    # Use aggregation pipeline with $lookup to join intern data in single query
+    pipeline = [
+        {"$match": match_stage} if match_stage else {"$match": {}},
+        {"$sort": {"date": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+        {
+            "$lookup": {
+                "from": "interns",
+                "let": {"internIdStr": "$internId"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {"$eq": [{"$toString": "$_id"}, "$$internIdStr"]}
+                        }
+                    },
+                    {"$project": {"name": 1, "batch": 1}}
+                ],
+                "as": "internDetails"
+            }
+        },
+        {
+            "$addFields": {
+                "internName": {
+                    "$ifNull": [
+                        {"$arrayElemAt": ["$internDetails.name", 0]},
+                        "Unknown"
+                    ]
+                },
+                "batch": {
+                    "$ifNull": [
+                        {"$arrayElemAt": ["$internDetails.batch", 0]},
+                        "$batch"
+                    ]
+                }
+            }
+        },
+        {"$project": {"internDetails": 0}}
+    ]
     
     entries = []
-    async for entry in db.dsu_entries.find(query).sort("date", -1):
+    async for entry in db.dsu_entries.aggregate(pipeline):
         entry["_id"] = str(entry["_id"])
-        
-        # Add intern details
-        intern = await db.interns.find_one({"_id": ObjectId(entry["internId"])})
-        if intern:
-            entry["internName"] = intern.get("name", "Unknown")
-            entry["batch"] = intern.get("batch", "")
-        
         entries.append(entry)
     
-    return entries
+    # Get total count for pagination (reuse match stage)
+    total = await db.dsu_entries.count_documents(match_stage)
+    
+    return {
+        "items": entries,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
 
 
 
@@ -2274,18 +2484,22 @@ async def create_task(
 async def list_tasks(
     intern_id: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """List tasks with filters"""
+    """List tasks with filters and pagination"""
     query = {}
     if intern_id:
         query["internId"] = intern_id
     if status:
         query["status"] = status
     
+    total = await db.tasks.count_documents(query)
+    
     tasks = []
-    async for task in db.tasks.find(query).sort("created_at", -1):
+    async for task in db.tasks.find(query).sort("created_at", -1).skip(skip).limit(limit):
         task["_id"] = str(task["_id"])
         
         if "task_date" in task and task["task_date"]:
@@ -2293,7 +2507,12 @@ async def list_tasks(
         
         tasks.append(task)
     
-    return tasks
+    return {
+        "items": tasks,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
 
 
 @app.patch("/api/v1/tasks/{task_id}")
@@ -2434,41 +2653,88 @@ async def list_ptos(
     status: Optional[str] = Query(None),
     type: Optional[str] = Query(None),
     intern_id: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """List PTO requests"""
-    query = {}
+    """List PTO requests - Optimized with aggregation pipeline"""
+    match_stage = {}
     if status:
-        query["status"] = status
+        match_stage["status"] = status
     if type:
-        query["type"] = type.upper()
+        match_stage["type"] = type.upper()
     if intern_id:
-        query["internId"] = intern_id
+        match_stage["internId"] = intern_id
+    
+    # Use aggregation pipeline with $lookup to join intern data
+    pipeline = [
+        {"$match": match_stage} if match_stage else {"$match": {}},
+        {"$sort": {"created_at": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+        {
+            "$lookup": {
+                "from": "interns",
+                "let": {"internIdStr": "$internId", "ptoEmail": "$email"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$or": [
+                                    {"$eq": [{"$toString": "$_id"}, "$$internIdStr"]},
+                                    {"$eq": ["$email", "$$ptoEmail"]}
+                                ]
+                            }
+                        }
+                    },
+                    {"$project": {"name": 1, "email": 1, "batch": 1}}
+                ],
+                "as": "internDetails"
+            }
+        },
+        {
+            "$addFields": {
+                "type": {"$ifNull": ["$type", "PTO"]},
+                "internName": {
+                    "$ifNull": [
+                        "$name",
+                        {"$arrayElemAt": ["$internDetails.name", 0]},
+                        "Unknown"
+                    ]
+                },
+                "email": {
+                    "$ifNull": [
+                        "$email",
+                        {"$arrayElemAt": ["$internDetails.email", 0]}
+                    ]
+                },
+                "batch": {
+                    "$ifNull": [
+                        "$batch",
+                        {"$arrayElemAt": ["$internDetails.batch", 0]},
+                        ""
+                    ]
+                }
+            }
+        },
+        {"$project": {"internDetails": 0}}
+    ]
     
     ptos = []
-    async for pto in db.pto.find(query).sort("created_at", -1):
+    async for pto in db.pto.aggregate(pipeline):
         pto["_id"] = str(pto["_id"])
-        pto.setdefault("type", "PTO")
-        
-        # Add intern details
-        intern = None
-        try:
-            intern = await db.interns.find_one({"_id": ObjectId(pto["internId"])})
-        except Exception:
-            intern = None
-
-        if not intern and pto.get("email"):
-            intern = await db.interns.find_one({"email": pto.get("email")})
-
-        if intern:
-            pto["internName"] = pto.get("name") or intern.get("name", "Unknown")
-            pto["email"] = pto.get("email") or intern.get("email", "")
-            pto["batch"] = intern.get("batch", "")
-        
         ptos.append(pto)
     
-    return ptos
+    # Get total count for pagination
+    total = await db.pto.count_documents(match_stage)
+    
+    return {
+        "items": ptos,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
 
 
 @app.patch("/api/v1/pto/{pto_id}")

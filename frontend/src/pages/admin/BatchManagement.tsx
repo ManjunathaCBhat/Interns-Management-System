@@ -139,7 +139,9 @@ const BatchManagement: React.FC = () => {
     
     try {
       const response = await apiClient.get('/admin/users');
-      const available = response.data.filter(
+      // Handle paginated response
+      const data = response.data.items || response.data;
+      const available = data.filter(
         (user: User) => !user.batch && (user.role === 'intern' || user.role === 'scrum_master')
       );
       setAvailableUsers(available);

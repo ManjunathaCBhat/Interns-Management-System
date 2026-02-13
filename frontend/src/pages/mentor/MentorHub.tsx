@@ -53,7 +53,9 @@ const MentorHub: React.FC = () => {
         params: { role: 'intern' },
       });
 
-      const options = (userResponse.data || [])
+      // Handle paginated response
+      const userData = userResponse.data.items || userResponse.data || [];
+      const options = userData
         .filter((item: any) => item.id !== user?.id)
         .map((item: any) => ({
           id: item.id,

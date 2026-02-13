@@ -41,15 +41,42 @@ async def connect_db():
         # Create indexes
         await db.db.users.create_index("email", unique=True)
         await db.db.users.create_index("username", unique=True)
+        await db.db.users.create_index([("role", ASCENDING)])
+        await db.db.users.create_index([("is_approved", ASCENDING)])
+        await db.db.users.create_index([("is_active", ASCENDING)])
+        await db.db.users.create_index([("role", ASCENDING), ("is_approved", ASCENDING), ("is_active", ASCENDING)])
+        await db.db.users.create_index([("created_at", DESCENDING)])
         
         await db.db.interns.create_index("email", unique=True)
         await db.db.interns.create_index([("status", ASCENDING)])
+        await db.db.interns.create_index([("internType", ASCENDING)])
+        await db.db.interns.create_index([("type", ASCENDING)])
+        await db.db.interns.create_index([("batch", ASCENDING)])
+        await db.db.interns.create_index([("batch", ASCENDING), ("status", ASCENDING)])
         
         await db.db.dsu_entries.create_index([("internId", ASCENDING), ("date", DESCENDING)])
+        await db.db.dsu_entries.create_index([("date", DESCENDING)])
+        await db.db.dsu_entries.create_index([("status", ASCENDING)])
+        await db.db.dsu_entries.create_index([("date", DESCENDING), ("status", ASCENDING)])
+        await db.db.dsu_entries.create_index([("date", DESCENDING), ("blockers", ASCENDING)])
+        await db.db.dsu_entries.create_index([("submittedAt", DESCENDING)])
+        
         await db.db.tasks.create_index([("internId", ASCENDING)])
+        await db.db.tasks.create_index([("status", ASCENDING)])
+        await db.db.tasks.create_index([("created_at", DESCENDING)])
+        await db.db.tasks.create_index([("internId", ASCENDING), ("status", ASCENDING)])
+        
         await db.db.pto.create_index([("internId", ASCENDING), ("status", ASCENDING), ("type", ASCENDING)])
+        await db.db.pto.create_index([("status", ASCENDING)])
+        await db.db.pto.create_index([("created_at", DESCENDING)])
+        await db.db.pto.create_index([("status", ASCENDING), ("created_at", DESCENDING)])
+        
         await db.db.projects.create_index("name", unique=True)
+        
         await db.db.batches.create_index("batchId", unique=True)
+        await db.db.batches.create_index([("status", ASCENDING)])
+        await db.db.batches.create_index([("startDate", DESCENDING)])
+        
         await db.db.batch_years.create_index("year", unique=True)
         await db.db.batch_months.create_index("name", unique=True)
         await db.db.organizations.create_index("name", unique=True)

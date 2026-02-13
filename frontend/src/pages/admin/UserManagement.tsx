@@ -62,7 +62,9 @@ const UserManagement: React.FC = () => {
     try {
       setLoading(true);
       const res = await apiClient.get('/admin/users');
-      setUsers(res.data);
+      // Handle both paginated and non-paginated responses
+      const userData = res.data.items || res.data;
+      setUsers(userData);
     } catch {
       toast({
         title: 'Error',

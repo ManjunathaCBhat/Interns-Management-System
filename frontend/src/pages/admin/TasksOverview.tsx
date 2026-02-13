@@ -45,7 +45,9 @@ const TasksOverview: React.FC = () => {
       setLoading(true);
       const params = internIdFromState ? { intern_id: internIdFromState } : {};
       const response = await apiClient.get('/tasks/', { params });
-      setTasks(response.data);
+      // Handle paginated response
+      const taskData = response.data.items || response.data;
+      setTasks(taskData);
     } catch (error: any) {
       toast({
         title: 'Error',

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Users,
   ClipboardCheck,
@@ -13,6 +14,8 @@ import {
 } from 'lucide-react';
 
 const HomePage: React.FC = () => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [scrollY, setScrollY] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -20,6 +23,12 @@ const HomePage: React.FC = () => {
   const [counters, setCounters] = useState({ interns: 0, projects: 0, completion: 0 });
   const statsRef = useRef<HTMLDivElement>(null);
   const [statsVisible, setStatsVisible] = useState(false);
+
+  const handleGetStarted = () => {
+    // Clear any existing session to ensure user goes to login page
+    logout();
+    navigate('/login');
+  };
 
   useEffect(() => {
     setIsLoaded(true);
@@ -312,25 +321,30 @@ const HomePage: React.FC = () => {
           </div>
           
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <Link to="/login" style={{
-              padding: '0.6rem 1.5rem',
-              color: 'rgba(255, 255, 255, 0.8)',
-              textDecoration: 'none',
-              fontSize: '0.95rem',
-              fontWeight: 500,
-              transition: 'all 0.3s ease',
-              borderRadius: '10px',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'rgba(255, 255, 255, 1)';
-              e.currentTarget.style.background = 'rgba(168, 85, 247, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'rgba(255, 255, 255, 0.8)';
-              e.currentTarget.style.background = 'transparent';
-            }}>
+            <button
+              onClick={handleGetStarted}
+              style={{
+                padding: '0.6rem 1.5rem',
+                color: 'rgba(255, 255, 255, 0.8)',
+                textDecoration: 'none',
+                fontSize: '0.95rem',
+                fontWeight: 500,
+                transition: 'all 0.3s ease',
+                borderRadius: '10px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'rgba(255, 255, 255, 1)';
+                e.currentTarget.style.background = 'rgba(168, 85, 247, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'rgba(255, 255, 255, 0.8)';
+                e.currentTarget.style.background = 'transparent';
+              }}>
               Sign In
-            </Link>
+            </button>
           </div>
         </div>
       </nav>
@@ -407,85 +421,36 @@ const HomePage: React.FC = () => {
             flexWrap: 'wrap',
             marginBottom: '4rem',
           }}>
-            <Link to="/login" style={{
-              padding: '1rem 2.5rem',
-              background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
-              color: '#fff',
-              textDecoration: 'none',
-              fontSize: '1.1rem',
-              fontWeight: 600,
-              borderRadius: '14px',
-              boxShadow: '0 8px 40px rgba(168, 85, 247, 0.5)',
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)';
-              e.currentTarget.style.boxShadow = '0 12px 50px rgba(168, 85, 247, 0.7)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0) scale(1)';
-              e.currentTarget.style.boxShadow = '0 8px 40px rgba(168, 85, 247, 0.5)';
-            }}>
+            <button
+              onClick={handleGetStarted}
+              style={{
+                padding: '1rem 2.5rem',
+                background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
+                color: '#fff',
+                border: 'none',
+                fontSize: '1.1rem',
+                fontWeight: 600,
+                borderRadius: '14px',
+                boxShadow: '0 8px 40px rgba(168, 85, 247, 0.5)',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)';
+                e.currentTarget.style.boxShadow = '0 12px 50px rgba(168, 85, 247, 0.7)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                e.currentTarget.style.boxShadow = '0 8px 40px rgba(168, 85, 247, 0.5)';
+              }}>
               Get Started <ArrowRight size={20} />
-            </Link>
+            </button>
           </div>
 
-          {/* Hero Visual - 3D Card */}
-          <div style={{
-            position: 'relative',
-            maxWidth: '900px',
-            margin: '0 auto',
-            perspective: '1000px',
-          }}>
-            <div style={{
-              background: 'linear-gradient(145deg, rgba(30, 17, 69, 0.8) 0%, rgba(15, 10, 30, 0.9) 100%)',
-              borderRadius: '24px',
-              border: '1px solid rgba(168, 85, 247, 0.3)',
-              padding: '2rem',
-              boxShadow: '0 25px 100px rgba(168, 85, 247, 0.3), 0 0 0 1px rgba(168, 85, 247, 0.1) inset',
-              transform: `rotateX(${(mousePos.y - window.innerHeight / 2) * 0.01}deg) rotateY(${(mousePos.x - window.innerWidth / 2) * 0.01}deg)`,
-              transition: 'transform 0.1s ease-out',
-            }}>
-              {/* Mock Dashboard Preview */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '1rem',
-              }}>
-                {[1, 2, 3].map((i) => (
-                  <div key={i} style={{
-                    background: 'rgba(168, 85, 247, 0.1)',
-                    borderRadius: '12px',
-                    padding: '1.5rem',
-                    border: '1px solid rgba(168, 85, 247, 0.2)',
-                  }}>
-                    <div style={{
-                      width: '100%',
-                      height: '80px',
-                      background: `linear-gradient(135deg, rgba(168, 85, 247, ${0.2 + i * 0.1}) 0%, rgba(99, 102, 241, ${0.2 + i * 0.1}) 100%)`,
-                      borderRadius: '8px',
-                      marginBottom: '1rem',
-                    }} />
-                    <div style={{
-                      height: '12px',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      borderRadius: '6px',
-                      marginBottom: '0.5rem',
-                    }} />
-                    <div style={{
-                      height: '12px',
-                      width: '60%',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      borderRadius: '6px',
-                    }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+
 
         </div>
       </section>
@@ -704,30 +669,33 @@ const HomePage: React.FC = () => {
           }}>
             {/* Join hundreds of companies already using Interns360 to manage their talent pipeline. */}
           </p>
-          <Link to="/login" style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-            padding: '1.2rem 3rem',
-            background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
-            color: '#fff',
-            textDecoration: 'none',
-            fontSize: '1.2rem',
-            fontWeight: 700,
-            borderRadius: '16px',
-            boxShadow: '0 10px 50px rgba(168, 85, 247, 0.5)',
-            transition: 'all 0.3s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)';
-            e.currentTarget.style.boxShadow = '0 15px 60px rgba(168, 85, 247, 0.7)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.boxShadow = '0 10px 50px rgba(168, 85, 247, 0.5)';
-          }}>
+          <button
+            onClick={handleGetStarted}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '1.2rem 3rem',
+              background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
+              color: '#fff',
+              border: 'none',
+              fontSize: '1.2rem',
+              fontWeight: 700,
+              borderRadius: '16px',
+              boxShadow: '0 10px 50px rgba(168, 85, 247, 0.5)',
+              transition: 'all 0.3s ease',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)';
+              e.currentTarget.style.boxShadow = '0 15px 60px rgba(168, 85, 247, 0.7)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+              e.currentTarget.style.boxShadow = '0 10px 50px rgba(168, 85, 247, 0.5)';
+            }}>
             Start Free <ArrowRight size={22} />
-          </Link>
+          </button>
         </div>
       </section>
 

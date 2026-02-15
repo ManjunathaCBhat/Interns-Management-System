@@ -301,6 +301,41 @@ class PerformanceReview(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+# =========================
+# 360-DEGREE FEEDBACK (NEW)
+# =========================
+
+class FeedbackType(str, Enum):
+    peer = "peer"
+    mentor = "mentor"
+    self = "self"
+
+
+class FeedbackEntry(BaseModel):
+    feedbackId: Optional[str] = Field(None, alias="_id")
+    reviewerId: str
+    reviewerName: str
+    reviewerRole: str
+    feedbackType: FeedbackType
+    rating: int
+    comments: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Feedback360(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = Field(None, alias="_id")
+    internId: str
+    internName: str
+    project: Optional[str] = None
+    period: Optional[str] = None  # e.g., Q1-2024
+    feedbacks: List[FeedbackEntry]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class PerformanceReviewCreate(BaseModel):
     internId: str
     internName: str

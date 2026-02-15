@@ -4,9 +4,43 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import apiClient from "@/lib/api";
-import { Search, X, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight, Download, FileText, TrendingUp, CheckCircle2, Clock } from "lucide-react";
 import { jsPDF } from "jspdf";
+import Papa from "papaparse";
+import { useNavigate } from "react-router-dom";
+  // CSV Export Handler
+  const handleExportCSV = () => {
+    if (!filteredUsers.length) return;
+    const csvData = filteredUsers.map(user => ({
+      Name: user.name,
+      Email: user.email,
+      Role: user.role,
+      EmployeeID: user.employee_id || '',
+      Batch: user.batch || '',
+      InternType: user.internType || '',
+      Project: user.currentProject || '',
+      Mentor: user.mentor || '',
+      Domain: user.domain || '',
+      Phone: user.phone || '',
+      College: user.college || '',
+      CGPA: user.cgpa || '',
+      JoinedDate: user.joinedDate || '',
+      TaskCount: user.taskCount || 0,
+      CompletedTasks: user.completedTasks || 0,
+      DSUStreak: user.dsuStreak || 0,
+      Skills: user.skills ? user.skills.join(', ') : ''
+    }));
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `performance_dashboard_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
 interface ActivityTask {
   _id: string;
@@ -57,9 +91,12 @@ interface PerformanceUser {
   cgpa?: number;
   joinedDate?: string;
   skills?: string[];
+  mentor?: string;
+  domain?: string;
 }
 
 const PerformancePage: React.FC = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<PerformanceUser[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<PerformanceUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +104,10 @@ const PerformancePage: React.FC = () => {
   const [filterRole, setFilterRole] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterBatch, setFilterBatch] = useState("all");
+
+  const [filterProject, setFilterProject] = useState("all");
+  const [filterMentor, setFilterMentor] = useState("all");
+  const [filterDomain, setFilterDomain] = useState("all");
   const [selectedUser, setSelectedUser] = useState<PerformanceUser | null>(null);
   const [userTasks, setUserTasks] = useState<ActivityTask[]>([]);
   const [userDsus, setUserDsus] = useState<ActivityEntry[]>([]);
@@ -124,11 +165,32 @@ const PerformancePage: React.FC = () => {
       );
     }
 
+    if (filterProject !== "all") {
+      result = result.filter(
+        (user) => user.role === "intern" && user.currentProject === filterProject
+      );
+    }
+
+    if (filterMentor !== "all") {
+      result = result.filter(
+        (user) => user.role === "intern" && user.mentor === filterMentor
+      );
+    }
+
+    if (filterDomain !== "all") {
+      result = result.filter(
+        (user) => user.role === "intern" && user.domain === filterDomain
+      );
+    }
+
     setFilteredUsers(result);
     setCurrentPage(1);
-  }, [searchTerm, filterRole, filterType, filterBatch, users]);
+  }, [searchTerm, filterRole, filterType, filterBatch, filterProject, filterMentor, filterDomain, users]);
 
   const batches = Array.from(new Set(users.map((i) => i.batch).filter(Boolean)));
+  const projects = Array.from(new Set(users.map((i) => i.currentProject).filter(Boolean)));
+  const mentors = Array.from(new Set(users.map((i) => i.mentor).filter(Boolean)));
+  const domains = Array.from(new Set(users.map((i) => i.domain).filter(Boolean)));
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -278,6 +340,9 @@ const PerformancePage: React.FC = () => {
     const filename = `${selectedUser.name.replace(/\s+/g, "_")}_Performance_Report_${new Date()
       .toISOString()
       .split("T")[0]}.pdf`;
+                             <Button size="sm" variant="ghost" onClick={() => navigate(`/admin/feedback360/${user.id}`)}>
+                               360° Feedback
+                             </Button>
     doc.save(filename);
   };
 
@@ -302,30 +367,33 @@ const PerformancePage: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Performance Dashboard</h1>
-            <p className="text-gray-600 mt-1">Track intern and scrum master activity</p>
+            <p className="text-gray-600 mt-1">Track and analyze intern and scrum master performance</p>
           </div>
-          <div className="text-sm text-gray-600">
-            Total Users: <span className="font-semibold">{filteredUsers.length}</span>
+          <div className="bg-gradient-to-r from-[#0F0E47] to-[#505081] text-white px-4 py-2 rounded-lg">
+            <p className="text-sm">Total Users</p>
+            <p className="text-2xl font-bold">{filteredUsers.length}</p>
           </div>
         </div>
 
-        <Card>
+        <Card className="border-0 shadow-md">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div className="relative">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-8 gap-4 flex-1">
+              <div className="relative col-span-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search by name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 border border-gray-300 focus:ring-2 focus:ring-[#0F0E47]"
                 />
               </div>
+
 
               <select
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent"
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent bg-white cursor-pointer"
               >
                 <option value="all">All Roles</option>
                 <option value="intern">Intern</option>
@@ -335,7 +403,7 @@ const PerformancePage: React.FC = () => {
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent"
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent bg-white cursor-pointer"
               >
                 <option value="all">All Types</option>
                 <option value="project">Project</option>
@@ -345,12 +413,51 @@ const PerformancePage: React.FC = () => {
               <select
                 value={filterBatch}
                 onChange={(e) => setFilterBatch(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent"
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent bg-white cursor-pointer"
               >
                 <option value="all">All Batches</option>
                 {batches.map((batch) => (
                   <option key={batch} value={batch}>
                     {batch}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filterProject}
+                onChange={(e) => setFilterProject(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent bg-white cursor-pointer"
+              >
+                <option value="all">All Projects</option>
+                {projects.map((project) => (
+                  <option key={project} value={project}>
+                    {project}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filterMentor}
+                onChange={(e) => setFilterMentor(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent bg-white cursor-pointer"
+              >
+                <option value="all">All Mentors</option>
+                {mentors.map((mentor) => (
+                  <option key={mentor} value={mentor}>
+                    {mentor}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filterDomain}
+                onChange={(e) => setFilterDomain(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#0F0E47] focus:border-transparent bg-white cursor-pointer"
+              >
+                <option value="all">All Domains</option>
+                {domains.map((domain) => (
+                  <option key={domain} value={domain}>
+                    {domain}
                   </option>
                 ))}
               </select>
@@ -361,101 +468,169 @@ const PerformancePage: React.FC = () => {
                   setFilterRole("all");
                   setFilterType("all");
                   setFilterBatch("all");
+                  setFilterProject("all");
+                  setFilterMentor("all");
+                  setFilterDomain("all");
                 }}
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border border-gray-300 hover:bg-gray-50"
               >
                 <X className="h-4 w-4" />
-                Clear Filters
+                Clear
               </Button>
+            </div>
+            <div className="flex gap-2 mt-4 md:mt-0">
+              <Button
+                onClick={handleExportCSV}
+                variant="outline"
+                className="flex items-center gap-2 border border-gray-300 hover:bg-gray-50"
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-md">
           <CardContent className="p-6">
             {loading ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Skeleton className="h-5 w-40" />
-                  <Skeleton className="h-5 w-32" />
-                </div>
-                <div className="space-y-2">
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <Skeleton key={index} className="h-10 w-full" />
-                  ))}
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="space-y-4">
+                    <Skeleton className="h-40 w-full rounded-lg" />
+                  </div>
+                ))}
               </div>
             ) : filteredUsers.length === 0 ? (
-              <div className="text-center py-12">
+              <div className="text-center py-16">
                 <div className="text-6xl mb-4">📊</div>
                 <p className="text-xl font-semibold text-gray-800 mb-2">No users found</p>
                 <p className="text-gray-600">Try adjusting your filters or search terms</p>
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b bg-gray-50">
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Sl.No</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Role</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Joined</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentUsers.map((user, index) => (
-                        <tr key={user.id} className="border-b hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3 text-sm text-gray-900">{startIndex + index + 1}</td>
-                          <td className="px-4 py-3">
-                            <button
-                              onClick={() => handleViewProgress(user)}
-                              className="text-sm font-medium text-blue-600 hover:underline hover:text-blue-800 transition-colors"
-                            >
-                              {user.name}
-                            </button>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                user.role === "scrum_master"
-                                  ? "bg-[#8686AC]/20 text-[#272757]"
-                                  : user.internType === "project"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {user.role === "scrum_master"
-                                ? "SCRUM MASTER"
-                                : user.internType?.toUpperCase() || "INTERN"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            {formatDate(user.joinedDate)}
-                          </td>
-                          <td className="px-4 py-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {currentUsers.map((user, index) => {
+                    const completionRate = user.taskCount
+                      ? ((user.completedTasks || 0) / user.taskCount) * 100
+                      : 0;
+                    
+                    return (
+                      <div
+                        key={user.id}
+                        className="border border-gray-200 rounded-xl p-5 bg-white hover:shadow-lg hover:scale-105 transition-all duration-300 cursor-pointer"
+                        onClick={() => handleViewProgress(user)}
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#0F0E47] to-[#505081] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                              {getInitials(user.name)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-semibold text-gray-900 truncate">{user.name}</h3>
+                              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ml-2 ${
+                              user.role === "scrum_master"
+                                ? "bg-[#8686AC]/20 text-[#272757]"
+                                : user.internType === "project"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-purple-100 text-purple-800"
+                            }`}
+                          >
+                            {user.role === "scrum_master"
+                              ? "SM"
+                              : user.internType?.toUpperCase().charAt(0) || "I"}
+                          </span>
+                        </div>
+
+                        <div className="space-y-3 mb-4">
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Email</p>
+                            <p className="text-sm text-gray-900 truncate">{user.email}</p>
+                          </div>
+
+                          {user.role === "intern" ? (
+                            <>
+                              {user.taskCount !== undefined && (
+                                <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-xs text-gray-600">Task Progress</p>
+                                    <p className="text-xs font-semibold text-gray-900">
+                                      {user.completedTasks || 0}/{user.taskCount}
+                                    </p>
+                                  </div>
+                                  <Progress 
+                                    value={completionRate} 
+                                    className="h-2 bg-gray-200"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">{completionRate.toFixed(0)}% Complete</p>
+                                </div>
+                              )}
+
+                              {user.dsuStreak !== undefined && (
+                                <div className="flex items-center gap-2 bg-amber-50 p-2 rounded">
+                                  <TrendingUp className="h-4 w-4 text-amber-600" />
+                                  <div>
+                                    <p className="text-xs text-amber-700 font-semibold">DSU Streak</p>
+                                    <p className="text-sm font-bold text-amber-900">{user.dsuStreak} days</p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {user.currentProject && (
+                                <div>
+                                  <p className="text-xs text-gray-600 mb-1">Current Project</p>
+                                  <p className="text-sm font-medium text-gray-900 truncate">{user.currentProject}</p>
+                                </div>
+                              )}
+
+                              <div className="text-xs text-gray-500 pt-1">
+                                Joined: {formatDate(user.joinedDate)}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex items-center gap-2 bg-blue-50 p-2 rounded">
+                              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                              <div>
+                                <p className="text-xs text-blue-700 font-semibold">Scrum Master</p>
+                                <p className="text-xs text-blue-600">{user.is_active ? "Active" : "Inactive"}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            onClick={() => handleViewProgress(user)}
+                            className="w-full bg-gradient-to-r from-[#0F0E47] to-[#505081] hover:opacity-90 text-white text-sm"
+                          >
+                            View Details
+                          </Button>
+                          {user.role === "intern" && (
                             <Button
-                              onClick={() => handleViewProgress(user)}
-                              size="sm"
-                              className="bg-[#0F0E47] hover:bg-[#272757]"
+                              onClick={() => window.open(`/admin/performance-review/${user.internId || user.id}`, "_blank")}
+                              variant="outline"
+                              className="w-full text-xs border border-gray-300"
                             >
-                              View Progress
+                              Performance Review
                             </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                  <div className="flex items-center justify-between mt-8 pt-6 border-t">
                     <div className="text-sm text-gray-600">
-                      Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} users
+                      Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of{" "}
+                      {filteredUsers.length} users
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -466,6 +641,7 @@ const PerformancePage: React.FC = () => {
                         className="flex items-center gap-1"
                       >
                         <ChevronLeft className="h-4 w-4" />
+                        Previous
                       </Button>
                       <div className="flex items-center gap-1">
                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -516,156 +692,267 @@ const PerformancePage: React.FC = () => {
         {showModal && selectedUser && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full my-8">
+              {/* Header */}
               <div className="sticky top-0 bg-gradient-to-r from-[#0F0E47] to-[#505081] text-white p-6 rounded-t-2xl">
                 <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 rounded-full bg-white flex items-center justify-center text-2xl font-bold text-[#0F0E47] flex-shrink-0">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="h-16 w-16 rounded-full bg-white flex items-center justify-center text-2xl font-bold text-[#0F0E47] flex-shrink-0 shadow-md">
                       {getInitials(selectedUser.name)}
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <h2 className="text-2xl font-bold">{selectedUser.name}</h2>
-                      <p className="opacity-90 mt-1">{selectedUser.email}</p>
-                      <p className="text-sm opacity-80">{selectedUser.role}</p>
+                      <p className="opacity-90 mt-1 truncate">{selectedUser.email}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-white bg-opacity-20">
+                          {selectedUser.role === "scrum_master" ? "Scrum Master" : selectedUser.internType?.toUpperCase() || "Intern"}
+                        </span>
+                        {selectedUser.role === "intern" && selectedUser.batch && (
+                          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-white bg-opacity-20">
+                            Batch: {selectedUser.batch}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={handleExportReport}
-                      variant="outline"
-                      className="border-white text-white hover:bg-white hover:text-[#0F0E47]"
-                      disabled={loadingTasks}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Export PDF
-                    </Button>
-                    <button
-                      onClick={() => setShowModal(false)}
-                      className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition flex-shrink-0"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
               </div>
 
               <div className="p-6 space-y-6 max-h-[calc(100vh-16rem)] overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg">
-                  {selectedUser.role === "intern" ? (
-                    <>
-                      <div>
-                        <p className="text-xs text-gray-600">Phone</p>
-                        <p className="font-semibold">{selectedUser.phone || "N/A"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">College</p>
-                        <p className="font-semibold">{selectedUser.college || "N/A"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">CGPA</p>
-                        <p className="font-semibold">{selectedUser.cgpa || "N/A"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Batch</p>
-                        <p className="font-semibold">{selectedUser.batch || "N/A"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Intern Type</p>
-                        <p className="font-semibold">{selectedUser.internType?.toUpperCase() || "N/A"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Joined Date</p>
-                        <p className="font-semibold">{formatDate(selectedUser.joinedDate)}</p>
-                      </div>
-                      <div className="md:col-span-3">
-                        <p className="text-xs text-gray-600 mb-2">Skills</p>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedUser.skills && selectedUser.skills.length > 0 ? (
-                            selectedUser.skills.map((skill) => (
-                              <span
-                                key={skill}
-                                className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-                              >
-                                {skill}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-gray-500">No skills listed</span>
-                          )}
+                {/* Personal Information */}
+                <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-[#0F0E47]" />
+                    Personal Information
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-600 font-semibold mb-1">Email</p>
+                      <p className="text-sm text-gray-900">{selectedUser.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 font-semibold mb-1">Employee ID</p>
+                      <p className="text-sm text-gray-900">{selectedUser.employee_id || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600 font-semibold mb-1">Role</p>
+                      <p className="text-sm text-gray-900">{selectedUser.role}</p>
+                    </div>
+                    {selectedUser.role === "intern" && (
+                      <>
+                        <div>
+                          <p className="text-xs text-gray-600 font-semibold mb-1">Phone</p>
+                          <p className="text-sm text-gray-900">{selectedUser.phone || "N/A"}</p>
                         </div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <p className="text-xs text-gray-600">Role</p>
-                        <p className="font-semibold">Scrum Master</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Email</p>
-                        <p className="font-semibold">{selectedUser.email}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Active</p>
-                        <p className="font-semibold">{selectedUser.is_active ? "Yes" : "No"}</p>
-                      </div>
-                    </>
-                  )}
+                        <div>
+                          <p className="text-xs text-gray-600 font-semibold mb-1">College</p>
+                          <p className="text-sm text-gray-900">{selectedUser.college || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 font-semibold mb-1">CGPA</p>
+                          <p className="text-sm text-gray-900">{selectedUser.cgpa || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 font-semibold mb-1">Batch</p>
+                          <p className="text-sm text-gray-900">{selectedUser.batch || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 font-semibold mb-1">Intern Type</p>
+                          <p className="text-sm text-gray-900">{selectedUser.internType?.toUpperCase() || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 font-semibold mb-1">Joined Date</p>
+                          <p className="text-sm text-gray-900">{formatDate(selectedUser.joinedDate)}</p>
+                        </div>
+                        <div className="md:col-span-3">
+                          <p className="text-xs text-gray-600 font-semibold mb-2">Skills</p>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedUser.skills && selectedUser.skills.length > 0 ? (
+                              selectedUser.skills.map((skill) => (
+                                <span
+                                  key={skill}
+                                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                                >
+                                  {skill}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-gray-500 text-sm">No skills listed</span>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Activity Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {selectedUser.role === "intern" ? (
-                        <>
-                          <p className="text-sm">Tasks: {userTasks.length}</p>
-                          <p className="text-sm">DSU Entries: {userDsus.length}</p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-sm">DSU Reviews: {userDsus.length}</p>
-                          <p className="text-sm">Attendance Marks: {userAttendance.length}</p>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
+                {/* Performance Metrics - Progress Cards */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-[#0F0E47]" />
+                    Performance Metrics
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedUser.role === "intern" ? (
+                      <>
+                        {selectedUser.taskCount !== undefined && (
+                          <div className="border border-gray-200 rounded-xl p-5 bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-md transition">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <p className="text-xs text-gray-600 font-semibold mb-1">Task Completion</p>
+                                <p className="text-2xl font-bold text-gray-900">{selectedUser.completedTasks || 0}/{selectedUser.taskCount}</p>
+                              </div>
+                              <CheckCircle2 className="h-6 w-6 text-blue-600 flex-shrink-0" />
+                            </div>
+                            <Progress 
+                              value={((selectedUser.completedTasks || 0) / selectedUser.taskCount) * 100} 
+                              className="h-2 bg-blue-200 mb-2"
+                            />
+                            <p className="text-xs text-gray-600">
+                              {(((selectedUser.completedTasks || 0) / selectedUser.taskCount) * 100).toFixed(0)}% Complete
+                            </p>
+                          </div>
+                        )}
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Recent Activity</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {loadingTasks && (
-                        <p className="text-sm text-muted-foreground">Loading activity...</p>
-                      )}
-                      {!loadingTasks && selectedUser.role === "intern" && userTasks.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No tasks yet.</p>
-                      )}
-                      {!loadingTasks && selectedUser.role === "scrum_master" && userDsus.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No reviews yet.</p>
-                      )}
-                      {selectedUser.role === "intern" && userTasks.slice(0, 5).map((task) => (
-                        <div key={task._id} className="rounded-lg border p-2 text-sm">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{task.title}</span>
-                            <span className="text-xs text-muted-foreground">{task.status}</span>
+                        {selectedUser.dsuStreak !== undefined && (
+                          <div className="border border-gray-200 rounded-xl p-5 bg-gradient-to-br from-amber-50 to-amber-100 hover:shadow-md transition">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <p className="text-xs text-gray-600 font-semibold mb-1">DSU Streak</p>
+                                <p className="text-2xl font-bold text-gray-900">{selectedUser.dsuStreak} days</p>
+                              </div>
+                              <TrendingUp className="h-6 w-6 text-amber-600 flex-shrink-0" />
+                            </div>
+                            <p className="text-xs text-gray-600">Consecutive daily updates</p>
                           </div>
-                          <p className="text-xs text-muted-foreground">{task.project || "N/A"}</p>
+                        )}
+
+                        <div className="border border-gray-200 rounded-xl p-5 bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-md transition">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <p className="text-xs text-gray-600 font-semibold mb-1">DSU Entries</p>
+                              <p className="text-2xl font-bold text-gray-900">{userDsus.length}</p>
+                            </div>
+                            <Clock className="h-6 w-6 text-purple-600 flex-shrink-0" />
+                          </div>
+                          <p className="text-xs text-gray-600">Daily standup updates submitted</p>
+                        </div>
+
+                        <div className="border border-gray-200 rounded-xl p-5 bg-gradient-to-br from-green-50 to-green-100 hover:shadow-md transition">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <p className="text-xs text-gray-600 font-semibold mb-1">Current Project</p>
+                              <p className="text-lg font-bold text-gray-900 truncate">{selectedUser.currentProject || "N/A"}</p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-600">Active project assignment</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="border border-gray-200 rounded-xl p-5 bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-md transition">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <p className="text-xs text-gray-600 font-semibold mb-1">DSU Reviews</p>
+                              <p className="text-2xl font-bold text-gray-900">{userDsus.length}</p>
+                            </div>
+                            <CheckCircle2 className="h-6 w-6 text-blue-600 flex-shrink-0" />
+                          </div>
+                          <p className="text-xs text-gray-600">Total DSUs reviewed</p>
+                        </div>
+
+                        <div className="border border-gray-200 rounded-xl p-5 bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-md transition">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <p className="text-xs text-gray-600 font-semibold mb-1">Attendance Marks</p>
+                              <p className="text-2xl font-bold text-gray-900">{userAttendance.length}</p>
+                            </div>
+                            <Clock className="h-6 w-6 text-purple-600 flex-shrink-0" />
+                          </div>
+                          <p className="text-xs text-gray-600">Total attendance marked</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* PDF Export Card */}
+                <div className="border-2 border-dashed border-[#0F0E47] rounded-xl p-6 bg-gradient-to-r from-[#0F0E47]/5 to-[#505081]/5 hover:shadow-lg transition">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="h-14 w-14 rounded-lg bg-[#0F0E47] text-white flex items-center justify-center flex-shrink-0">
+                        <FileText className="h-6 w-6" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 mb-1">Generate Performance Report</h3>
+                        <p className="text-sm text-gray-600">Download a comprehensive PDF report with all performance details and activity logs</p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleExportReport}
+                      disabled={loadingTasks}
+                      className="bg-gradient-to-r from-[#0F0E47] to-[#505081] hover:opacity-90 text-white px-6 flex items-center gap-2 flex-shrink-0"
+                    >
+                      <Download className="h-4 w-4" />
+                      {loadingTasks ? "Loading..." : "Export PDF"}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Activity Details */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-[#0F0E47]" />
+                    Recent Activity
+                  </h3>
+                  
+                  {loadingTasks ? (
+                    <div className="text-center py-8 text-gray-500">Loading activity...</div>
+                  ) : selectedUser.role === "intern" && userTasks.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">No tasks found</div>
+                  ) : selectedUser.role === "scrum_master" && userDsus.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">No reviews found</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {selectedUser.role === "intern" && userTasks.slice(0, 8).map((task) => (
+                        <div key={task._id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-medium text-gray-900">{task.title}</h4>
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              task.status === "DONE" ? "bg-green-100 text-green-800" :
+                              task.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-800" :
+                              "bg-gray-100 text-gray-800"
+                            }`}>
+                              {task.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-gray-600">
+                            {task.project && <span>Project: {task.project}</span>}
+                            {task.priority && <span>Priority: {task.priority}</span>}
+                            {task.created_at && <span>Created: {formatDate(task.created_at)}</span>}
+                          </div>
                         </div>
                       ))}
-                      {selectedUser.role === "scrum_master" && userDsus.slice(0, 5).map((entry) => (
-                        <div key={entry._id} className="rounded-lg border p-2 text-sm">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">DSU Review</span>
-                            <span className="text-xs text-muted-foreground">{entry.status || ""}</span>
+                      {selectedUser.role === "scrum_master" && userDsus.slice(0, 8).map((entry) => (
+                        <div key={entry._id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium text-gray-900">DSU Review</h4>
+                            {entry.status && (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-semibold">
+                                {entry.status}
+                              </span>
+                            )}
                           </div>
-                          <p className="text-xs text-muted-foreground">{entry.date || ""}</p>
+                          <p className="text-xs text-gray-600">Date: {formatDate(entry.date)}</p>
                         </div>
                       ))}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

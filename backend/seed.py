@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 import os
 
 # Import your hashing function from your auth/security file
-from auth import get_password_hash 
+from utils.security import hash_password 
 
 load_dotenv()
 
@@ -34,7 +34,7 @@ async def seed_database():
     print("👤 Creating Cirrus Labs Admin users...")
     
     # Standardized password for all admins
-    default_password = get_password_hash("admin123")
+    default_password = hash_password("admin123")
     
     users = [
         {

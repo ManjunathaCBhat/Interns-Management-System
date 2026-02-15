@@ -324,7 +324,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional
 from database import get_database
-from auth import get_password_hash
+from utils.security import hash_password
 from otp_service import OTPService
 from datetime import datetime
 import re
@@ -519,7 +519,7 @@ async def register_user(
             )
         
         
-        hashed_password = get_password_hash(request.password)
+        hashed_password = hash_password(request.password)
         
         # Generate username from email
         username = email.split('@')[0]

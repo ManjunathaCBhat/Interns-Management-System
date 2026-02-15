@@ -12,31 +12,17 @@ from pydantic import BaseModel, EmailStr
 import os
 import hashlib
 import secrets
+import json
 import re
 import asyncio
+import uvicorn
 from pathlib import Path
 from dotenv import load_dotenv
 from urllib.parse import quote
 import httpx
 from utils.security import hash_password
-
-from urllib.parse import quote
-import json
-import httpx
-
-# Load .env from backend folder first, then from root folder
-env_path = Path(__file__).parent / '.env'
-root_env_path = Path(__file__).parent.parent / '.env'
-
-if env_path.exists():
-    load_dotenv(env_path)
-elif root_env_path.exists():
-    load_dotenv(root_env_path)
-else:
-    load_dotenv()  # Try default locations
-
-
 # Import our modules
+
 from database import connect_db, close_db, get_database
 from auth import (
     verify_password, 
@@ -54,8 +40,115 @@ from models import (
     Batch, BatchCreate, BatchUpdate,
     BatchYear, BatchMonth, Organization,
     OfficeAttendanceCreate,
-    MentorRequestCreate, MentorRequestUpdate
+    MentorRequestCreate, MentorRequestUpdate,
+    PerformanceReviewCreate, PerformanceReviewUpdate, Feedback360, FeedbackEntry, FeedbackType
 )
+
+
+
+
+# ========== FASTAPI APP INIT (MOVED UP) ========== #
+async def lifespan(app: FastAPI):
+    """Startup and shutdown"""
+    try:
+        await connect_db()
+    except Exception as exc:
+        print(f"⚠️  Startup without database connection: {exc}")
+    yield
+    await close_db()
+
+app = FastAPI(
+    title="Intern Lifecycle Manager",
+    version="2.0.0",
+    lifespan=lifespan
+)
+
+# ==================== PERFORMANCE REVIEW ROUTES ====================
+@app.post("/api/v1/admin/performance/review", status_code=201)
+async def submit_performance_review(
+    payload: PerformanceReviewCreate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Submit a performance review for an intern (admin/scrum_master only)"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    review = payload.model_dump()
+    review["created_at"] = datetime.now(timezone.utc)
+    review["updated_at"] = datetime.now(timezone.utc)
+
+    result = await db.performance_reviews.insert_one(review)
+    review["_id"] = str(result.inserted_id)
+    return review
+
+# ==================== 360-DEGREE FEEDBACK ROUTES ====================
+@app.post("/api/v1/admin/performance/feedback360", status_code=201)
+async def submit_feedback_360(
+    payload: Feedback360,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Submit 360-degree feedback for an intern (admin/scrum_master/mentor/peer/self)"""
+    # Only allow certain roles to submit
+    if current_user.role not in ["admin", "scrum_master", "mentor", "intern"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    feedback = payload.model_dump()
+    feedback["created_at"] = datetime.now(timezone.utc)
+    feedback["updated_at"] = datetime.now(timezone.utc)
+
+    result = await db.feedback360.insert_one(feedback)
+    feedback["_id"] = str(result.inserted_id)
+    return feedback
+
+@app.get("/api/v1/admin/performance/feedback360")
+async def get_feedback_360(
+    internId: str = Query(...),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get all 360-degree feedback for an intern (admin/scrum_master/mentor/intern)"""
+    if current_user.role not in ["admin", "scrum_master", "mentor", "intern"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    query = {"internId": internId}
+    feedbacks = []
+    async for fb in db.feedback360.find(query).sort("created_at", -1):
+        fb["_id"] = str(fb["_id"])
+        feedbacks.append(fb)
+    return feedbacks
+
+@app.get("/api/v1/admin/performance/review")
+async def get_performance_reviews(
+    internId: str = Query(...),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get all performance reviews for an intern (admin/scrum_master/intern)"""
+    if current_user.role not in ["admin", "scrum_master", "intern"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    query = {"internId": internId}
+    reviews = []
+    async for review in db.performance_reviews.find(query).sort("reviewDate", -1):
+        review["_id"] = str(review["_id"])
+        reviews.append(review)
+    return reviews
+
+
+# Load .env from backend folder first, then from root folder
+env_path = Path(__file__).parent / '.env'
+root_env_path = Path(__file__).parent.parent / '.env'
+
+if env_path.exists():
+    load_dotenv(env_path)
+elif root_env_path.exists():
+    load_dotenv(root_env_path)
+else:
+    load_dotenv()  # Try default locations
+
+
 
 # Admin emails that are auto-approved with admin role
 ADMIN_EMAILS = [
@@ -298,7 +391,7 @@ async def register_with_otp(payload: dict, db=Depends(get_database)):
     user_doc = {
         "name": payload.get("fullName"),
         "email": email,
-        "hashed_password": get_password_hash(password),
+        "hashed_password": hash_password(password),
         "role": "intern",
         "is_active": True,
         "is_approved": False,
@@ -416,7 +509,7 @@ async def register(user_data: UserCreate, db = Depends(get_database)):
         "email": email,
         "name": user_data.name,
         "employee_id": user_data.employee_id,
-        "hashed_password": get_password_hash(user_data.password),
+        "hashed_password": hash_password(user_data.password),
         "role": role,
         "is_active": True,
         "is_approved": is_approved,
@@ -3010,7 +3103,6 @@ async def update_my_profile(
     raise HTTPException(status_code=500, detail="Failed to update profile")
 
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.getenv("PORT", "8000"))
     reload_enabled = os.getenv("RELOAD", "false").lower() == "true"
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=reload_enabled)

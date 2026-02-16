@@ -12,31 +12,18 @@ from pydantic import BaseModel, EmailStr
 import os
 import hashlib
 import secrets
+import json
 import re
 import asyncio
+import uvicorn
+import httpx
 from pathlib import Path
 from dotenv import load_dotenv
 from urllib.parse import quote
-import httpx
+
 from utils.security import hash_password
-
-from urllib.parse import quote
-import json
-import httpx
-
-# Load .env from backend folder first, then from root folder
-env_path = Path(__file__).parent / '.env'
-root_env_path = Path(__file__).parent.parent / '.env'
-
-if env_path.exists():
-    load_dotenv(env_path)
-elif root_env_path.exists():
-    load_dotenv(root_env_path)
-else:
-    load_dotenv()  # Try default locations
-
-
 # Import our modules
+
 from database import connect_db, close_db, get_database
 from auth import (
     verify_password, 
@@ -51,11 +38,118 @@ from models import (
     Task, TaskCreate, TaskUpdate,
     Project, ProjectCreate, ProjectUpdate,
     PTO, PTOCreate, PTOUpdate,
-    Batch, BatchCreate, BatchUpdate,
-    BatchYear, BatchMonth, Organization,
+    BatchCreate, BatchUpdate,
+    Organization,
     OfficeAttendanceCreate,
-    MentorRequestCreate, MentorRequestUpdate
+    MentorRequestCreate, MentorRequestUpdate,
+    PerformanceReviewCreate, PerformanceReviewUpdate, Feedback360, FeedbackEntry, FeedbackType
 )
+
+
+
+
+# ========== FASTAPI APP INIT (MOVED UP) ========== #
+async def lifespan(app: FastAPI):
+    """Startup and shutdown"""
+    try:
+        await connect_db()
+    except Exception as exc:
+        print(f"⚠️  Startup without database connection: {exc}")
+    yield
+    await close_db()
+
+app = FastAPI(
+    title="Intern Lifecycle Manager",
+    version="2.0.0",
+    lifespan=lifespan
+)
+
+# ==================== PERFORMANCE REVIEW ROUTES ====================
+@app.post("/api/v1/admin/performance/review", status_code=201)
+async def submit_performance_review(
+    payload: PerformanceReviewCreate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Submit a performance review for an intern (admin/scrum_master only)"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    review = payload.model_dump()
+    review["created_at"] = datetime.now(timezone.utc)
+    review["updated_at"] = datetime.now(timezone.utc)
+
+    result = await db.performance_reviews.insert_one(review)
+    review["_id"] = str(result.inserted_id)
+    return review
+
+# ==================== 360-DEGREE FEEDBACK ROUTES ====================
+@app.post("/api/v1/admin/performance/feedback360", status_code=201)
+async def submit_feedback_360(
+    payload: Feedback360,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Submit 360-degree feedback for an intern (admin/scrum_master/mentor/peer/self)"""
+    # Only allow certain roles to submit
+    if current_user.role not in ["admin", "scrum_master", "mentor", "intern"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    feedback = payload.model_dump()
+    feedback["created_at"] = datetime.now(timezone.utc)
+    feedback["updated_at"] = datetime.now(timezone.utc)
+
+    result = await db.feedback360.insert_one(feedback)
+    feedback["_id"] = str(result.inserted_id)
+    return feedback
+
+@app.get("/api/v1/admin/performance/feedback360")
+async def get_feedback_360(
+    internId: str = Query(...),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get all 360-degree feedback for an intern (admin/scrum_master/mentor/intern)"""
+    if current_user.role not in ["admin", "scrum_master", "mentor", "intern"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    query = {"internId": internId}
+    feedbacks = []
+    async for fb in db.feedback360.find(query).sort("created_at", -1):
+        fb["_id"] = str(fb["_id"])
+        feedbacks.append(fb)
+    return feedbacks
+
+@app.get("/api/v1/admin/performance/review")
+async def get_performance_reviews(
+    internId: str = Query(...),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get all performance reviews for an intern (admin/scrum_master/intern)"""
+    if current_user.role not in ["admin", "scrum_master", "intern"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    query = {"internId": internId}
+    reviews = []
+    async for review in db.performance_reviews.find(query).sort("reviewDate", -1):
+        review["_id"] = str(review["_id"])
+        reviews.append(review)
+    return reviews
+
+
+# Load .env from backend folder first, then from root folder
+env_path = Path(__file__).parent / '.env'
+root_env_path = Path(__file__).parent.parent / '.env'
+
+if env_path.exists():
+    load_dotenv(env_path)
+elif root_env_path.exists():
+    load_dotenv(root_env_path)
+else:
+    load_dotenv()  # Try default locations
+
+
 
 # Admin emails that are auto-approved with admin role
 ADMIN_EMAILS = [
@@ -104,14 +198,6 @@ class ResetPasswordRequest(BaseModel):
     confirm_password: str
 
 
-class BatchYearCreate(BaseModel):
-    year: int
-    label: Optional[str] = None
-
-
-class BatchMonthCreate(BaseModel):
-    name: str
-    order: int
 
 
 class OrganizationCreate(BaseModel):
@@ -298,7 +384,7 @@ async def register_with_otp(payload: dict, db=Depends(get_database)):
     user_doc = {
         "name": payload.get("fullName"),
         "email": email,
-        "hashed_password": get_password_hash(password),
+        "hashed_password": hash_password(password),
         "role": "intern",
         "is_active": True,
         "is_approved": False,
@@ -416,7 +502,7 @@ async def register(user_data: UserCreate, db = Depends(get_database)):
         "email": email,
         "name": user_data.name,
         "employee_id": user_data.employee_id,
-        "hashed_password": get_password_hash(user_data.password),
+        "hashed_password": hash_password(user_data.password),
         "role": role,
         "is_active": True,
         "is_approved": is_approved,
@@ -1019,25 +1105,24 @@ async def get_dashboard_stats(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
 
-# @app.get("/api/v1/admin/dashboard/recent-interns")
-# async def get_recent_interns(
-#     limit: int = 5,
-#     db = Depends(get_database),
-#     current_user: User = Depends(get_current_active_user)
-# ):
-#     """Get recently added interns"""
-#     if current_user.role not in ["admin", "scrum_master"]:
-#         raise HTTPException(status_code=403, detail="Not authorized")
-    
-#     interns = []
-#     async for intern in db.interns.find().sort("created_at", -1).limit(limit):
-#         intern["_id"] = str(intern["_id"])
-#         # Convert date to ISO string if needed
-#         if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
-#             intern["joinedDate"] = intern["joinedDate"].isoformat()
-#         interns.append(intern)
-    
-#     return interns
+
+@app.get("/api/v1/admin/dashboard/recent-interns")
+async def get_recent_interns(
+    limit: int = 5,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get recently added interns"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    interns = []
+    async for intern in db.interns.find().sort("created_at", -1).limit(limit):
+        intern["_id"] = str(intern["_id"])
+        # Convert date to ISO string if needed
+        if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
+            intern["joinedDate"] = intern["joinedDate"].isoformat()
+        interns.append(intern)
+    return interns
 
 
 @app.get("/api/v1/admin/dashboard/blocked-interns")
@@ -1991,64 +2076,6 @@ async def remove_user_from_batch(
 
 
 # ==================== BATCH CATEGORY ROUTES ====================
-@app.get("/api/v1/batch-years/")
-async def list_batch_years(
-    db = Depends(get_database),
-    current_user: User = Depends(get_current_active_user)
-):
-    years = []
-    async for year in db.batch_years.find().sort("year", -1):
-        year["_id"] = str(year["_id"])
-        years.append(year)
-    return years
-
-
-@app.post("/api/v1/batch-years/", status_code=201)
-async def create_batch_year(
-    payload: BatchYearCreate,
-    db = Depends(get_database),
-    admin: User = Depends(get_admin_user)
-):
-    existing = await db.batch_years.find_one({"year": payload.year})
-    if existing:
-        raise HTTPException(status_code=400, detail="Batch year already exists")
-
-    data = payload.model_dump()
-    data["created_at"] = datetime.now(timezone.utc)
-    data["updated_at"] = datetime.now(timezone.utc)
-    result = await db.batch_years.insert_one(data)
-    data["_id"] = str(result.inserted_id)
-    return data
-
-
-@app.get("/api/v1/batch-months/")
-async def list_batch_months(
-    db = Depends(get_database),
-    current_user: User = Depends(get_current_active_user)
-):
-    months = []
-    async for month in db.batch_months.find().sort("order", 1):
-        month["_id"] = str(month["_id"])
-        months.append(month)
-    return months
-
-
-@app.post("/api/v1/batch-months/", status_code=201)
-async def create_batch_month(
-    payload: BatchMonthCreate,
-    db = Depends(get_database),
-    admin: User = Depends(get_admin_user)
-):
-    existing = await db.batch_months.find_one({"name": payload.name})
-    if existing:
-        raise HTTPException(status_code=400, detail="Batch month already exists")
-
-    data = payload.model_dump()
-    data["created_at"] = datetime.now(timezone.utc)
-    data["updated_at"] = datetime.now(timezone.utc)
-    result = await db.batch_months.insert_one(data)
-    data["_id"] = str(result.inserted_id)
-    return data
 
 
 @app.get("/api/v1/organizations/")
@@ -2105,6 +2132,8 @@ async def create_intern(
             raise HTTPException(status_code=400, detail="Batch is full")
     
     intern_dict = intern_data.model_dump()
+    if not intern_dict.get("organization"):
+        raise HTTPException(status_code=400, detail="Organization is required for interns")
     intern_dict["status"] = "onboarding"
     intern_dict["taskCount"] = 0
     intern_dict["completedTasks"] = 0
@@ -3010,7 +3039,6 @@ async def update_my_profile(
     raise HTTPException(status_code=500, detail="Failed to update profile")
 
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.getenv("PORT", "8000"))
     reload_enabled = os.getenv("RELOAD", "false").lower() == "true"
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=reload_enabled)

@@ -1,3 +1,5 @@
+import PerformanceReviewPage from "./pages/admin/PerformanceReviewPage";
+import Feedback360Page from "./pages/admin/Feedback360Page";
 import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
@@ -5,8 +7,6 @@ import ForgetPassword from "@/pages/forgetpassword";
 import NotFound from '@/pages/NotFound';
 import AzureAuthCallback from '@/pages/AzureAuthCallback';
 import PerformancePage from "./pages/admin/PerformancePage";
-import MentorHub from '@/pages/mentor/MentorHub';
-
 // Admin Pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import UserManagement from '@/pages/admin/UserManagement';
@@ -137,6 +137,14 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+         <Route
+        path="/admin/performance-review/:internId"
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'scrum_master']}>
+            <PerformanceReviewPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/admin/interns"
         element={
@@ -227,6 +235,16 @@ const AppRoutes: React.FC = () => {
         }
       />
 
+        {/* ✅ NEW: 360-Degree Feedback Route */}
+        <Route
+          path="/admin/feedback360/:internId"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'scrum_master']}>
+              <Feedback360Page />
+            </ProtectedRoute>
+          }
+        />
+
       {/* ========== Scrum Master Routes ========== */}
       <Route
         path="/scrum-master"
@@ -255,20 +273,13 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/scrum-master/profile"
         element={
-          <ProtectedRoute allowedRoles={['scrum_master']}>
+          <ProtectedRoute allowedRoles={['intern', 'scrum_master']}>
             <InternProfile />
           </ProtectedRoute>
         }
       />
 
-      <Route
-        path="/mentor"
-        element={
-          <ProtectedRoute allowedRoles={['intern', 'scrum_master', 'admin']}>
-            <MentorHub />
-          </ProtectedRoute>
-        }
-      />
+     
 
       {/* ========== Intern Routes ========== */}
       
@@ -291,7 +302,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/intern/profile"
         element={
-          <ProtectedRoute allowedRoles={['intern']}>
+          <ProtectedRoute allowedRoles={['intern', 'scrum_master']}>
             <InternProfile />
           </ProtectedRoute>
         }
@@ -326,7 +337,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/dashboard/profile"
         element={
-          <ProtectedRoute allowedRoles={['intern']}>
+          <ProtectedRoute allowedRoles={['intern', 'scrum_master']}>
             <InternProfile />
           </ProtectedRoute>
         }

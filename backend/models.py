@@ -97,6 +97,7 @@ class Intern(BaseModel):
 
     id: Optional[str] = Field(None, alias="_id")
     name: str
+    organization: str  # Mandatory field
     email: EmailStr
     phone: str
     college: str
@@ -301,6 +302,41 @@ class PerformanceReview(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+# =========================
+# 360-DEGREE FEEDBACK (NEW)
+# =========================
+
+class FeedbackType(str, Enum):
+    peer = "peer"
+    mentor = "mentor"
+    self = "self"
+
+
+class FeedbackEntry(BaseModel):
+    feedbackId: Optional[str] = Field(None, alias="_id")
+    reviewerId: str
+    reviewerName: str
+    reviewerRole: str
+    feedbackType: FeedbackType
+    rating: int
+    comments: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Feedback360(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = Field(None, alias="_id")
+    internId: str
+    internName: str
+    project: Optional[str] = None
+    period: Optional[str] = None  # e.g., Q1-2024
+    feedbacks: List[FeedbackEntry]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class PerformanceReviewCreate(BaseModel):
     internId: str
     internName: str
@@ -383,6 +419,7 @@ class Token(BaseModel):
 
 class InternCreate(BaseModel):
     name: str
+    organization: str  # Mandatory field
     email: EmailStr
     phone: str
     college: str
@@ -402,6 +439,7 @@ class InternCreate(BaseModel):
 
 class InternUpdate(BaseModel):
     name: Optional[str] = None
+    organization: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     college: Optional[str] = None
@@ -551,20 +589,6 @@ class Organization(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class Batch(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    id: Optional[str] = Field(None, alias="_id")
-    batchId: str
-    batchName: str
-    startDate: date
-    endDate: date
-    duration: Optional[int] = None
-    coordinator: str
-    description: Optional[str] = None
-    maxInterns: Optional[int] = None
-    domains: List[str] = []
-    internIds: List[str] = []
     status: str = "active"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -575,18 +599,15 @@ class BatchCreate(BaseModel):
     startDate: date
     coordinator: str
     description: Optional[str] = None
-    maxInterns: Optional[int] = None
     domains: List[str] = []
 
 
 class BatchUpdate(BaseModel):
     batchName: Optional[str] = None
     startDate: Optional[date] = None
-    endDate: Optional[date] = None
     duration: Optional[int] = None
     coordinator: Optional[str] = None
     description: Optional[str] = None
-    maxInterns: Optional[int] = None
     domains: Optional[List[str]] = None
     status: Optional[str] = None
 

@@ -25,8 +25,18 @@ import { dsuService } from '@/services/dsuService';
 import { ptoService } from '@/services/ptoService'; // ✅ NEW
 import { internService } from '@/services/internService'; // ✅ NEW
 import { Task } from '@/types/intern';
+import { feedbackService } from '@/services/feedbackService';
 
 const InternDashboard: React.FC = () => {
+    // Feedback form handler
+    const handleFeedbackSubmit = async (data: { name: string; email: string; message: string }) => {
+      try {
+        await feedbackService.sendFeedback({ ...data, role: user?.role || 'intern' });
+        toast({ title: 'Feedback sent!', description: 'Thank you for your feedback.' });
+      } catch (error: any) {
+        toast({ title: 'Failed to send feedback', description: error?.response?.data?.detail || 'Please try again later', variant: 'destructive' });
+      }
+    };
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -158,16 +168,6 @@ const InternDashboard: React.FC = () => {
         / (1000 * 60 * 60 * 24)
       ) + 1;
 
-      await ptoService.create({
-        internId: user?.id || '',
-        name: user?.name || '',
-        email: user?.email || '',
-        team: 'Engineering',
-        startDate: ptoForm.startDate,
-        endDate: ptoForm.endDate,
-        numberOfDays,
-        reason: ptoForm.reason,
-      });
       
       toast({
         title: 'PTO Request Submitted!',
@@ -189,15 +189,6 @@ const InternDashboard: React.FC = () => {
   const activeTasks = tasks.filter((t) => t.status !== 'DONE' && t.status !== 'completed').slice(0, 3);
   const completedTasks = tasks.filter((t) => t.status === 'DONE' || t.status === 'completed').length;
 
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout>

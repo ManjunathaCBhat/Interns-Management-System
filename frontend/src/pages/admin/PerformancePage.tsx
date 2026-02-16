@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
       Name: user.name,
       Email: user.email,
       Role: user.role,
+      Organization: user.organization || '',
       EmployeeID: user.employee_id || '',
       Batch: user.batch || '',
       InternType: user.internType || '',
@@ -274,6 +275,7 @@ const PerformancePage: React.FC = () => {
       reportLines.push(`Phone: ${selectedUser.phone || "N/A"}`);
       reportLines.push(`College: ${selectedUser.college || "N/A"}`);
       reportLines.push(`CGPA: ${selectedUser.cgpa || "N/A"}`);
+      reportLines.push(`Organization: ${selectedUser.organization || "N/A"}`);
       reportLines.push(`Intern Type: ${selectedUser.internType?.toUpperCase() || "N/A"}`);
       reportLines.push(`Batch: ${selectedUser.batch || "N/A"}`);
       reportLines.push(`Joined Date: ${formatDate(selectedUser.joinedDate)}`);
@@ -756,6 +758,10 @@ const PerformancePage: React.FC = () => {
                         <div>
                           <p className="text-xs text-gray-600 font-semibold mb-1">CGPA</p>
                           <p className="text-sm text-gray-900">{selectedUser.cgpa || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 font-semibold mb-1">Organization</p>
+                          <p className="text-sm text-gray-900">{selectedUser.organization || "N/A"}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-600 font-semibold mb-1">Batch</p>

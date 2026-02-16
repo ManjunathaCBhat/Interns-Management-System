@@ -77,8 +77,6 @@ async def connect_db():
         await db.db.batches.create_index([("status", ASCENDING)])
         await db.db.batches.create_index([("startDate", DESCENDING)])
         
-        await db.db.batch_years.create_index("year", unique=True)
-        await db.db.batch_months.create_index("name", unique=True)
         await db.db.organizations.create_index("name", unique=True)
         await db.db.mentor_requests.create_index([("requesterUserId", ASCENDING), ("status", ASCENDING)])
         await db.db.mentor_requests.create_index([("mentorUserId", ASCENDING), ("status", ASCENDING)])

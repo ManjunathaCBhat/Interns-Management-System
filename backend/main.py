@@ -1017,6 +1017,127 @@ async def delete_user(
 
     return None
 
+# ==================== REFERENCE MANAGEMENT ROUTES ====================
+
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, Literal
+
+# Pydantic Models
+class ReferenceCreate(BaseModel):
+    name: str = Field(..., min_length=1)
+    email: EmailStr
+    phone: str = Field(default="")
+    referredBy: str = Field(default="")
+    status: Literal["active", "inactive", "pending"] = "pending"
+    performance: Literal["not-assessed", "poor", "fair", "good", "excellent"] = "not-assessed"
+   
+    
+    class Config:
+        populate_by_name = True
+
+class ReferenceUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    referredBy: Optional[str] = None
+    status: Optional[Literal["active", "inactive", "pending"]] = None
+    performance: Optional[Literal["not-assessed", "poor", "fair", "good", "excellent"]] = None
+    
+
+# Routes
+@app.post("/api/v1/admin/references", status_code=201)
+async def create_reference(
+    reference_data: ReferenceCreate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Create a new reference entry"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    existing = await db.references.find_one({"email": reference_data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Reference with this email already exists")
+    
+    reference_dict = reference_data.model_dump()
+    reference_dict["created_at"] = datetime.now(timezone.utc)
+    reference_dict["updated_at"] = datetime.now(timezone.utc)
+    reference_dict["createdBy"] = current_user.username
+    
+    result = await db.references.insert_one(reference_dict)
+    reference_dict["_id"] = str(result.inserted_id)
+    
+    return reference_dict
+
+@app.get("/api/v1/admin/references")
+async def list_references(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List all references"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    total = await db.references.count_documents({})
+    
+    references = []
+    async for ref in db.references.find({}).sort("created_at", -1).skip(skip).limit(limit):
+        ref["_id"] = str(ref["_id"])
+        references.append(ref)
+    
+    return {
+        "items": references,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
+@app.patch("/api/v1/admin/references/{reference_id}")
+async def update_reference(
+    reference_id: str,
+    reference_update: ReferenceUpdate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update a reference entry"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    update_data = reference_update.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
+    result = await db.references.find_one_and_update(
+        {"_id": ObjectId(reference_id)},
+        {"$set": update_data},
+        return_document=True
+    )
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Reference not found")
+    
+    result["_id"] = str(result["_id"])
+    return result
+
+@app.delete("/api/v1/admin/references/{reference_id}", status_code=204)
+async def delete_reference(
+    reference_id: str,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Delete a reference entry"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    result = await db.references.delete_one({"_id": ObjectId(reference_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Reference not found")
+    
+    return None
 
 # ==================== ADMIN DASHBOARD ROUTES ====================
 @app.get("/api/v1/admin/dashboard/stats")

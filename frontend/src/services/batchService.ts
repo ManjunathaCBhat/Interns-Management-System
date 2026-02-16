@@ -6,11 +6,9 @@ export interface Batch {
   batchId: string;
   batchName: string;
   startDate: string;
-  endDate: string;
   duration: number;
   coordinator: string;
   description: string;
-  maxInterns: number;
   domains: string[];
   totalInterns: number;
   activeInterns: number;
@@ -30,19 +28,16 @@ export interface BatchCreate {
   startDate: string;
   coordinator: string;
   description?: string;
-  maxInterns?: number;
   domains?: string[];
 }
 
 export interface BatchUpdate {
   batchName?: string;
-  endDate?: string;
   startDate?: string;
   duration?: number;
   coordinator?: string;
   description?: string;
   status?: string;
-  maxInterns?: number;
   domains?: string[];
 }
 

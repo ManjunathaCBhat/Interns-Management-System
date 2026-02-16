@@ -7,8 +7,6 @@ import ForgetPassword from "@/pages/forgetpassword";
 import NotFound from '@/pages/NotFound';
 import AzureAuthCallback from '@/pages/AzureAuthCallback';
 import PerformancePage from "./pages/admin/PerformancePage";
-import MentorHub from '@/pages/mentor/MentorHub';
-
 // Admin Pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import UserManagement from '@/pages/admin/UserManagement';
@@ -275,20 +273,13 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/scrum-master/profile"
         element={
-          <ProtectedRoute allowedRoles={['scrum_master']}>
+          <ProtectedRoute allowedRoles={['intern', 'scrum_master']}>
             <InternProfile />
           </ProtectedRoute>
         }
       />
 
-      <Route
-        path="/mentor"
-        element={
-          <ProtectedRoute allowedRoles={['intern', 'scrum_master', 'admin']}>
-            <MentorHub />
-          </ProtectedRoute>
-        }
-      />
+     
 
       {/* ========== Intern Routes ========== */}
       
@@ -311,7 +302,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/intern/profile"
         element={
-          <ProtectedRoute allowedRoles={['intern']}>
+          <ProtectedRoute allowedRoles={['intern', 'scrum_master']}>
             <InternProfile />
           </ProtectedRoute>
         }
@@ -346,7 +337,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/dashboard/profile"
         element={
-          <ProtectedRoute allowedRoles={['intern']}>
+          <ProtectedRoute allowedRoles={['intern', 'scrum_master']}>
             <InternProfile />
           </ProtectedRoute>
         }

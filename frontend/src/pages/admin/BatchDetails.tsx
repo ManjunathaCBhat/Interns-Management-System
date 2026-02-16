@@ -36,7 +36,6 @@ interface BatchInfo {
   batchId: string;
   batchName: string;
   startDate: string;
-  endDate: string;
   coordinator: string;
   description?: string;
   status: string;
@@ -101,16 +100,21 @@ const BatchDetails: React.FC = () => {
       });
       return;
     }
-
+    if (!batch || !batch.batchId) {
+      toast({
+        title: 'Batch not loaded',
+        description: 'Batch information is missing. Please try again later.',
+        variant: 'destructive',
+      });
+      return;
+    }
     try {
       setProcessing(true);
-      const result = await batchService.addUsersToBatch(batch!.batchId, selectedUsers);
-      
+      const result = await batchService.addUsersToBatch(batch.batchId, selectedUsers);
       toast({
         title: 'Users added',
         description: `Successfully added ${result.added.length} users to the batch`,
       });
-      
       setShowAddModal(false);
       setSelectedUsers([]);
       setSearchQuery('');
@@ -213,7 +217,7 @@ const BatchDetails: React.FC = () => {
             </div>
             <Badge>{batch.status}</Badge>
           </div>
-          <Button onClick={() => setShowAddModal(true)}>
+          <Button onClick={() => setShowAddModal(true)} disabled={!batch || !batch.batchId}>
             <Plus className="h-4 w-4 mr-2" />
             Add Members
           </Button>
@@ -253,19 +257,6 @@ const BatchDetails: React.FC = () => {
                   </p>
                 </div>
                 <Calendar className="h-8 w-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">End Date</p>
-                  <p className="text-lg font-semibold">
-                    {new Date(batch.endDate).toLocaleDateString()}
-                  </p>
-                </div>
-                <Calendar className="h-8 w-8 text-purple-500" />
               </div>
             </CardContent>
           </Card>

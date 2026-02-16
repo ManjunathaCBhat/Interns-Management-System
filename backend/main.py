@@ -16,10 +16,11 @@ import json
 import re
 import asyncio
 import uvicorn
+import httpx
 from pathlib import Path
 from dotenv import load_dotenv
 from urllib.parse import quote
-import httpx
+
 from utils.security import hash_password
 # Import our modules
 
@@ -37,8 +38,8 @@ from models import (
     Task, TaskCreate, TaskUpdate,
     Project, ProjectCreate, ProjectUpdate,
     PTO, PTOCreate, PTOUpdate,
-    Batch, BatchCreate, BatchUpdate,
-    BatchYear, BatchMonth, Organization,
+    BatchCreate, BatchUpdate,
+    Organization,
     OfficeAttendanceCreate,
     MentorRequestCreate, MentorRequestUpdate,
     PerformanceReviewCreate, PerformanceReviewUpdate, Feedback360, FeedbackEntry, FeedbackType
@@ -197,14 +198,6 @@ class ResetPasswordRequest(BaseModel):
     confirm_password: str
 
 
-class BatchYearCreate(BaseModel):
-    year: int
-    label: Optional[str] = None
-
-
-class BatchMonthCreate(BaseModel):
-    name: str
-    order: int
 
 
 class OrganizationCreate(BaseModel):
@@ -1112,25 +1105,24 @@ async def get_dashboard_stats(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
 
-# @app.get("/api/v1/admin/dashboard/recent-interns")
-# async def get_recent_interns(
-#     limit: int = 5,
-#     db = Depends(get_database),
-#     current_user: User = Depends(get_current_active_user)
-# ):
-#     """Get recently added interns"""
-#     if current_user.role not in ["admin", "scrum_master"]:
-#         raise HTTPException(status_code=403, detail="Not authorized")
-    
-#     interns = []
-#     async for intern in db.interns.find().sort("created_at", -1).limit(limit):
-#         intern["_id"] = str(intern["_id"])
-#         # Convert date to ISO string if needed
-#         if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
-#             intern["joinedDate"] = intern["joinedDate"].isoformat()
-#         interns.append(intern)
-    
-#     return interns
+
+@app.get("/api/v1/admin/dashboard/recent-interns")
+async def get_recent_interns(
+    limit: int = 5,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get recently added interns"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    interns = []
+    async for intern in db.interns.find().sort("created_at", -1).limit(limit):
+        intern["_id"] = str(intern["_id"])
+        # Convert date to ISO string if needed
+        if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
+            intern["joinedDate"] = intern["joinedDate"].isoformat()
+        interns.append(intern)
+    return interns
 
 
 @app.get("/api/v1/admin/dashboard/blocked-interns")
@@ -2084,64 +2076,6 @@ async def remove_user_from_batch(
 
 
 # ==================== BATCH CATEGORY ROUTES ====================
-@app.get("/api/v1/batch-years/")
-async def list_batch_years(
-    db = Depends(get_database),
-    current_user: User = Depends(get_current_active_user)
-):
-    years = []
-    async for year in db.batch_years.find().sort("year", -1):
-        year["_id"] = str(year["_id"])
-        years.append(year)
-    return years
-
-
-@app.post("/api/v1/batch-years/", status_code=201)
-async def create_batch_year(
-    payload: BatchYearCreate,
-    db = Depends(get_database),
-    admin: User = Depends(get_admin_user)
-):
-    existing = await db.batch_years.find_one({"year": payload.year})
-    if existing:
-        raise HTTPException(status_code=400, detail="Batch year already exists")
-
-    data = payload.model_dump()
-    data["created_at"] = datetime.now(timezone.utc)
-    data["updated_at"] = datetime.now(timezone.utc)
-    result = await db.batch_years.insert_one(data)
-    data["_id"] = str(result.inserted_id)
-    return data
-
-
-@app.get("/api/v1/batch-months/")
-async def list_batch_months(
-    db = Depends(get_database),
-    current_user: User = Depends(get_current_active_user)
-):
-    months = []
-    async for month in db.batch_months.find().sort("order", 1):
-        month["_id"] = str(month["_id"])
-        months.append(month)
-    return months
-
-
-@app.post("/api/v1/batch-months/", status_code=201)
-async def create_batch_month(
-    payload: BatchMonthCreate,
-    db = Depends(get_database),
-    admin: User = Depends(get_admin_user)
-):
-    existing = await db.batch_months.find_one({"name": payload.name})
-    if existing:
-        raise HTTPException(status_code=400, detail="Batch month already exists")
-
-    data = payload.model_dump()
-    data["created_at"] = datetime.now(timezone.utc)
-    data["updated_at"] = datetime.now(timezone.utc)
-    result = await db.batch_months.insert_one(data)
-    data["_id"] = str(result.inserted_id)
-    return data
 
 
 @app.get("/api/v1/organizations/")
@@ -2198,6 +2132,8 @@ async def create_intern(
             raise HTTPException(status_code=400, detail="Batch is full")
     
     intern_dict = intern_data.model_dump()
+    if not intern_dict.get("organization"):
+        raise HTTPException(status_code=400, detail="Organization is required for interns")
     intern_dict["status"] = "onboarding"
     intern_dict["taskCount"] = 0
     intern_dict["completedTasks"] = 0

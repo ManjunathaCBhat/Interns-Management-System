@@ -32,6 +32,7 @@ export interface UserUpdate {
 export interface Intern {
   _id: string;
   name: string;
+  organization: string;
   email: string;
   phone: string;
   college: string;

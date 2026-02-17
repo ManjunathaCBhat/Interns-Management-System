@@ -21,6 +21,19 @@ from dotenv import load_dotenv
 from urllib.parse import quote
 import httpx
 from utils.security import hash_password
+from projects import router as projects_router
+
+# Load .env from backend folder first, then from root folder
+env_path = Path(__file__).parent / '.env'
+root_env_path = Path(__file__).parent.parent / '.env'
+
+if env_path.exists():
+    load_dotenv(env_path)
+elif root_env_path.exists():
+    load_dotenv(root_env_path)
+else:
+    load_dotenv()  # Try default locations
+
 # Import our modules
 
 from database import connect_db, close_db, get_database
@@ -47,7 +60,7 @@ from models import (
 
 
 
-# ========== FASTAPI APP INIT (MOVED UP) ========== #
+
 async def lifespan(app: FastAPI):
     """Startup and shutdown"""
     try:
@@ -63,7 +76,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# ==================== PERFORMANCE REVIEW ROUTES ====================
+
 @app.post("/api/v1/admin/performance/review", status_code=201)
 async def submit_performance_review(
     payload: PerformanceReviewCreate,
@@ -82,7 +95,7 @@ async def submit_performance_review(
     review["_id"] = str(result.inserted_id)
     return review
 
-# ==================== 360-DEGREE FEEDBACK ROUTES ====================
+
 @app.post("/api/v1/admin/performance/feedback360", status_code=201)
 async def submit_feedback_360(
     payload: Feedback360,
@@ -137,7 +150,7 @@ async def get_performance_reviews(
     return reviews
 
 
-# Load .env from backend folder first, then from root folder
+
 env_path = Path(__file__).parent / '.env'
 root_env_path = Path(__file__).parent.parent / '.env'
 
@@ -146,11 +159,11 @@ if env_path.exists():
 elif root_env_path.exists():
     load_dotenv(root_env_path)
 else:
-    load_dotenv()  # Try default locations
+    load_dotenv()  
 
 
 
-# Admin emails that are auto-approved with admin role
+
 ADMIN_EMAILS = [
     "mukund.hs@cirruslabs.io",
     "manjunatha.bhat@cirruslabs.io",
@@ -328,6 +341,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+app.include_router(projects_router)
+
 
 
 
@@ -335,10 +350,10 @@ app = FastAPI(
 import random
 from datetime import timedelta
 
-# Temporary OTP Store (for testing)
+
 otp_store = {}
 
-# ================= OTP SEND ROUTE =================
+
 @app.post("/api/auth/send-otp")
 async def send_otp_route(payload: dict):
     email = payload.get("email")
@@ -348,7 +363,7 @@ async def send_otp_route(payload: dict):
 
     otp = str(random.randint(100000, 999999))
 
-    # Store OTP with expiry (5 min)
+    
     otp_store[email] = {
         "otp": otp,
         "expires": datetime.now() + timedelta(minutes=5)
@@ -360,7 +375,7 @@ async def send_otp_route(payload: dict):
     return {"message": "OTP sent successfully"}
 
 
-# ================= REGISTER ROUTE =================
+
 @app.post("/api/auth/register")
 async def register_with_otp(payload: dict, db=Depends(get_database)):
 
@@ -379,10 +394,10 @@ async def register_with_otp(payload: dict, db=Depends(get_database)):
     if otp != saved["otp"]:
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
-    # OTP verified → remove OTP
+    
     otp_store.pop(email)
 
-    # Check if email already exists
+
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -406,7 +421,6 @@ async def register_with_otp(payload: dict, db=Depends(get_database)):
 
 
 
-# CORS
 def parse_cors_origins(value: Optional[str]) -> List[str]:
     if not value:
         return []
@@ -435,7 +449,7 @@ app.add_middleware(
 )
 
 
-# ==================== ROOT ROUTES ====================
+
 @app.get("/")
 async def root():
     return {"message": "Intern Lifecycle Manager API v2.0", "docs": "/docs"}
@@ -446,11 +460,11 @@ async def health():
     return {"status": "healthy", "version": "2.0.0"}
 
 
-# ==================== AUTH ROUTES ====================
+
 @app.post("/api/v1/auth/login", response_model=Token)
 async def login(credentials: LoginRequest, db = Depends(get_database)):
     """Login with email and password"""
-    # Normalize email to lowercase
+    
     email = normalize_email(credentials.email)
 
     user = await db.users.find_one({"email": email})
@@ -461,7 +475,7 @@ async def login(credentials: LoginRequest, db = Depends(get_database)):
     if not user.get("is_active", True):
         raise HTTPException(status_code=400, detail="Your account has been deactivated")
 
-    # Check if user is approved (admins are always approved)
+  
     if not user.get("is_approved", False) and user.get("role") != "admin":
         raise HTTPException(
             status_code=403,
@@ -1144,7 +1158,7 @@ async def get_blocked_interns(
     
     today = date.today().isoformat()
     
-    # Use aggregation pipeline to join intern data in a single query
+   
     pipeline = [
         {
             "$match": {
@@ -1183,7 +1197,7 @@ async def get_blocked_interns(
         },
         {
             "$project": {
-                "internDetails": 0  # Remove the array field
+                "internDetails": 0 
             }
         }
     ]
@@ -1208,7 +1222,7 @@ async def get_blocked_dsus(
     
     today = date.today().isoformat()
     
-    # Use aggregation pipeline to join intern data in a single query
+    
     pipeline = [
         {
             "$match": {
@@ -1250,7 +1264,7 @@ async def get_blocked_dsus(
         },
         {
             "$project": {
-                "internDetails": 0  # Remove the array field
+                "internDetails": 0  
             }
         }
     ]
@@ -1328,13 +1342,13 @@ async def get_batch_performance(
     async for batch in db.batches.find({"status": {"$in": ["active", "completed"]}}):
         batch["_id"] = str(batch["_id"])
         
-        # Get batch interns
+      
         batch_interns = []
         async for intern in db.interns.find({"batch": batch["batchId"]}):
             batch_interns.append(intern)
         
         if batch_interns:
-            # Calculate averages
+          
             avg_completion = sum(i.get("completedTasks", 0) / max(i.get("taskCount", 1), 1) * 100 for i in batch_interns) / len(batch_interns)
             avg_streak = sum(i.get("dsuStreak", 0) for i in batch_interns) / len(batch_interns)
             
@@ -1349,7 +1363,7 @@ async def get_batch_performance(
     return batches
 
 
-# ==================== PERFORMANCE ROUTES ====================
+
 @app.get("/api/v1/admin/performance/users")
 async def list_performance_users(
     role: Optional[str] = Query(None),
@@ -1451,7 +1465,7 @@ async def get_performance_activity(
     }
 
 
-# ==================== MENTOR REQUEST ROUTES ====================
+
 @app.post("/api/v1/mentor-requests", status_code=201)
 async def create_mentor_request(
     payload: MentorRequestCreate,
@@ -1613,7 +1627,7 @@ async def get_my_mentorships(
     }
 
 
-# ==================== BATCH ROUTES ====================
+
 @app.post("/api/v1/batches/", status_code=201)
 async def create_batch(
     batch_data: BatchCreate,
@@ -1624,23 +1638,23 @@ async def create_batch(
     if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Generate unique batch ID from batch name and timestamp
+   
     batch_name_slug = batch_data.batchName.lower().replace(" ", "_").replace("-", "_")
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     generated_batch_id = f"{batch_name_slug}_{timestamp}"
     
-    # Check if batch ID already exists (very unlikely but safe to check)
+  
     existing = await db.batches.find_one({"batchId": generated_batch_id})
     if existing:
-        # Add random suffix if collision occurs
+     
         import random
         generated_batch_id = f"{generated_batch_id}_{random.randint(1000, 9999)}"
     
-    # Determine status and calculate end date
+   
     start_date = parse_date(batch_data.startDate)
     today = date.today()
     
-    # Default duration is 90 days (3 months) if not specified
+   
     default_duration = 90
     end_date = start_date + timedelta(days=default_duration)
     
@@ -1653,7 +1667,7 @@ async def create_batch(
     
     batch_dict = batch_data.model_dump()
     batch_dict["batchId"] = generated_batch_id
-    # Convert dates to datetime for MongoDB
+    # Convert dates to datetime 
     batch_dict["startDate"] = datetime.combine(start_date, datetime.min.time())
     batch_dict["endDate"] = datetime.combine(end_date, datetime.min.time())
     batch_dict["duration"] = default_duration
@@ -1689,7 +1703,7 @@ async def list_batches(
     if status:
         match_stage["status"] = status
     
-    # Use aggregation pipeline to join all related data in single query
+ 
     pipeline = [
         {"$match": match_stage} if match_stage else {"$match": {}},
         {"$sort": {"startDate": -1}},
@@ -1705,7 +1719,7 @@ async def list_batches(
                 "as": "yearDetails"
             }
         },
-        # Lookup month
+        
         {
             "$lookup": {
                 "from": "batch_months",
@@ -1717,7 +1731,7 @@ async def list_batches(
                 "as": "monthDetails"
             }
         },
-        # Lookup organization
+        
         {
             "$lookup": {
                 "from": "organizations",
@@ -1729,7 +1743,7 @@ async def list_batches(
                 "as": "orgDetails"
             }
         },
-        # Lookup and count interns by status
+        
         {
             "$lookup": {
                 "from": "interns",
@@ -1746,7 +1760,7 @@ async def list_batches(
                 "as": "internStats"
             }
         },
-        # Add computed fields
+        
         {
             "$addFields": {
                 "year": {
@@ -1805,7 +1819,7 @@ async def list_batches(
                 "averageTaskCompletion": {"$ifNull": ["$averageTaskCompletion", 0.0]}
             }
         },
-        # Remove lookup arrays
+        
         {"$project": {"yearDetails": 0, "monthDetails": 0, "orgDetails": 0, "internStats": 0}}
     ]
     
@@ -1813,7 +1827,7 @@ async def list_batches(
     async for batch in db.batches.aggregate(pipeline):
         batch["_id"] = str(batch["_id"])
         
-        # Convert date objects to datetime for serialization
+        # Convert date objects to datetime 
         if isinstance(batch.get("startDate"), date) and not isinstance(batch.get("startDate"), datetime):
             batch["startDate"] = datetime.combine(batch["startDate"], datetime.min.time())
         if isinstance(batch.get("endDate"), date) and not isinstance(batch.get("endDate"), datetime):
@@ -1863,7 +1877,7 @@ async def get_batch(
         except HTTPException:
             pass
     
-    # Get detailed stats
+    
     interns = []
     async for intern in db.interns.find({"batch": batch_id}).sort("name", 1):
         intern["_id"] = str(intern["_id"])
@@ -1877,7 +1891,7 @@ async def get_batch(
     batch["completedInterns"] = len([i for i in interns if i["status"] == "completed"])
     batch["droppedInterns"] = len([i for i in interns if i["status"] == "dropped"])
     
-    # Calculate performance metrics
+    
     if interns:
         avg_completion = sum(i.get("completedTasks", 0) / max(i.get("taskCount", 1), 1) * 100 for i in interns) / len(interns)
         avg_streak = sum(i.get("dsuStreak", 0) for i in interns) / len(interns)
@@ -1938,7 +1952,7 @@ async def delete_batch(
     if current_user.role not in ["admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Check if batch has interns
+   
     intern_count = await db.interns.count_documents({"batch": batch_id})
     if intern_count > 0:
         raise HTTPException(
@@ -1987,7 +2001,7 @@ async def add_users_to_batch(
         try:
             batch = await db.batches.find_one({"_id": parse_object_id(batch_id, "batch")})
             if batch:
-                # Use the batchId from the found batch
+                
                 batch_id = batch["batchId"]
         except HTTPException:
             pass
@@ -2007,7 +2021,7 @@ async def add_users_to_batch(
                 failed_users.append({"id": user_id, "reason": "User not found"})
                 continue
             
-            # Update user's batch field
+            
             await db.users.update_one(
                 {"_id": parse_object_id(user_id, "user")},
                 {
@@ -2018,7 +2032,7 @@ async def add_users_to_batch(
                 }
             )
             
-            # Add user ID to batch's internIds if not already present
+            
             if user_id not in batch.get("internIds", []):
                 await db.batches.update_one(
                     {"batchId": batch_id},
@@ -2059,8 +2073,7 @@ async def remove_user_from_batch(
     batch = await db.batches.find_one({"batchId": batch_id})
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
-    
-    # Remove user from batch
+
     await db.users.update_one(
         {"_id": parse_object_id(user_id, "user")},
         {
@@ -2071,7 +2084,7 @@ async def remove_user_from_batch(
         }
     )
     
-    # Remove user ID from batch's internIds
+    
     await db.batches.update_one(
         {"batchId": batch_id},
         {
@@ -2173,8 +2186,6 @@ async def create_organization(
     data["_id"] = str(result.inserted_id)
     return data
 
-
-# ==================== INTERN ROUTES ====================
 @app.post("/api/v1/interns/", status_code=201)
 async def create_intern(
     intern_data: InternCreate,
@@ -2310,7 +2321,7 @@ async def delete_intern(
     return None
 
 
-# ==================== DSU ROUTES ====================
+
 @app.post("/api/v1/dsu-entries/", status_code=201)
 async def create_dsu(
     dsu_data: DSUCreate,
@@ -2363,7 +2374,7 @@ async def list_dsu_entries(
         match_stage["internId"] = intern_id
     
     if batch:
-        # Get all interns in batch first (one query)
+      
         intern_ids = []
         async for intern in db.interns.find({"batch": batch}, {"_id": 1}):
             intern_ids.append(str(intern["_id"]))
@@ -2540,7 +2551,7 @@ async def list_office_attendance(
     return records
 
 
-# ==================== TASK ROUTES ====================
+
 @app.post("/api/v1/tasks/", status_code=201)
 async def create_task(
     task_data: TaskCreate,
@@ -2670,7 +2681,6 @@ async def delete_task(
     return None
 
 
-# ==================== PTO ROUTES ====================
 @app.post("/api/v1/pto/", status_code=201)
 async def create_pto(
     pto_data: PTOCreate,
@@ -2697,7 +2707,7 @@ async def create_pto(
             end = datetime.fromisoformat(str(end_value))
             pto_dict["numberOfDays"] = (end - start).days + 1
 
-    # Normalize dates to datetimes for MongoDB encoding
+    
     def normalize_pto_date(value):
         if isinstance(value, datetime):
             return value
@@ -2760,7 +2770,7 @@ async def list_ptos(
     if intern_id:
         match_stage["internId"] = intern_id
     
-    # Use aggregation pipeline with $lookup to join intern data
+
     pipeline = [
         {"$match": match_stage} if match_stage else {"$match": {}},
         {"$sort": {"created_at": -1}},
@@ -2819,7 +2829,7 @@ async def list_ptos(
         pto["_id"] = str(pto["_id"])
         ptos.append(pto)
     
-    # Get total count for pagination
+    
     total = await db.pto.count_documents(match_stage)
     
     return {
@@ -2864,7 +2874,7 @@ async def update_pto(
     return result
 
 
-# ==================== PROJECT ROUTES ====================
+
 @app.post("/api/v1/projects/", status_code=201)
 async def create_project(
     project_data: ProjectCreate,
@@ -3016,18 +3026,114 @@ async def get_project_updates(
 
     return tasks
 
-# ==================== INTERN PROFILE ROUTES ====================
+
+
+
+
+
+
+
+
+
+
+@app.get("/api/v1/projects/my-projects")
+async def get_my_projects(
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get all projects assigned to the current intern
+    """
+    if current_user.role != "intern":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only interns can access this endpoint"
+        )
+    
+    # Find intern profile by email
+    intern = await db.interns.find_one({"email": current_user.email})
+    if not intern:
+        return []
+    
+    # Get intern's ID
+    intern_id = str(intern["_id"])
+    
+
+    projects = []
+    async for project in db.projects.find({"internIds": intern_id}):
+        project["_id"] = str(project["_id"])
+        projects.append(project)
+    
+    return projects
+
+
+@app.get("/api/v1/projects/{project_id}/tasks")
+async def get_project_tasks(
+    project_id: str,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get all tasks for a specific project
+    """
+    # Verify project exists
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id)})
+    except:
+        raise HTTPException(status_code=400, detail="Invalid project ID")
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get tasks for this project
+    tasks = []
+    async for task in db.tasks.find({"project": project.get("name")}):
+        task["_id"] = str(task["_id"])
+        
+        
+        if task.get("internId"):
+            try:
+                intern = await db.interns.find_one({"_id": ObjectId(task["internId"])})
+                if intern:
+                    task["internName"] = intern.get("name", "Unknown")
+            except:
+                pass
+        
+        tasks.append(task)
+    
+    return tasks
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @app.get("/api/v1/interns/me/profile")
 async def get_my_profile(
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
     """Get current user's intern profile"""
-    # Find intern by email matching current user
+    
     intern = await db.interns.find_one({"email": current_user.email})
     
     if not intern:
-        # Return empty profile if intern doesn't exist yet
+        
         return {
             "exists": False,
             "message": "Profile not found"
@@ -3050,13 +3156,12 @@ async def update_my_profile(
     current_user: User = Depends(get_current_active_user)
 ):
     """Update current user's intern profile"""
-    # Find existing intern profile
+    
     intern = await db.interns.find_one({"email": current_user.email})
     
-    # Prepare update data
     update_data = {}
     
-    # Handle date fields
+    
     if "startDate" in profile_data:
         update_data["startDate"] = profile_data["startDate"]
     if "joinedDate" in profile_data:
@@ -3064,7 +3169,7 @@ async def update_my_profile(
     if "endDate" in profile_data:
         update_data["endDate"] = profile_data["endDate"]
     
-    # Handle other fields
+
     allowed_fields = ["currentProject", "mentor", "skills", "phone", 
                      "internType", "payType", "college", "degree", "batch"]
     

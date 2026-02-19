@@ -3187,9 +3187,9 @@ if env_path.exists():
 elif root_env_path.exists():
     load_dotenv(root_env_path)
 else:
-    load_dotenv()  # Try default locations
+    load_dotenv()  
 
-# Import our modules
+
 
 from database import connect_db, close_db, get_database
 from auth import (
@@ -3649,7 +3649,7 @@ async def login(credentials: LoginRequest, db = Depends(get_database)):
 @app.post("/api/v1/auth/register", response_model=UserResponse, status_code=201)
 async def register(user_data: UserCreate, db = Depends(get_database)):
     """Register new user - requires admin approval"""
-    # Normalize email to lowercase
+    
     email = normalize_email(user_data.email)
     username = user_data.username.lower().strip()
 
@@ -3660,10 +3660,10 @@ async def register(user_data: UserCreate, db = Depends(get_database)):
     if existing:
         raise HTTPException(status_code=400, detail="User with this email or username already exists")
 
-    # Check if this is an admin email (auto-approve with admin role)
+    
     is_admin = email in ADMIN_EMAILS
     role = "admin" if is_admin else "intern"
-    is_approved = is_admin  # Admins are auto-approved
+    is_approved = is_admin  
 
     user_dict = {
         "username": username,
@@ -3726,7 +3726,7 @@ async def forgot_password(payload: ForgotPasswordRequest, db = Depends(get_datab
 
     reset_link = f"{frontend_url}/forgot-password?token={quote(reset_token)}"
 
-    # Try to send email, but don't fail if it times out
+    
     try:
         await send_reset_email(email, reset_link)
         print(f"[ForgotPassword] Reset email sent to {email}")
@@ -3748,7 +3748,7 @@ async def reset_password(payload: ResetPasswordRequest, db = Depends(get_databas
     print(f"[ResetPassword] Looking for token hash: {token_hash[:16]}...")
     user = await db.users.find_one({"reset_password_id": token_hash})
     if not user:
-        # Check if ANY user has a reset token to help debug
+        
         any_reset = await db.users.find_one({"reset_password_id": {"$exists": True, "$ne": None}})
         if any_reset:
             print(f"[ResetPassword] Token hash not found, but other reset tokens exist")
@@ -3765,7 +3765,7 @@ async def reset_password(payload: ResetPasswordRequest, db = Depends(get_databas
         print("[ResetPassword] No expiry time set")
         raise HTTPException(status_code=400, detail="Reset link has expired")
     
-    # Handle timezone-naive datetime from database
+    
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     
@@ -3822,14 +3822,14 @@ async def azure_sso(azure_token: dict, db = Depends(get_database)):
     # Get or create user in our database
     user_doc = await get_or_create_azure_user(azure_user, db)
 
-    # Check if user is approved (admins are always approved)
+    
     if not user_doc.get("is_approved", False) and user_doc.get("role") != "admin":
         raise HTTPException(
             status_code=403,
             detail="Your account is pending admin approval. Please wait for approval."
         )
 
-    # Normalize role - convert any invalid roles to 'intern'
+    
     valid_roles = ["admin", "scrum_master", "intern"]
     user_role = user_doc.get("role", "intern")
     if user_role not in valid_roles:
@@ -3840,7 +3840,7 @@ async def azure_sso(azure_token: dict, db = Depends(get_database)):
             {"$set": {"role": "intern"}}
         )
 
-    # Create our own JWT token for the user
+    
     our_token = create_access_token(
         data={"sub": user_doc["username"], "role": user_role}
     )
@@ -3885,7 +3885,7 @@ async def azure_sso_callback(request: dict, db = Depends(get_database)):
         raise HTTPException(status_code=400, detail="Missing authorization code")
     
     try:
-        # Exchange authorization code for token
+        
         tenant_id = os.getenv("tenant_id")
         client_id = os.getenv("client_id")
         secret_key = os.getenv("AZURE_SECRET_KEY")
@@ -3935,21 +3935,20 @@ async def azure_sso_callback(request: dict, db = Depends(get_database)):
             if not access_token:
                 raise HTTPException(status_code=401, detail="No access token in response")
         
-        # Validate token and get/create user
+    
         from azure_auth import validate_azure_token, get_or_create_azure_user
 
         azure_user = await validate_azure_token(access_token)
         user_doc = await get_or_create_azure_user(azure_user, db)
 
-        # Check if user is approved (admins are always approved)
+        # Check if user is approved 
         if not user_doc.get("is_approved", False) and user_doc.get("role") != "admin":
             raise HTTPException(
                 status_code=403,
                 detail="Your account is pending admin approval. Please wait for approval."
             )
 
-        # Create our JWT token
-        # Normalize role - convert any invalid roles to 'intern'
+        
         valid_roles = ["admin", "scrum_master", "intern"]
         user_role = user_doc.get("role", "intern")
         if user_role not in valid_roles:
@@ -4115,6 +4114,130 @@ async def list_pending_users(
         })
 
     return users
+
+
+
+
+# @app.post("/api/v1/admin/users", response_model=UserResponse, status_code=201)
+# async def admin_create_user(
+#     user_data: UserCreate,
+#     db = Depends(get_database),
+#     current_user: User = Depends(get_current_active_user)
+# ):
+#     """Admin creates a user — auto-approved immediately, can set any role"""
+#     if current_user.role != "admin":
+#         raise HTTPException(status_code=403, detail="Admin access required")
+
+#     email    = normalize_email(user_data.email)
+#     username = user_data.username.lower().strip()
+
+#     existing = await db.users.find_one(
+#         {"$or": [{"email": email}, {"username": username}]}
+#     )
+#     if existing:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="User with this email or username already exists"
+#         )
+
+#     user_dict = {
+#         "username":        username,
+#         "email":           email,
+#         "name":            user_data.name,
+#         "employee_id":     user_data.employee_id,
+#         "hashed_password": hash_password(user_data.password),
+#         "role":            user_data.role if user_data.role else "intern",
+#         "is_active":       True,
+#         "is_approved":     True,   # auto-approved since an admin is creating the account
+#         "auth_provider":   "password",
+#         "created_at":      datetime.now(timezone.utc),
+#         "updated_at":      datetime.now(timezone.utc)
+#     }
+
+#     result = await db.users.insert_one(user_dict)
+
+#     return UserResponse(
+#         id=str(result.inserted_id),
+#         username=user_dict["username"],
+#         email=user_dict["email"],
+#         name=user_dict["name"],
+#         employee_id=user_dict.get("employee_id"),
+#         role=user_dict["role"],
+#         is_active=True,
+#         is_approved=True
+#     )
+
+
+
+
+
+class AdminUserCreate(BaseModel):
+    name: str
+    email: str
+    username: str
+    password: str
+    role: str = "intern"
+
+@app.post("/api/v1/admin/users", response_model=UserResponse, status_code=201)
+async def admin_create_user(
+    user_data: AdminUserCreate,
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Admin creates a user — auto-approved immediately, can set any role"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    email    = normalize_email(user_data.email)
+    username = user_data.username.lower().strip()
+
+    existing = await db.users.find_one(
+        {"$or": [{"email": email}, {"username": username}]}
+    )
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="User with this email or username already exists"
+        )
+
+    user_dict = {
+        "username":        username,
+        "email":           email,
+        "name":            user_data.name,
+        "employee_id":     None,
+        "hashed_password": hash_password(user_data.password),
+        "role":            user_data.role if user_data.role else "intern",
+        "is_active":       True,
+        "is_approved":     True,
+        "auth_provider":   "password",
+        "created_at":      datetime.now(timezone.utc),
+        "updated_at":      datetime.now(timezone.utc)
+    }
+
+    result = await db.users.insert_one(user_dict)
+
+    return UserResponse(
+        id=str(result.inserted_id),
+        username=user_dict["username"],
+        email=user_dict["email"],
+        name=user_dict["name"],
+        employee_id=None,
+        role=user_dict["role"],
+        is_active=True,
+        is_approved=True
+    )
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 @app.patch("/api/v1/admin/users/{user_id}")

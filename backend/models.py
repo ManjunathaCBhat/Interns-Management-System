@@ -396,6 +396,8 @@ class UserResponse(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    name: Optional[str] = None        
+    email: Optional[EmailStr] = None  
     role: Optional[UserRole] = None
     is_approved: Optional[bool] = None
     is_active: Optional[bool] = None

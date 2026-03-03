@@ -141,8 +141,9 @@ const BatchManagement: React.FC = () => {
       const response = await apiClient.get('/admin/users');
       // Handle paginated response
       const data = response.data.items || response.data;
+      // Show all users who are interns or scrum masters (including those in other batches)
       const available = data.filter(
-        (user: User) => !user.batch && (user.role === 'intern' || user.role === 'scrum_master')
+        (user: User) => (user.role === 'intern' || user.role === 'scrum_master') && user.batch !== batchId
       );
       setAvailableUsers(available);
     } catch (error) {
@@ -166,13 +167,28 @@ const BatchManagement: React.FC = () => {
 
     try {
       setAddingInterns(true);
-      await batchService.addUsersToBatch(selectedBatchId, selectedUsers);
-      
-      toast({
-        title: 'Success',
-        description: `${selectedUsers.length} user(s) added to batch successfully!`,
-      });
-      
+      const result = await batchService.addUsersToBatch(selectedBatchId, selectedUsers);
+
+      // Check if there were any failures
+      if (result.failed && result.failed.length > 0) {
+        const failedDetails = result.failed.map((f: any) =>
+          `${f.name || f.id}: ${f.reason}`
+        ).join('\n');
+
+        toast({
+          title: result.added.length > 0 ? 'Partial success' : 'Failed to add users',
+          description: result.added.length > 0
+            ? `Added ${result.added.length} user(s). Failed:\n${failedDetails}`
+            : `Failed to add users:\n${failedDetails}`,
+          variant: result.added.length > 0 ? 'default' : 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: `${result.added.length} user(s) added to batch successfully!`,
+        });
+      }
+
       setShowAddInternsModal(false);
       setSelectedUsers([]);
       fetchBatches();
@@ -182,7 +198,7 @@ const BatchManagement: React.FC = () => {
         : Array.isArray(error?.response?.data?.detail)
         ? error.response.data.detail.map((e: any) => e.msg || e).join(', ')
         : 'Failed to add users to batch';
-      
+
       toast({
         title: 'Error',
         description: errorMsg,
@@ -421,8 +437,20 @@ const BatchManagement: React.FC = () => {
                         <div className="flex-1">
                           <p className="font-medium">{user.name}</p>
                           <p className="text-sm text-muted-foreground">{user.email}</p>
+                          {user.batch && (
+                            <p className="text-xs text-orange-600 mt-1">
+                              Already in batch: {user.batch}
+                            </p>
+                          )}
                         </div>
-                        <Badge variant="outline">{user.role}</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{user.role}</Badge>
+                          {user.batch && (
+                            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 text-xs">
+                              Other Batch
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

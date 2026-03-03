@@ -3200,7 +3200,7 @@ from auth import (
 )
 from models import (
     User, UserCreate, UserUpdate, UserResponse, LoginRequest, Token,
-    Intern, InternCreate, InternUpdate,
+    InternCreate, InternUpdate,
     DSUEntry, DSUCreate, DSUUpdate,
     Task, TaskCreate, TaskUpdate,
     Project, ProjectCreate, ProjectUpdate,
@@ -4036,7 +4036,7 @@ async def list_basic_users(
 @app.get("/api/v1/admin/users")
 async def list_users(
     pending_only: bool = Query(False, description="Filter to show only pending approval users"),
-    role: Optional[str] = Query(None, description="Filter by role"),
+    role: Optional[str] = Query(None, description="Filter by role (can specify multiple comma-separated: intern,scrum_master)"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db = Depends(get_database),
@@ -4050,7 +4050,12 @@ async def list_users(
     if pending_only:
         query["is_approved"] = False
     if role:
-        query["role"] = role
+        # Support comma-separated multiple roles
+        roles = [r.strip() for r in role.split(",")]
+        if len(roles) == 1:
+            query["role"] = roles[0]
+        else:
+            query["role"] = {"$in": roles}
 
     total = await db.users.count_documents(query)
     
@@ -4061,6 +4066,7 @@ async def list_users(
         "name": 1,
         "employee_id": 1,
         "role": 1,
+        "batch": 1,  # Include batch info for interns/scrum_masters
         "is_active": 1,
         "is_approved": 1,
         "auth_provider": 1,
@@ -4069,8 +4075,9 @@ async def list_users(
 
     users = []
     async for user in db.users.find(query, projection).sort("created_at", -1).skip(skip).limit(limit):
-        users.append({
+        user_data = {
             "id": str(user["_id"]),
+            "_id": str(user["_id"]),  # Include both for compatibility
             "username": user.get("username"),
             "email": user.get("email"),
             "name": user.get("name"),
@@ -4080,7 +4087,13 @@ async def list_users(
             "is_approved": user.get("is_approved", False),
             "auth_provider": user.get("auth_provider"),
             "created_at": user.get("created_at")
-        })
+        }
+
+        # Include batch if present
+        if "batch" in user:
+            user_data["batch"] = user.get("batch")
+
+        users.append(user_data)
 
     return {
         "items": users,
@@ -5146,19 +5159,30 @@ async def get_batch(
     
     
     interns = []
-    async for intern in db.interns.find({"batch": batch_id}).sort("name", 1):
-        intern["_id"] = str(intern["_id"])
-        if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
-            intern["joinedDate"] = intern["joinedDate"].isoformat()
-        interns.append(intern)
-    
+    async for user in db.users.find({"batch": batch_id, "role": {"$in": ["intern", "scrum_master"]}}).sort("name", 1):
+        user["_id"] = str(user["_id"])
+        user["id"] = str(user["_id"])
+
+        # Remove sensitive fields
+        if "hashed_password" in user:
+            del user["hashed_password"]
+
+        if "joinedDate" in user and isinstance(user["joinedDate"], date):
+            user["joinedDate"] = user["joinedDate"].isoformat()
+        if "startDate" in user and isinstance(user["startDate"], date):
+            user["startDate"] = user["startDate"].isoformat()
+        if "endDate" in user and isinstance(user["endDate"], date):
+            user["endDate"] = user["endDate"].isoformat()
+
+        interns.append(user)
+
     batch["interns"] = interns
     batch["totalInterns"] = len(interns)
-    batch["activeInterns"] = len([i for i in interns if i["status"] == "active"])
-    batch["completedInterns"] = len([i for i in interns if i["status"] == "completed"])
-    batch["droppedInterns"] = len([i for i in interns if i["status"] == "dropped"])
-    
-    
+    batch["activeInterns"] = len([i for i in interns if i.get("status") == "active"])
+    batch["completedInterns"] = len([i for i in interns if i.get("status") == "completed"])
+    batch["droppedInterns"] = len([i for i in interns if i.get("status") == "dropped"])
+
+
     if interns:
         avg_completion = sum(i.get("completedTasks", 0) / max(i.get("taskCount", 1), 1) * 100 for i in interns) / len(interns)
         avg_streak = sum(i.get("dsuStreak", 0) for i in interns) / len(interns)
@@ -5215,18 +5239,18 @@ async def delete_batch(
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Delete batch (only if no interns)"""
+    """Delete batch (only if no users assigned)"""
     if current_user.role not in ["admin"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
-   
-    intern_count = await db.interns.count_documents({"batch": batch_id})
-    if intern_count > 0:
+
+
+    user_count = await db.users.count_documents({"batch": batch_id, "role": {"$in": ["intern", "scrum_master"]}})
+    if user_count > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot delete batch with {intern_count} interns. Remove interns first."
+            detail=f"Cannot delete batch with {user_count} users. Remove users first."
         )
-    
+
     result = await db.batches.delete_one({"batchId": batch_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Batch not found")
@@ -5240,15 +5264,28 @@ async def get_batch_interns(
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Get all interns in a batch"""
-    interns = []
-    async for intern in db.interns.find({"batch": batch_id}).sort("name", 1):
-        intern["_id"] = str(intern["_id"])
-        if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
-            intern["joinedDate"] = intern["joinedDate"].isoformat()
-        interns.append(intern)
-    
-    return interns
+    """Get all users (interns/scrum_masters) in a batch"""
+    users = []
+    async for user in db.users.find({"batch": batch_id, "role": {"$in": ["intern", "scrum_master"]}}).sort("name", 1):
+        user["_id"] = str(user["_id"])
+        user["id"] = str(user["_id"])
+
+        # Remove sensitive fields
+        if "hashed_password" in user:
+            del user["hashed_password"]
+        if "reset_password_id" in user:
+            del user["reset_password_id"]
+
+        if "joinedDate" in user and isinstance(user["joinedDate"], date):
+            user["joinedDate"] = user["joinedDate"].isoformat()
+        if "startDate" in user and isinstance(user["startDate"], date):
+            user["startDate"] = user["startDate"].isoformat()
+        if "endDate" in user and isinstance(user["endDate"], date):
+            user["endDate"] = user["endDate"].isoformat()
+
+        users.append(user)
+
+    return users
 
 
 @app.post("/api/v1/batches/{batch_id}/users", status_code=200)
@@ -5261,34 +5298,61 @@ async def add_users_to_batch(
     """Add interns or scrum masters to a batch"""
     if current_user.role not in ["admin", "scrum_master"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     # Verify batch exists - try by batchId first, then by _id
     batch = await db.batches.find_one({"batchId": batch_id})
     if not batch:
         try:
             batch = await db.batches.find_one({"_id": parse_object_id(batch_id, "batch")})
             if batch:
-                
                 batch_id = batch["batchId"]
         except HTTPException:
             pass
-    
+
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
-    
+
     added_users = []
     failed_users = []
-    
+
     for user_id in user_ids:
         try:
             # Check if user exists in any user collection
             user = await db.users.find_one({"_id": parse_object_id(user_id, "user")})
-            
+
             if not user:
                 failed_users.append({"id": user_id, "reason": "User not found"})
                 continue
-            
-            
+
+            # Validate user role (only interns and scrum_masters can be in batches)
+            if user.get("role") not in ["intern", "scrum_master"]:
+                failed_users.append({
+                    "id": user_id,
+                    "name": user.get("name", "Unknown"),
+                    "reason": f"Only interns and scrum masters can be added to batches. User role: {user.get('role')}"
+                })
+                continue
+
+            # Check if user is already in another batch
+            current_batch = user.get("batch")
+            if current_batch and current_batch != batch_id:
+                failed_users.append({
+                    "id": user_id,
+                    "name": user.get("name", "Unknown"),
+                    "reason": f"User is already in batch '{current_batch}'. Remove them from that batch first."
+                })
+                continue
+
+            # Check if user is already in this batch
+            if current_batch == batch_id:
+                failed_users.append({
+                    "id": user_id,
+                    "name": user.get("name", "Unknown"),
+                    "reason": "User is already in this batch"
+                })
+                continue
+
+            # Add user to batch
             await db.users.update_one(
                 {"_id": parse_object_id(user_id, "user")},
                 {
@@ -5298,8 +5362,8 @@ async def add_users_to_batch(
                     }
                 }
             )
-            
-            
+
+            # Update batch's internIds array
             if user_id not in batch.get("internIds", []):
                 await db.batches.update_one(
                     {"batchId": batch_id},
@@ -5308,16 +5372,16 @@ async def add_users_to_batch(
                         "$set": {"updated_at": datetime.now(timezone.utc)}
                     }
                 )
-            
+
             added_users.append({
                 "id": user_id,
                 "name": user.get("name", "Unknown"),
                 "role": user.get("role", "intern")
             })
-            
+
         except Exception as e:
             failed_users.append({"id": user_id, "reason": str(e)})
-    
+
     return {
         "message": f"Added {len(added_users)} users to batch {batch_id}",
         "added": added_users,
@@ -5363,6 +5427,109 @@ async def remove_user_from_batch(
     return {"message": f"User {user_id} removed from batch {batch_id}"}
 
 
+@app.post("/api/v1/batches/{batch_id}/users/transfer", status_code=200)
+async def transfer_users_to_batch(
+    batch_id: str,
+    user_ids: List[str] = Body(...),
+    db = Depends(get_database),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Transfer users from their current batch to a new batch"""
+    if current_user.role not in ["admin", "scrum_master"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Verify target batch exists
+    target_batch = await db.batches.find_one({"batchId": batch_id})
+    if not target_batch:
+        try:
+            target_batch = await db.batches.find_one({"_id": parse_object_id(batch_id, "batch")})
+            if target_batch:
+                batch_id = target_batch["batchId"]
+        except HTTPException:
+            pass
+
+    if not target_batch:
+        raise HTTPException(status_code=404, detail="Target batch not found")
+
+    transferred_users = []
+    failed_users = []
+
+    for user_id in user_ids:
+        try:
+            user = await db.users.find_one({"_id": parse_object_id(user_id, "user")})
+
+            if not user:
+                failed_users.append({"id": user_id, "reason": "User not found"})
+                continue
+
+            # Validate user role
+            if user.get("role") not in ["intern", "scrum_master"]:
+                failed_users.append({
+                    "id": user_id,
+                    "name": user.get("name", "Unknown"),
+                    "reason": f"Only interns and scrum masters can be transferred. User role: {user.get('role')}"
+                })
+                continue
+
+            old_batch_id = user.get("batch")
+
+            # If already in target batch, skip
+            if old_batch_id == batch_id:
+                failed_users.append({
+                    "id": user_id,
+                    "name": user.get("name", "Unknown"),
+                    "reason": "User is already in this batch"
+                })
+                continue
+
+            # Remove from old batch if exists
+            if old_batch_id:
+                await db.batches.update_one(
+                    {"batchId": old_batch_id},
+                    {
+                        "$pull": {"internIds": user_id},
+                        "$set": {"updated_at": datetime.now(timezone.utc)}
+                    }
+                )
+
+            # Add to new batch
+            await db.users.update_one(
+                {"_id": parse_object_id(user_id, "user")},
+                {
+                    "$set": {
+                        "batch": batch_id,
+                        "updated_at": datetime.now(timezone.utc)
+                    }
+                }
+            )
+
+            # Update target batch's internIds
+            await db.batches.update_one(
+                {"batchId": batch_id},
+                {
+                    "$addToSet": {"internIds": user_id},
+                    "$set": {"updated_at": datetime.now(timezone.utc)}
+                }
+            )
+
+            transferred_users.append({
+                "id": user_id,
+                "name": user.get("name", "Unknown"),
+                "role": user.get("role", "intern"),
+                "from_batch": old_batch_id,
+                "to_batch": batch_id
+            })
+
+        except Exception as e:
+            failed_users.append({"id": user_id, "reason": str(e)})
+
+    return {
+        "message": f"Transferred {len(transferred_users)} users to batch {batch_id}",
+        "transferred": transferred_users,
+        "failed": failed_users
+    }
+
+
 # ==================== BATCH CATEGORY ROUTES ====================
 
 
@@ -5401,38 +5568,63 @@ async def create_intern(
     db = Depends(get_database),
     admin: User = Depends(get_admin_user)
 ):
-    """Create new intern (admin only)"""
-    existing = await db.interns.find_one({"email": intern_data.email})
+    """Create new intern/scrum_master as User (admin only)"""
+    # Check if user already exists
+    existing = await db.users.find_one({"email": intern_data.email})
     if existing:
-        raise HTTPException(status_code=400, detail="Intern already exists")
-    
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+
+    existing_username = await db.users.find_one({"username": intern_data.username})
+    if existing_username:
+        raise HTTPException(status_code=400, detail="Username already taken")
+
     # Validate batch exists if provided
     if intern_data.batch:
         batch = await db.batches.find_one({"batchId": intern_data.batch})
         if not batch:
             raise HTTPException(status_code=404, detail="Batch not found")
-        
+
         # Check max capacity
-        current_count = await db.interns.count_documents({"batch": intern_data.batch})
+        current_count = await db.users.count_documents({"batch": intern_data.batch, "role": {"$in": ["intern", "scrum_master"]}})
         if current_count >= batch.get("maxInterns", 50):
             raise HTTPException(status_code=400, detail="Batch is full")
-    
-    intern_dict = intern_data.model_dump()
-    if not intern_dict.get("organization"):
+
+    user_dict = intern_data.model_dump()
+
+    # Validate organization is required for interns
+    if not user_dict.get("organization"):
         raise HTTPException(status_code=400, detail="Organization is required for interns")
-    intern_dict["status"] = "onboarding"
-    intern_dict["taskCount"] = 0
-    intern_dict["completedTasks"] = 0
-    intern_dict["dsuStreak"] = 0
-    intern_dict["joinedDate"] = date.today()
-    intern_dict["created_at"] = datetime.now(timezone.utc)
-    intern_dict["updated_at"] = datetime.now(timezone.utc)
-    
-    result = await db.interns.insert_one(intern_dict)
-    intern_dict["_id"] = str(result.inserted_id)
-    intern_dict["joinedDate"] = intern_dict["joinedDate"].isoformat()
-    
-    return intern_dict
+
+    # Hash password if provided, otherwise set a default
+    if user_dict.get("password"):
+        user_dict["hashed_password"] = pwd_context.hash(user_dict["password"])
+        del user_dict["password"]
+    else:
+        # Set a default password that must be changed
+        user_dict["hashed_password"] = pwd_context.hash("ChangeMe@123")
+
+    user_dict["status"] = "onboarding"
+    user_dict["taskCount"] = 0
+    user_dict["completedTasks"] = 0
+    user_dict["dsuStreak"] = 0
+    user_dict["joinedDate"] = date.today()
+    user_dict["is_active"] = True
+    user_dict["is_approved"] = True  # Auto-approve when created by admin
+    user_dict["created_at"] = datetime.now(timezone.utc)
+    user_dict["updated_at"] = datetime.now(timezone.utc)
+
+    result = await db.users.insert_one(user_dict)
+    user_dict["_id"] = str(result.inserted_id)
+    user_dict["id"] = str(result.inserted_id)
+
+    # Don't return password hash
+    if "hashed_password" in user_dict:
+        del user_dict["hashed_password"]
+
+    if "joinedDate" in user_dict and isinstance(user_dict["joinedDate"], date):
+        user_dict["joinedDate"] = user_dict["joinedDate"].isoformat()
+
+    return user_dict
 
 
 @app.get("/api/v1/interns/")
@@ -5440,29 +5632,48 @@ async def list_interns(
     status: Optional[str] = Query(None),
     internType: Optional[str] = Query(None),
     batch: Optional[str] = Query(None),
+    role: Optional[str] = Query(None),  # Filter by role (intern, scrum_master, or both)
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """List all interns with filters and pagination"""
-    query = {}
+    """List all interns/scrum_masters from users table with filters and pagination"""
+    # Base query - only get interns and scrum_masters
+    if role and role in ["intern", "scrum_master"]:
+        query = {"role": role}
+    else:
+        query = {"role": {"$in": ["intern", "scrum_master"]}}
+
     if status:
         query["status"] = status
     if internType:
         query["internType"] = internType
     if batch:
         query["batch"] = batch
-    
-    total = await db.interns.count_documents(query)
-    
+
+    total = await db.users.count_documents(query)
+
     interns = []
-    async for intern in db.interns.find(query).skip(skip).limit(limit):
-        intern["_id"] = str(intern["_id"])
-        if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
-            intern["joinedDate"] = intern["joinedDate"].isoformat()
-        interns.append(intern)
-    
+    async for user in db.users.find(query).skip(skip).limit(limit).sort("name", 1):
+        user["_id"] = str(user["_id"])
+        user["id"] = str(user.get("_id", ""))
+
+        # Remove sensitive fields
+        if "hashed_password" in user:
+            del user["hashed_password"]
+        if "reset_password_id" in user:
+            del user["reset_password_id"]
+
+        if "joinedDate" in user and isinstance(user["joinedDate"], date):
+            user["joinedDate"] = user["joinedDate"].isoformat()
+        if "startDate" in user and isinstance(user["startDate"], date):
+            user["startDate"] = user["startDate"].isoformat()
+        if "endDate" in user and isinstance(user["endDate"], date):
+            user["endDate"] = user["endDate"].isoformat()
+
+        interns.append(user)
+
     return {
         "items": interns,
         "total": total,
@@ -5496,26 +5707,82 @@ async def update_intern(
     db = Depends(get_database),
     admin: User = Depends(get_admin_user)
 ):
-    """Update intern (admin only)"""
+    """Update intern/scrum_master in users table (admin only)"""
     update_data = intern_update.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
-    
+
+    # Get current user info
+    current_user = await db.users.find_one({"_id": ObjectId(intern_id)})
+    if not current_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Ensure user is intern or scrum_master
+    if current_user.get("role") not in ["intern", "scrum_master"]:
+        raise HTTPException(status_code=400, detail="This endpoint is only for interns and scrum masters")
+
+    # If updating batch, validate the batch change
+    if "batch" in update_data:
+        new_batch_id = update_data["batch"]
+        current_batch = current_user.get("batch")
+
+        # If setting a new batch (not None)
+        if new_batch_id:
+            # Validate that the batch exists
+            batch = await db.batches.find_one({"batchId": new_batch_id})
+            if not batch:
+                raise HTTPException(status_code=404, detail=f"Batch '{new_batch_id}' not found")
+
+            # Note: Direct user update via PATCH should use the batch management endpoints instead
+            # to ensure proper synchronization between users and batch collections
+            raise HTTPException(
+                status_code=400,
+                detail="Use the batch management endpoints (/api/v1/batches/{batch_id}/users) to add/remove users from batches"
+            )
+
+    # Check for username conflicts if updating username
+    if "username" in update_data:
+        existing = await db.users.find_one({
+            "username": update_data["username"],
+            "_id": {"$ne": ObjectId(intern_id)}
+        })
+        if existing:
+            raise HTTPException(status_code=400, detail="Username already taken")
+
+    # Check for email conflicts if updating email
+    if "email" in update_data:
+        existing = await db.users.find_one({
+            "email": update_data["email"],
+            "_id": {"$ne": ObjectId(intern_id)}
+        })
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+
     update_data["updated_at"] = datetime.now(timezone.utc)
-    
-    result = await db.interns.find_one_and_update(
+
+    result = await db.users.find_one_and_update(
         {"_id": ObjectId(intern_id)},
         {"$set": update_data},
         return_document=True
     )
-    
+
     if not result:
-        raise HTTPException(status_code=404, detail="Intern not found")
-    
+        raise HTTPException(status_code=404, detail="User not found")
+
     result["_id"] = str(result["_id"])
+    result["id"] = str(result["_id"])
+
+    # Remove sensitive fields
+    if "hashed_password" in result:
+        del result["hashed_password"]
+
     if "joinedDate" in result and isinstance(result["joinedDate"], date):
         result["joinedDate"] = result["joinedDate"].isoformat()
-    
+    if "startDate" in result and isinstance(result["startDate"], date):
+        result["startDate"] = result["startDate"].isoformat()
+    if "endDate" in result and isinstance(result["endDate"], date):
+        result["endDate"] = result["endDate"].isoformat()
+
     return result
 
 
@@ -5525,10 +5792,26 @@ async def delete_intern(
     db = Depends(get_database),
     admin: User = Depends(get_admin_user)
 ):
-    """Delete intern (admin only)"""
-    result = await db.interns.delete_one({"_id": ObjectId(intern_id)})
+    """Delete intern/scrum_master from users table (admin only)"""
+    # First check if user exists and is an intern/scrum_master
+    user = await db.users.find_one({"_id": ObjectId(intern_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.get("role") not in ["intern", "scrum_master"]:
+        raise HTTPException(status_code=400, detail="Can only delete users with intern or scrum_master role")
+
+    # Remove from batch if assigned
+    if user.get("batch"):
+        await db.batches.update_one(
+            {"batchId": user["batch"]},
+            {"$pull": {"internIds": intern_id}}
+        )
+
+    result = await db.users.delete_one({"_id": ObjectId(intern_id)})
     if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Intern not found")
+        raise HTTPException(status_code=404, detail="User not found")
+
     return None
 
 
@@ -5556,13 +5839,13 @@ async def create_dsu(
     dsu_dict["updated_at"] = datetime.now(timezone.utc)
     
     result = await db.dsu_entries.insert_one(dsu_dict)
-    
-    # Update intern's DSU streak
-    await db.interns.update_one(
+
+    # Update user's DSU streak (for interns/scrum_masters)
+    await db.users.update_one(
         {"_id": ObjectId(dsu_data.internId)},
         {"$inc": {"dsuStreak": 1}}
     )
-    
+
     dsu_dict["_id"] = str(result.inserted_id)
     return dsu_dict
 
@@ -6134,14 +6417,15 @@ async def list_assigned_projects(
     db = Depends(get_database),
     current_user: User = Depends(get_current_active_user)
 ):
-    """List projects assigned to the current intern"""
-    intern = await db.interns.find_one({"email": current_user.email})
-    if not intern:
+    """List projects assigned to the current user (intern/scrum_master)"""
+    # Current user is already fetched from users table
+    user_id = str(current_user.id) if hasattr(current_user, 'id') else None
+
+    if not user_id:
         return []
 
-    intern_id = str(intern["_id"])
     projects = []
-    async for project in db.projects.find({"internIds": intern_id}):
+    async for project in db.projects.find({"internIds": user_id}):
         project["_id"] = str(project["_id"])
         projects.append(project)
     return projects
@@ -6186,30 +6470,43 @@ async def assign_project_interns(
     db = Depends(get_database),
     admin: User = Depends(get_admin_user)
 ):
-    """Assign interns to a project (admin only)"""
+    """Assign users (interns/scrum_masters) to a project (admin only)
+
+    Note: Users can be assigned to multiple projects (unlike batches where only one is allowed)
+    """
     if not payload.internIds:
-        raise HTTPException(status_code=400, detail="No interns provided")
+        raise HTTPException(status_code=400, detail="No users provided")
 
     project = await db.projects.find_one({"_id": parse_object_id(project_id, "project")})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
     valid_ids = []
-    for intern_id in payload.internIds:
-        intern = await db.interns.find_one({"_id": parse_object_id(intern_id, "intern")})
-        if intern:
-            valid_ids.append(intern_id)
+    for user_id in payload.internIds:
+        # Validate user exists and is intern or scrum_master
+        user = await db.users.find_one({
+            "_id": parse_object_id(user_id, "user"),
+            "role": {"$in": ["intern", "scrum_master"]}
+        })
+        if user:
+            valid_ids.append(user_id)
 
     if not valid_ids:
-        raise HTTPException(status_code=404, detail="No valid interns found")
+        raise HTTPException(status_code=404, detail="No valid users found with intern or scrum_master role")
 
+    # Add users to project (allows multiple users per project)
     await db.projects.update_one(
         {"_id": project["_id"]},
-        {"$addToSet": {"internIds": {"$each": valid_ids}}, "$set": {"updated_at": datetime.now(timezone.utc)}}
+        {
+            "$addToSet": {"internIds": {"$each": valid_ids}},
+            "$set": {"updated_at": datetime.now(timezone.utc)}
+        }
     )
 
-    await db.interns.update_many(
-        {"_id": {"$in": [parse_object_id(i, "intern") for i in valid_ids]}},
+    # Update users' current project
+    # Note: This sets currentProject to the latest assigned project
+    await db.users.update_many(
+        {"_id": {"$in": [parse_object_id(i, "user") for i in valid_ids]}},
         {"$set": {"currentProject": project.get("name"), "updated_at": datetime.now(timezone.utc)}}
     )
 
@@ -6236,15 +6533,15 @@ async def get_project_updates(
         ("created_at", -1)
     ]).limit(limit)
 
-    intern_cache = {}
+    user_cache = {}
     async for task in cursor:
         task["_id"] = str(task["_id"])
-        intern_id = task.get("internId")
-        if intern_id:
-            if intern_id not in intern_cache:
-                intern = await db.interns.find_one({"_id": parse_object_id(intern_id, "intern")})
-                intern_cache[intern_id] = intern.get("name") if intern else None
-            task["internName"] = intern_cache.get(intern_id)
+        user_id = task.get("internId")  # Still called internId for backward compatibility
+        if user_id:
+            if user_id not in user_cache:
+                user = await db.users.find_one({"_id": parse_object_id(user_id, "user")})
+                user_cache[user_id] = user.get("name") if user else None
+            task["internName"] = user_cache.get(user_id)
         tasks.append(task)
 
     return tasks
@@ -6265,28 +6562,25 @@ async def get_my_projects(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Get all projects assigned to the current intern
+    Get all projects assigned to the current user (intern/scrum_master)
     """
-    if current_user.role != "intern":
+    if current_user.role not in ["intern", "scrum_master"]:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Only interns can access this endpoint"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only interns and scrum masters can access this endpoint"
         )
-    
-    # Find intern profile by email
-    intern = await db.interns.find_one({"email": current_user.email})
-    if not intern:
+
+    # Get user's ID from current_user
+    user_id = str(current_user.id) if hasattr(current_user, 'id') else None
+
+    if not user_id:
         return []
-    
-    # Get intern's ID
-    intern_id = str(intern["_id"])
-    
 
     projects = []
-    async for project in db.projects.find({"internIds": intern_id}):
+    async for project in db.projects.find({"internIds": user_id}):
         project["_id"] = str(project["_id"])
         projects.append(project)
-    
+
     return projects
 
 
@@ -6316,14 +6610,14 @@ async def get_project_tasks(
         
         if task.get("internId"):
             try:
-                intern = await db.interns.find_one({"_id": ObjectId(task["internId"])})
-                if intern:
-                    task["internName"] = intern.get("name", "Unknown")
+                user = await db.users.find_one({"_id": ObjectId(task["internId"])})
+                if user:
+                    task["internName"] = user.get("name", "Unknown")
             except:
                 pass
-        
+
         tasks.append(task)
-    
+
     return tasks
 
 

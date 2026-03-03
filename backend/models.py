@@ -85,42 +85,35 @@ class User(BaseModel):
     azure_oid: Optional[str] = None
     auth_provider: Optional[str] = None
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-# =========================
-# INTERNS (UPDATED)
-# =========================
-
-class Intern(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    id: Optional[str] = Field(None, alias="_id")
-    name: str
-    organization: str  # Mandatory field
-    email: EmailStr
-    phone: str
-    college: str
-    degree: str
-    branch: str
-    year: int
-    cgpa: float
-    domain: str
-    internType: str
+    # 📚 INTERN/SCRUM MASTER FIELDS (applicable when role is intern or scrum_master)
+    organization: Optional[str] = None  # Mandatory for interns
+    phone: Optional[str] = None
+    college: Optional[str] = None
+    degree: Optional[str] = None
+    branch: Optional[str] = None
+    year: Optional[int] = None
+    cgpa: Optional[float] = None
+    domain: Optional[str] = None
+    internType: Optional[str] = None  # e.g., "full-time", "part-time"
     isPaid: bool = False
-    status: str = "active"
+    status: Optional[str] = "active"  # active, onboarding, completed, dropped
     batch: Optional[str] = None
     currentProject: Optional[str] = None
-    mentor: str
-    startDate: date
-    endDate: date
+    mentor: Optional[str] = None
+    startDate: Optional[date] = None
+    endDate: Optional[date] = None
     joinedDate: Optional[date] = None
     taskCount: int = 0
     completedTasks: int = 0
     dsuStreak: int = 0
     skills: List[str] = []
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# =========================
+# NOTE: Intern model removed - using User model with role="intern" instead
+# =========================
 
 
 # =========================
@@ -394,6 +387,29 @@ class UserResponse(BaseModel):
     is_approved: bool = False
     created_at: Optional[datetime] = None
 
+    # Intern/Scrum Master fields (when applicable)
+    organization: Optional[str] = None
+    phone: Optional[str] = None
+    college: Optional[str] = None
+    degree: Optional[str] = None
+    branch: Optional[str] = None
+    year: Optional[int] = None
+    cgpa: Optional[float] = None
+    domain: Optional[str] = None
+    internType: Optional[str] = None
+    isPaid: Optional[bool] = None
+    status: Optional[str] = None
+    batch: Optional[str] = None
+    currentProject: Optional[str] = None
+    mentor: Optional[str] = None
+    startDate: Optional[date] = None
+    endDate: Optional[date] = None
+    joinedDate: Optional[date] = None
+    taskCount: Optional[int] = None
+    completedTasks: Optional[int] = None
+    dsuStreak: Optional[int] = None
+    skills: Optional[List[str]] = None
+
 
 class UserUpdate(BaseModel):
     role: Optional[UserRole] = None
@@ -414,31 +430,38 @@ class Token(BaseModel):
 
 
 # =========================
-# INTERN SCHEMAS
+# INTERN SCHEMAS (Now creates Users with role=intern)
 # =========================
 
 class InternCreate(BaseModel):
+    """Create intern/scrum_master - creates a User with role=intern or scrum_master"""
+    username: str
     name: str
-    organization: str  # Mandatory field
     email: EmailStr
+    password: Optional[str] = None  # Optional - can be set later
+    role: UserRole = UserRole.intern  # Can be intern or scrum_master
+    organization: str  # Mandatory field
     phone: str
-    college: str
-    degree: str
-    branch: str
-    year: int
-    cgpa: float
-    domain: str
-    internType: str
+    college: Optional[str] = None
+    degree: Optional[str] = None
+    branch: Optional[str] = None
+    year: Optional[int] = None
+    cgpa: Optional[float] = None
+    domain: Optional[str] = None
+    internType: Optional[str] = None
     isPaid: bool = False
     batch: Optional[str] = None
-    mentor: str
+    mentor: Optional[str] = None
     startDate: date
     endDate: date
     skills: List[str] = []
+    employee_id: Optional[str] = None
 
 
 class InternUpdate(BaseModel):
+    """Update intern/scrum_master fields in User model"""
     name: Optional[str] = None
+    username: Optional[str] = None
     organization: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
@@ -457,6 +480,7 @@ class InternUpdate(BaseModel):
     startDate: Optional[date] = None
     endDate: Optional[date] = None
     skills: Optional[List[str]] = None
+    employee_id: Optional[str] = None
 
 
 # =========================
@@ -559,37 +583,40 @@ class PTOUpdate(BaseModel):
 # =========================
 # BATCH SCHEMAS
 # =========================
-
-class BatchYear(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    id: Optional[str] = Field(None, alias="_id")
-    year: int
-    label: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class BatchMonth(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    id: Optional[str] = Field(None, alias="_id")
-    name: str
-    order: int
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
+# NOTE: BatchYear and BatchMonth removed - not needed
 
 class Organization(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     id: Optional[str] = Field(None, alias="_id")
     name: str
+    status: str = "active"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-    status: str = "active"
+class Batch(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: Optional[str] = Field(None, alias="_id")
+    batchId: str
+    batchName: str
+    startDate: date
+    endDate: Optional[date] = None
+    duration: int = 90  # Duration in days
+    coordinator: str
+    description: Optional[str] = None
+    domains: List[str] = []
+    status: str = "active"  # upcoming, active, completed, archived
+    internIds: List[str] = []
+    totalInterns: int = 0
+    activeInterns: int = 0
+    completedInterns: int = 0
+    droppedInterns: int = 0
+    averageRating: float = 0.0
+    averageTaskCompletion: float = 0.0
+    averageDSUStreak: float = 0.0
+    createdBy: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

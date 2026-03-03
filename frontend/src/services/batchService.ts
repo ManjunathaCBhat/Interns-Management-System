@@ -82,4 +82,9 @@ export const batchService = {
   async removeUserFromBatch(batchId: string, userId: string): Promise<void> {
     await apiClient.delete(`/batches/${batchId}/users/${userId}`);
   },
+
+  async transferUsersToBatch(batchId: string, userIds: string[]): Promise<any> {
+    const response = await apiClient.post(`/batches/${batchId}/users/transfer`, userIds);
+    return response.data;
+  },
 };

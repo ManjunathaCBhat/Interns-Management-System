@@ -72,12 +72,14 @@ const BatchDetails: React.FC = () => {
       const members = await batchService.getInterns(batchData.batchId);
       setBatchMembers(members);
       
-      // Load available users (not in any batch)
+      // Load available users (show all interns and scrum masters, not just those without a batch)
       const allUsers = await apiClient.get('/admin/users');
       // Handle paginated response
       const userData = allUsers.data.items || allUsers.data;
       const available = userData.filter(
-        (user: User) => !user.batch && (user.role === 'intern' || user.role === 'scrum_master')
+        (user: User) =>
+          (user.role === 'intern' || user.role === 'scrum_master') &&
+          user.batch !== batchData.batchId // Exclude users already in this batch
       );
       setAvailableUsers(available);
     } catch (error: any) {
@@ -111,10 +113,45 @@ const BatchDetails: React.FC = () => {
     try {
       setProcessing(true);
       const result = await batchService.addUsersToBatch(batch.batchId, selectedUsers);
-      toast({
-        title: 'Users added',
-        description: `Successfully added ${result.added.length} users to the batch`,
-      });
+
+      // Check if there were any failures
+      if (result.failed && result.failed.length > 0) {
+        const failedDetails = result.failed
+          .map((f: any) => `${f.name || f.id}: ${f.reason}`)
+          .join('\n');
+
+        // Show detailed error with option to transfer users
+        const hasUsersInOtherBatches = result.failed.some((f: any) =>
+          f.reason.includes('already in batch')
+        );
+
+        if (hasUsersInOtherBatches) {
+          // Ask user if they want to transfer users
+          if (
+            window.confirm(
+              `Some users are already in other batches.\n\nFailed:\n${failedDetails}\n\nDo you want to transfer them to this batch instead?`
+            )
+          ) {
+            await handleTransferUsers();
+            return;
+          }
+        }
+
+        toast({
+          title: result.added.length > 0 ? 'Partial success' : 'Failed to add users',
+          description:
+            result.added.length > 0
+              ? `Added ${result.added.length} user(s). Failed:\n${failedDetails}`
+              : `Failed to add users:\n${failedDetails}`,
+          variant: result.added.length > 0 ? 'default' : 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Users added',
+          description: `Successfully added ${result.added.length} users to the batch`,
+        });
+      }
+
       setShowAddModal(false);
       setSelectedUsers([]);
       setSearchQuery('');
@@ -123,6 +160,33 @@ const BatchDetails: React.FC = () => {
       toast({
         title: 'Error',
         description: error?.response?.data?.detail || 'Failed to add users',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleTransferUsers = async () => {
+    if (!batch || !batch.batchId) return;
+
+    try {
+      setProcessing(true);
+      const result = await batchService.transferUsersToBatch(batch.batchId, selectedUsers);
+
+      toast({
+        title: 'Users transferred',
+        description: `Successfully transferred ${result.transferred.length} users to this batch`,
+      });
+
+      setShowAddModal(false);
+      setSelectedUsers([]);
+      setSearchQuery('');
+      loadBatchDetails();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.detail || 'Failed to transfer users',
         variant: 'destructive',
       });
     } finally {
@@ -375,21 +439,33 @@ const BatchDetails: React.FC = () => {
                           }`}
                           onClick={() => toggleUserSelection(user.id)}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-1">
                             <input
                               type="checkbox"
                               checked={selectedUsers.includes(user.id)}
                               onChange={() => toggleUserSelection(user.id)}
                               className="h-4 w-4"
                             />
-                            <div>
+                            <div className="flex-1">
                               <p className="font-medium">{user.name}</p>
                               <p className="text-sm text-muted-foreground">{user.email}</p>
+                              {user.batch && (
+                                <p className="text-xs text-orange-600 mt-1">
+                                  Already in batch: {user.batch}
+                                </p>
+                              )}
                             </div>
                           </div>
-                          <Badge className={getRoleBadgeColor(user.role)}>
-                            {user.role}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge className={getRoleBadgeColor(user.role)}>
+                              {user.role}
+                            </Badge>
+                            {user.batch && (
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                Other Batch
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

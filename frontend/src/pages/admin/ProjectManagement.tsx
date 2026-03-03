@@ -424,6 +424,8 @@ interface InternOption {
   _id: string;
   name: string;
   email: string;
+  role?: string;
+  batch?: string;
 }
 
 interface ProjectUpdateItem {
@@ -479,17 +481,32 @@ const ProjectManagement: React.FC = () => {
 
   const loadInterns = async () => {
     try {
-      const response = await apiClient.get('/interns/', { params: { skip: 0, limit: 100 } });
+      // Fetch all users with intern or scrum_master role
+      const response = await apiClient.get('/admin/users', {
+        params: {
+          role: 'intern,scrum_master',
+          skip: 0,
+          limit: 500
+        }
+      });
       const items = Array.isArray(response.data.items) ? response.data.items : [];
+
+      // Filter only active and approved users
+      const activeUsers = items.filter((user: any) =>
+        user.is_active && user.is_approved && (user.role === 'intern' || user.role === 'scrum_master')
+      );
+
       setInterns(
-        items.map((intern: any) => ({
-          _id: intern._id,
-          name: intern.name,
-          email: intern.email,
+        activeUsers.map((user: any) => ({
+          _id: user._id || user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          batch: user.batch
         }))
       );
     } catch (error) {
-      console.error('Failed to load interns:', error);
+      console.error('Failed to load users:', error);
       setInterns([]);
     }
   };
@@ -923,9 +940,9 @@ const ProjectManagement: React.FC = () => {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={styles.modalHeader}>
-                  <h2 style={styles.modalTitle}>Add Interns to {selectedProject.name}</h2>
-                  <button 
-                    style={styles.btnClose} 
+                  <h2 style={styles.modalTitle}>Add Users to {selectedProject.name}</h2>
+                  <button
+                    style={styles.btnClose}
                     onClick={() => setShowAddInternsModal(false)}
                     type="button"
                     disabled={submitting}
@@ -933,9 +950,9 @@ const ProjectManagement: React.FC = () => {
                     ×
                   </button>
                 </div>
-                
+
                 <div style={styles.internsSelection}>
-                  <p style={styles.selectionInstruction}>Select interns to assign to this project:</p>
+                  <p style={styles.selectionInstruction}>Select users (interns/scrum masters) to assign to this project:</p>
                   <div style={styles.internsGrid}>
                     {interns.map((intern) => {
                       const isAlreadyAssigned = (selectedProject.internIds || []).includes(intern._id);
@@ -958,7 +975,29 @@ const ProjectManagement: React.FC = () => {
                             readOnly
                             style={styles.checkbox}
                           />
-                          <span>{intern.name}</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontWeight: 500 }}>{intern.name}</span>
+                              {intern.role && (
+                                <span style={{
+                                  fontSize: '11px',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: intern.role === 'scrum_master' ? '#3b82f6' : '#10b981',
+                                  color: 'white',
+                                  fontWeight: 500
+                                }}>
+                                  {intern.role === 'scrum_master' ? 'Scrum Master' : 'Intern'}
+                                </span>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '12px', color: '#666' }}>{intern.email}</span>
+                            {intern.batch && (
+                              <span style={{ fontSize: '11px', color: '#888' }}>
+                                Batch: {intern.batch}
+                              </span>
+                            )}
+                          </div>
                           {isAlreadyAssigned && (
                             <span style={styles.badgeAssigned}>Already Assigned</span>
                           )}

@@ -3216,8 +3216,9 @@ from models import (
 
 
 
+# ==================== APP SETUP ====================
+@asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown"""
     try:
         await connect_db()
     except Exception as exc:
@@ -3231,6 +3232,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# CORS must be added IMMEDIATELY after app creation
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(projects_router)
 
 @app.post("/api/v1/admin/performance/review", status_code=201)
 async def submit_performance_review(
@@ -3470,26 +3481,6 @@ async def send_reset_email(to_email: str, reset_link: str) -> None:
         )
 
 
-# ==================== APP SETUP ====================
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Startup and shutdown"""
-    try:
-        await connect_db()
-    except Exception as exc:
-        print(f"⚠️  Startup without database connection: {exc}")
-    yield
-    await close_db()
-
-
-app = FastAPI(
-    title="Intern Lifecycle Manager",
-    version="2.0.0",
-    lifespan=lifespan
-)
-
-app.include_router(projects_router)
-
 
 
 
@@ -3579,21 +3570,7 @@ def parse_cors_origins(value: Optional[str]) -> List[str]:
         pass
     return [origin.strip() for origin in value.split(",") if origin.strip()]
 
-CORS_ORIGINS = parse_cors_origins(os.getenv("BACKEND_CORS_ORIGINS"))
-if not CORS_ORIGINS:
-    CORS_ORIGINS = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
+
 
 
 

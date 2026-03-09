@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import Avatar from '@/components/shared/Avatar';
 import { Button } from '@/components/ui/button';
+import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -35,19 +36,20 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   // Navigation links for Admin role
   const adminLinks = [
-    { to: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/admin', icon: LayoutDashboard, label: 'Overview' },
     { to: '/admin/interns', icon: Users, label: 'User Management' },
     { to: '/admin/batches', icon: Layers, label: 'Batch Management' },
     { to: '/admin/projects', icon: FolderKanban, label: 'Projects' },
     { to: '/admin/references', icon: FileText, label: 'Referral' },
     { to: '/admin/dsu-board', icon: ClipboardList, label: 'DSU Board' },
     { to: '/admin/approvals', icon: UserCheck, label: 'Approvals' },
-    { to: '/admin/performance', icon: BarChart3, label: 'Performance' }
+    { to: '/admin/performance', icon: BarChart3, label: 'Performance' },
+    { to: '/admin/profile', icon: User, label: 'Profile' }
   ];
 
   // Navigation links for Scrum Master role
   const scrumMasterLinks = [
-    { to: '/scrum-master', icon: LayoutDashboard, label: 'Overview' },
+    { to: '/scrum-master', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/scrum-master/dsu-board', icon: ClipboardList, label: 'DSU Board' },
     { to: '/scrum-master/daily-updates', icon: Calendar, label: 'Daily Updates' },
     { to: '/mentor', icon: User, label: 'Mentor' },
@@ -56,7 +58,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   // Navigation links for Intern role
   const internLinks = [
-    { to: '/intern', icon: LayoutDashboard, label: 'Overview' },
+    { to: '/intern', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/intern/daily-updates', icon: Calendar, label: 'Daily Updates' },
     { to: '/intern/pto-requests', icon: Calendar, label: 'PTO/WFH Requests' },
     { to: '/mentor', icon: User, label: 'Mentor' },
@@ -175,6 +177,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           ))}
         </nav>
 
+        {/* Notifications */}
+        <div className="border-t border-sidebar-border p-3">
+          <NotificationDropdown isCollapsed={!sidebarOpen} />
+        </div>
+
         {/* User & Logout */}
         <div className="border-t border-sidebar-border p-3">
           <div
@@ -184,7 +191,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             )}
           >
             <div className="flex items-center gap-3 min-w-0">
-              <Avatar name={user?.name || ''} size="sm" />
+              <Avatar
+                name={user?.name || ''}
+                src={user?.profilePicture}
+                size="sm"
+              />
               {sidebarOpen && (
                 <div className="overflow-hidden">
                   <p className="truncate text-sm font-medium text-sidebar-foreground">
@@ -217,12 +228,23 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           </div>
           <span className="font-semibold truncate">Interns360</span>
         </Link>
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-lg p-2 hover:bg-muted ml-2"
-        >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Mobile Profile Picture */}
+          <Avatar
+            name={user?.name || ''}
+            src={user?.profilePicture}
+            size="sm"
+            className="ring-2 ring-[#8686AC]/20"
+          />
+
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="rounded-lg p-2 hover:bg-muted ml-2"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Sidebar */}
@@ -233,15 +255,25 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             onClick={() => setMobileOpen(false)}
           />
           <aside className="fixed left-0 top-14 z-50 h-[calc(100vh-3.5rem)] w-72 bg-sidebar p-3 md:hidden overflow-y-auto">
-            <nav className="space-y-1 mb-20">
+            <nav className="space-y-1">
               {links.map((link) => (
                 <NavLink key={link.to} {...link} />
               ))}
             </nav>
+
+            {/* Mobile Notifications */}
+            <div className="border-t border-sidebar-border mt-3 pt-3">
+              <NotificationDropdown isCollapsed={false} />
+            </div>
+
             <div className="absolute bottom-0 left-0 right-0 border-t border-sidebar-border p-3 bg-sidebar">
               <div className="flex items-center justify-between rounded-lg px-3 py-2">
                 <div className="flex items-center gap-3">
-                  <Avatar name={user?.name || ''} size="sm" />
+                  <Avatar
+                    name={user?.name || ''}
+                    src={user?.profilePicture}
+                    size="sm"
+                  />
                   <div>
                     <p className="text-sm font-medium text-sidebar-foreground">
                       {user?.name}
@@ -295,7 +327,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       <main
         className={cn(
           'flex-1 transition-all duration-300',
-          'pt-14 md:pt-0',
+          'pt-14 md:pt-0',  // Add top padding for mobile header only
           sidebarOpen ? 'md:ml-64' : 'md:ml-20'
         )}
       >

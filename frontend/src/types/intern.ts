@@ -11,6 +11,7 @@ export interface User {
   is_active: boolean;
   is_approved: boolean;
   auth_provider?: string;
+  profilePicture?: string;  // Base64 encoded image
   created_at?: string;
 }
 

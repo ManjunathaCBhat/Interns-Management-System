@@ -28,6 +28,9 @@ import InternDashboard from '@/pages/intern/InternDashboard';
 import InternProfile from '@/pages/intern/InternProfile';
 import DailyUpdates from '@/pages/intern/DailyUpdates';
 import PTORequest from '@/pages/intern/PTORequest';
+import ProfileCompletion from '@/pages/ProfileCompletion';
+import PendingApproval from '@/pages/PendingApproval';
+import MentorPage from '@/pages/MentorPage';
 import { Toaster } from '@/components/ui/toaster';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -127,6 +130,8 @@ const AppRoutes: React.FC = () => {
       />
       <Route path="/forgot-password" element={<ForgetPassword />} />
       <Route path="/auth/azure-callback" element={<AzureAuthCallback />} />
+      <Route path="/complete-profile" element={<ProfileCompletion />} />
+      <Route path="/pending-approval" element={<PendingApproval />} />
 
       {/* ========== Admin Routes ========== */}
       <Route
@@ -279,10 +284,18 @@ const AppRoutes: React.FC = () => {
         }
       />
 
-     
+      {/* ========== Mentor Route (Shared between Intern & Scrum Master) ========== */}
+      <Route
+        path="/mentor"
+        element={
+          <ProtectedRoute allowedRoles={['intern', 'scrum_master']}>
+            <MentorPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* ========== Intern Routes ========== */}
-      
+
       <Route
         path="/intern"
         element={

@@ -23,7 +23,7 @@ class TaskStatus(str, Enum):
     open = "open"
     in_progress = "in_progress"
     completed = "completed"
-    on_hold = "on_hold"
+    blocked = "blocked"
 
 
 class DSUStatus(str, Enum):
@@ -84,6 +84,7 @@ class User(BaseModel):
     is_approved: bool = False
     azure_oid: Optional[str] = None
     auth_provider: Optional[str] = None
+    profilePicture: Optional[str] = None  # Base64 encoded image from SSO or uploaded
 
     # 📚 INTERN/SCRUM MASTER FIELDS (applicable when role is intern or scrum_master)
     organization: Optional[str] = None  # Mandatory for interns
@@ -120,6 +121,12 @@ class User(BaseModel):
 # DSU ENTRIES (UPDATED)
 # =========================
 
+class WorkMode(str, Enum):
+    wfh = "wfh"
+    pto = "pto"
+    in_office = "in_office"
+
+
 class DSUEntry(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -130,6 +137,7 @@ class DSUEntry(BaseModel):
     today: str
     blockers: Optional[str] = None
     learnings: Optional[str] = None
+    workMode: Optional[WorkMode] = None  # NEW: Work mode for the day
     status: DSUStatus = DSUStatus.pending
     submittedAt: Optional[datetime] = None
     reviewedBy: Optional[str] = None
@@ -386,6 +394,7 @@ class UserResponse(BaseModel):
     is_active: bool
     is_approved: bool = False
     created_at: Optional[datetime] = None
+    profilePicture: Optional[str] = None  # Base64 encoded image
 
     # Intern/Scrum Master fields (when applicable)
     organization: Optional[str] = None
@@ -494,6 +503,7 @@ class DSUCreate(BaseModel):
     today: str
     blockers: Optional[str] = None
     learnings: Optional[str] = None
+    workMode: Optional[WorkMode] = None  # NEW: Work mode for the day
 
 
 class DSUUpdate(BaseModel):
@@ -501,6 +511,7 @@ class DSUUpdate(BaseModel):
     today: Optional[str] = None
     blockers: Optional[str] = None
     learnings: Optional[str] = None
+    workMode: Optional[WorkMode] = None  # NEW: Work mode for the day
     status: Optional[DSUStatus] = None
     reviewedBy: Optional[str] = None
     reviewedAt: Optional[datetime] = None

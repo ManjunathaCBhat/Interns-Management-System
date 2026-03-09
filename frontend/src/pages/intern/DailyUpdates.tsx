@@ -39,23 +39,33 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 type StatusFilter =
   | 'ALL'
-  | 'NOT_STARTED'
+  | 'OPEN'
   | 'IN_PROGRESS'
   | 'COMPLETED'
-  | 'BLOCKED'
-  | 'ON_HOLD';
+  | 'BLOCKED';
 
 const STATUS_OPTIONS: StatusFilter[] = [
-  'NOT_STARTED',
+  'OPEN',
   'IN_PROGRESS',
   'COMPLETED',
   'BLOCKED',
-  'ON_HOLD',
 ];
 
-/* 🔧 FIX: normalize status everywhere */
+/* Map frontend display values to backend API values */
+const toBackendStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'OPEN': 'open',
+    'IN_PROGRESS': 'in_progress',
+    'COMPLETED': 'completed',
+    'BLOCKED': 'blocked',
+  };
+  const normalized = status.toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
+  return statusMap[normalized] || status.toLowerCase();
+};
+
+/* Normalize for display/comparison */
 const normalizeStatus = (status: string) =>
-  status.toUpperCase().replace(/\s+/g, '_');
+  status.toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
 
 /* ---------------- COMPONENT ---------------- */
 
@@ -76,7 +86,7 @@ const DailyUpdates: React.FC = () => {
   const [taskForm, setTaskForm] = useState({
     title: '',
     project: '',
-    status: 'NOT_STARTED',
+    status: 'OPEN',
     assignedBy: '',
     description: '',
   });
@@ -102,6 +112,9 @@ const DailyUpdates: React.FC = () => {
 
   /* ---------------- KPI COUNTS ---------------- */
   const totalTasks = tasks.length;
+  const openTasks = tasks.filter(
+    t => normalizeStatus(t.status) === 'OPEN'
+  ).length;
   const completedTasks = tasks.filter(
     t => normalizeStatus(t.status) === 'COMPLETED'
   ).length;
@@ -110,9 +123,6 @@ const DailyUpdates: React.FC = () => {
   ).length;
   const blockedTasks = tasks.filter(
     t => normalizeStatus(t.status) === 'BLOCKED'
-  ).length;
-  const onHoldTasks = tasks.filter(
-    t => t.status === 'ON_HOLD'
   ).length;
 
 
@@ -144,7 +154,7 @@ const DailyUpdates: React.FC = () => {
 
     const created = await taskService.create({
       ...taskForm,
-      status: normalizeStatus(taskForm.status),
+      status: toBackendStatus(taskForm.status),
       internId: user?.id,
     });
 
@@ -152,7 +162,7 @@ const DailyUpdates: React.FC = () => {
     setTaskForm({
       title: '',
       project: '',
-      status: 'NOT_STARTED',
+      status: 'OPEN',
       assignedBy: '',
       description: '',
     });
@@ -166,7 +176,7 @@ const DailyUpdates: React.FC = () => {
 
     const payload = {
       title: selectedTask.title,
-      status: normalizeStatus(selectedTask.status),
+      status: toBackendStatus(selectedTask.status),
     };
 
     await taskService.update(selectedTask._id, payload);
@@ -214,10 +224,10 @@ const DailyUpdates: React.FC = () => {
             onClick={() => setStatusFilter('ALL')}
           />
           <KpiCard
-            title="Completed"
-            value={completedTasks}
-            icon={<CheckCircle className="text-green-600" />}
-            onClick={() => setStatusFilter('COMPLETED')}
+            title="Open"
+            value={openTasks}
+            icon={<Clock className="text-blue-500" />}
+            onClick={() => setStatusFilter('OPEN')}
           />
           <KpiCard
             title="In Progress"
@@ -226,16 +236,16 @@ const DailyUpdates: React.FC = () => {
             onClick={() => setStatusFilter('IN_PROGRESS')}
           />
           <KpiCard
+            title="Completed"
+            value={completedTasks}
+            icon={<CheckCircle className="text-green-600" />}
+            onClick={() => setStatusFilter('COMPLETED')}
+          />
+          <KpiCard
             title="Blocked"
             value={blockedTasks}
             icon={<AlertTriangle className="text-red-600" />}
             onClick={() => setStatusFilter('BLOCKED')}
-          />
-          <KpiCard
-            title="On Hold"
-            value={onHoldTasks}
-            icon={<Clock className="text-gray-600" />}
-            onClick={() => setStatusFilter('ON_HOLD')}
           />
         </div>
 

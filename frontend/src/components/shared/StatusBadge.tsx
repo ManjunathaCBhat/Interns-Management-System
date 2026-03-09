@@ -8,9 +8,11 @@ interface StatusBadgeProps {
 
 /* ✅ Normalized labels */
 const STATUS_LABELS: Record<string, string> = {
+  OPEN: 'Open',
   NOT_STARTED: 'Not Started',
   IN_PROGRESS: 'In Progress',
   COMPLETED: 'Completed',
+  DONE: 'Completed',
   BLOCKED: 'Blocked',
   ON_HOLD: 'On Hold',
 };
@@ -19,11 +21,12 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) => {
   /* ✅ Normalize status from backend / form */
   const normalizedStatus = status
     ?.toUpperCase()
-    .replace(/\s+/g, '_');
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_');
 
   /* ✅ Get label */
   const label =
-    STATUS_LABELS[normalizedStatus] || 'Not Started';
+    STATUS_LABELS[normalizedStatus] || status || 'Unknown';
 
   /* ✅ Get color type from your existing utility */
   const colorType = getStatusColor(normalizedStatus);

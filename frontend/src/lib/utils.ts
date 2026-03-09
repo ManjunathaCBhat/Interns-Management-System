@@ -15,6 +15,8 @@ export function getInitials(name: string): string {
 
 export function getStatusColor(status: string): string {
   const statusMap: Record<string, string> = {
+    open: 'info',
+    not_started: 'info',
     active: 'success',
     completed: 'success',
     done: 'success',

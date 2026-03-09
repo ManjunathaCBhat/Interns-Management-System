@@ -326,6 +326,7 @@ from typing import Optional
 from database import get_database
 from utils.security import hash_password
 from otp_service import OTPService
+from email_service import send_welcome_email
 from datetime import datetime
 import re
 
@@ -567,9 +568,21 @@ async def register_user(
         # Insert into database
         user_result = await db.users.insert_one(user_doc)
         intern_result = await db.interns.insert_one(intern_doc)
-        
+
         print(f"[Auth] User registered: {email} (username: {username})")
-        
+
+        # Send welcome email
+        try:
+            await send_welcome_email(
+                to_email=email,
+                name=request.fullName,
+                role="intern"
+            )
+            print(f"[Auth] Welcome email sent to {email}")
+        except Exception as email_error:
+            # Don't fail registration if email fails
+            print(f"[Auth] Failed to send welcome email to {email}: {email_error}")
+
         return {
             "success": True,
             "message": "Registration successful! Your account is pending admin approval.",

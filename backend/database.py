@@ -36,7 +36,7 @@ async def connect_db():
         
         # Verify connection with timeout
         await asyncio.wait_for(db.client.admin.command('ping'), timeout=5.0)
-        print(f"✅ Connected to MongoDB: {MONGODB_DB_NAME}")
+        print(f"[OK] Connected to MongoDB: {MONGODB_DB_NAME}")
         
         # Create indexes
         await db.db.users.create_index("email", unique=True)
@@ -81,12 +81,12 @@ async def connect_db():
         await db.db.mentor_requests.create_index([("requesterUserId", ASCENDING), ("status", ASCENDING)])
         await db.db.mentor_requests.create_index([("mentorUserId", ASCENDING), ("status", ASCENDING)])
         
-        print("✅ Database indexes created")
+        print("[OK] Database indexes created")
     except asyncio.TimeoutError:
-        print("❌ Database connection timeout - check MONGODB_URL")
+        print("[ERROR] Database connection timeout - check MONGODB_URL")
         raise
     except Exception as e:
-        print(f"❌ Database connection error: {e}")
+        print(f"[ERROR] Database connection error: {e}")
         raise
 
 async def close_db():

@@ -24,6 +24,7 @@ import StatusBadge from '@/components/shared/StatusBadge';
 import { internService } from '@/services/internService';
 import apiClient from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Intern {
   _id: string;
@@ -151,9 +152,32 @@ const InternDetails: React.FC = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-64 gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="text-muted-foreground">Loading intern details...</p>
+        <div className="space-y-6">
+          {/* Header Skeleton */}
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-10 w-32" />
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-24" />
+            </div>
+          </div>
+
+          {/* Profile Card Skeleton */}
+          <Skeleton className="h-64 w-full" />
+
+          {/* Stats Grid Skeleton */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full" />
+            ))}
+          </div>
+
+          {/* Skills Card Skeleton */}
+          <Skeleton className="h-32 w-full" />
+
+          {/* Tasks & DSU Cards Skeleton */}
+          <Skeleton className="h-96 w-full" />
+          <Skeleton className="h-96 w-full" />
         </div>
       </DashboardLayout>
     );

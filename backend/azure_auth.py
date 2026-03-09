@@ -38,7 +38,7 @@ class AzureADSettings(BaseModel):
 
 
 class AzureUser(BaseModel):
-    """User info from Azure AD token"""
+    """User info from Azure AD token with extended profile"""
     oid: str  # Azure AD Object ID
     preferred_username: str
     email: Optional[str] = None
@@ -46,6 +46,12 @@ class AzureUser(BaseModel):
     given_name: Optional[str] = None
     family_name: Optional[str] = None
     roles: list = []
+    # Extended fields from Graph API
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    department: Optional[str] = None
+    job_title: Optional[str] = None
+    profile_picture: Optional[str] = None  # Base64 encoded image
 
 
 @lru_cache(maxsize=1)
@@ -68,7 +74,7 @@ def get_azure_settings() -> Optional[AzureADSettings]:
 async def validate_azure_token(token: str) -> AzureUser:
     """
     Validate Azure AD token by calling Microsoft Graph API.
-    This is the most reliable method as it works with any valid Azure token.
+    Fetches extended user profile including phone, location, department, job title.
     """
     azure_settings = get_azure_settings()
     if not azure_settings:
@@ -76,21 +82,25 @@ async def validate_azure_token(token: str) -> AzureUser:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Azure AD SSO is not configured"
         )
-    
+
     print(f"[Azure SSO] Validating token via Microsoft Graph API...")
     print(f"[Azure SSO] Token length: {len(token)}")
-    
+
     try:
-        # Validate by calling Microsoft Graph API
+        # Validate by calling Microsoft Graph API with extended fields
         async with httpx.AsyncClient() as client:
+            # Request additional profile fields
             response = await client.get(
                 "https://graph.microsoft.com/v1.0/me",
+                params={
+                    "$select": "id,userPrincipalName,mail,displayName,givenName,surname,mobilePhone,officeLocation,department,jobTitle"
+                },
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=10.0
             )
-            
+
             print(f"[Azure SSO] Graph API response status: {response.status_code}")
-            
+
             if response.status_code == 401:
                 try:
                     error_detail = response.json()
@@ -101,17 +111,41 @@ async def validate_azure_token(token: str) -> AzureUser:
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid Azure AD token - rejected by Microsoft Graph"
                 )
-            
+
             if response.status_code != 200:
                 print(f"[Azure SSO] Graph API error: {response.status_code} - {response.text}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=f"Microsoft Graph API error: {response.status_code}"
                 )
-            
+
             user_data = response.json()
             print(f"[Azure SSO] Successfully authenticated user: {user_data.get('userPrincipalName')}")
-            
+            print(f"[Azure SSO] Extended profile: location={user_data.get('officeLocation')}, department={user_data.get('department')}, jobTitle={user_data.get('jobTitle')}")
+
+            # Fetch profile picture (thumbnail for better performance)
+            profile_picture_base64 = None
+            try:
+                print("[Azure SSO] Fetching profile picture...")
+                photo_response = await client.get(
+                    "https://graph.microsoft.com/v1.0/me/photos/240x240/$value",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=10.0
+                )
+
+                if photo_response.status_code == 200:
+                    import base64
+                    # Convert binary image to base64
+                    profile_picture_base64 = base64.b64encode(photo_response.content).decode('utf-8')
+                    # Add data URI prefix for direct use in <img> tags
+                    profile_picture_base64 = f"data:image/jpeg;base64,{profile_picture_base64}"
+                    print("[Azure SSO] Profile picture fetched successfully")
+                else:
+                    print(f"[Azure SSO] No profile picture found (status: {photo_response.status_code})")
+            except Exception as photo_error:
+                print(f"[Azure SSO] Failed to fetch profile picture: {str(photo_error)}")
+                # Continue without profile picture
+
             return AzureUser(
                 oid=user_data.get("id", ""),
                 preferred_username=user_data.get("userPrincipalName", ""),
@@ -119,7 +153,13 @@ async def validate_azure_token(token: str) -> AzureUser:
                 name=user_data.get("displayName"),
                 given_name=user_data.get("givenName"),
                 family_name=user_data.get("surname"),
-                roles=[]
+                roles=[],
+                # Extended fields
+                phone=user_data.get("mobilePhone", ""),
+                location=user_data.get("officeLocation", ""),
+                department=user_data.get("department", ""),
+                job_title=user_data.get("jobTitle", ""),
+                profile_picture=profile_picture_base64
             )
     except HTTPException:
         raise

@@ -22,15 +22,14 @@ import AdminApprovals from "./pages/admin/AdminApprovals";
 // Scrum Master Pages
 import ScrumMasterDashboard from '@/pages/scrum_master/ScrumMasterDashboard';
 import ScrumMasterDSUBoard from '@/pages/scrum_master/DSUboard';
+import ScrumMasterTaskManagement from '@/pages/intern/TaskManagement';
 
 // Intern Pages
 import InternDashboard from '@/pages/intern/InternDashboard';
 import InternProfile from '@/pages/intern/InternProfile';
 import DailyUpdates from '@/pages/intern/DailyUpdates';
 import PTORequest from '@/pages/intern/PTORequest';
-import ProfileCompletion from '@/pages/ProfileCompletion';
-import PendingApproval from '@/pages/PendingApproval';
-import MentorPage from '@/pages/MentorPage';
+import TaskManagement from "./pages/intern/TaskManagement";
 import { Toaster } from '@/components/ui/toaster';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -276,6 +275,14 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
+        path="/scrum-master/tasks"
+        element={
+          <ProtectedRoute allowedRoles={['scrum_master', 'admin']}>
+            <ScrumMasterTaskManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/scrum-master/profile"
         element={
           <ProtectedRoute allowedRoles={['intern', 'scrum_master']}>
@@ -328,6 +335,13 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      <Route 
+        path="/intern/tasks" 
+        element={<ProtectedRoute allowedRoles={['intern']}>
+            <TaskManagement />
+          </ProtectedRoute>
+        }
+         />
       <Route
         path="/intern/pto-requests"
         element={

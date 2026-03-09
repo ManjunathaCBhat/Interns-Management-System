@@ -52,6 +52,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     { to: '/scrum-master', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/scrum-master/dsu-board', icon: ClipboardList, label: 'DSU Board' },
     { to: '/scrum-master/daily-updates', icon: Calendar, label: 'Daily Updates' },
+    { to: '/scrum-master/tasks', icon: FolderKanban, label: 'Task Board' },
     { to: '/mentor', icon: User, label: 'Mentor' },
     { to: '/scrum-master/profile', icon: User, label: 'Profile' },
   ];
@@ -60,6 +61,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const internLinks = [
     { to: '/intern', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/intern/daily-updates', icon: Calendar, label: 'Daily Updates' },
+    { to: '/intern/tasks', icon: FolderKanban, label: 'Task Board' },
     { to: '/intern/pto-requests', icon: Calendar, label: 'PTO/WFH Requests' },
     { to: '/mentor', icon: User, label: 'Mentor' },
     { to: '/intern/profile', icon: User, label: 'Profile' },

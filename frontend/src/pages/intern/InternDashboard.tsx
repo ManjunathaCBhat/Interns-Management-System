@@ -69,14 +69,22 @@ const InternDashboard: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
 
   // ✅ NEW: Calculate days remaining
-  const calculateDaysRemaining = (joinedDate: string) => {
-    const joined = new Date(joinedDate);
-    const internshipLength = 90; // 3 months in days
-    const endDate = new Date(joined.getTime() + internshipLength * 24 * 60 * 60 * 1000);
-    const now = new Date();
-    const daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return Math.max(0, daysRemaining);
-  };
+  // const calculateDaysRemaining = (joinedDate: string) => {
+  //   const joined = new Date(joinedDate);
+  //   const internshipLength = 90; // 3 months in days
+  //   const endDate = new Date(joined.getTime() + internshipLength * 24 * 60 * 60 * 1000);
+  //   const now = new Date();
+  //   const daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  //   return Math.max(0, daysRemaining);
+  // };
+
+  const calculateDaysRemaining = (endDate: string | null | undefined): string => {
+  if (!endDate) return 'Not Available';
+  const end = new Date(endDate);
+  const now = new Date();
+  const daysRemaining = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return String(Math.max(0, daysRemaining));
+};
 
   useEffect(() => {
     fetchData();
@@ -347,7 +355,9 @@ const InternDashboard: React.FC = () => {
                 </div>
                 <div className="flex flex-col items-end">
                   <p className="text-3xl font-bold text-[#0F0E47] group-hover:text-[#272757] transition-colors">
-                    {calculateDaysRemaining(internData?.joinedDate || new Date().toISOString())}
+                    {/* {calculateDaysRemaining(internData?.joinedDate || new Date().toISOString())} */}
+
+                    {calculateDaysRemaining(internData?.endDate)}
                   </p>
                   <ArrowRight className="h-4 w-4 text-[#8686AC] opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-1 transition-all duration-300 mt-1" />
                 </div>

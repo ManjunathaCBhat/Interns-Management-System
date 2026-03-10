@@ -2390,6 +2390,9 @@ async def get_intern(
     if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
         intern["joinedDate"] = intern["joinedDate"].isoformat()
 
+    if "endDate" in intern and isinstance(intern["endDate"], date):
+        intern["endDate"] = intern["endDate"].isoformat()
+
     return intern
 
 

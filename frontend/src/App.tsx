@@ -7,6 +7,9 @@ import ForgetPassword from "@/pages/forgetpassword";
 import NotFound from '@/pages/NotFound';
 import AzureAuthCallback from '@/pages/AzureAuthCallback';
 import PerformancePage from "./pages/admin/PerformancePage";
+import ProfileCompletion from '@/pages/ProfileCompletion';
+import PendingApproval from '@/pages/PendingApproval';
+import MentorPage from './pages/MentorPage';
 // Admin Pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import UserManagement from '@/pages/admin/UserManagement';

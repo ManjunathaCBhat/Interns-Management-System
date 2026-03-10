@@ -2390,6 +2390,9 @@ async def get_intern(
     if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
         intern["joinedDate"] = intern["joinedDate"].isoformat()
 
+    if "endDate" in intern and isinstance(intern["endDate"], date):
+        intern["endDate"] = intern["endDate"].isoformat()
+
     return intern
 
 
@@ -3368,6 +3371,88 @@ async def update_my_profile(
         return {"success": True, "data": result}
     
     raise HTTPException(status_code=500, detail="Failed to update profile")
+
+ 
+# NOTIFICATION ENDPOINTS
+# =============================================================================
+ 
+@app.get("/api/v1/notifications")
+async def get_notifications(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db=Depends(get_database),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Fetch paginated notifications for the authenticated user, newest first."""
+    query = {"userId": str(current_user.id)}
+    total = await db.notifications.count_documents(query)
+    unread_count = await db.notifications.count_documents({**query, "isRead": False})
+ 
+    skip = (page - 1) * page_size
+    cursor = (
+        db.notifications.find(query)
+        .sort("createdAt", -1)
+        .skip(skip)
+        .limit(page_size)
+    )
+    notifications = []
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        notifications.append(doc)
+ 
+    return {
+        "notifications": notifications,
+        "total": total,
+        "unreadCount": unread_count,
+        "page": page,
+        "pageSize": page_size,
+    }
+ 
+ 
+@app.post("/api/v1/notifications/mark-all-read", status_code=200)
+async def mark_all_notifications_read(
+    db=Depends(get_database),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Mark all notifications as read for the current user."""
+    await db.notifications.update_many(
+        {"userId": str(current_user.id), "isRead": False},
+        {"$set": {"isRead": True}},
+    )
+    return {"success": True}
+ 
+ 
+@app.post("/api/v1/notifications/{notification_id}/read", status_code=200)
+async def mark_notification_read(
+    notification_id: str,
+    db=Depends(get_database),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Mark a single notification as read (owner only)."""
+    try:
+        oid = ObjectId(notification_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid notification ID")
+ 
+    result = await db.notifications.update_one(
+        {"_id": oid, "userId": str(current_user.id)},
+        {"$set": {"isRead": True}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"success": True}
+ 
+ 
+@app.delete("/api/v1/notifications/clear", status_code=200)
+async def clear_read_notifications(
+    db=Depends(get_database),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Delete all read notifications for the current user."""
+    result = await db.notifications.delete_many(
+        {"userId": str(current_user.id), "isRead": True}
+    )
+    return {"success": True, "deleted": result.deleted_count}
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))

@@ -12,6 +12,7 @@ import {
   Sparkles,
   ChevronDown,
 } from 'lucide-react';
+import cl_logo from '/dist/cl_logo.png';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ const HomePage: React.FC = () => {
   const [counters, setCounters] = useState({ interns: 0, projects: 0, completion: 0 });
   const statsRef = useRef<HTMLDivElement>(null);
   const [statsVisible, setStatsVisible] = useState(false);
+
 
   const handleGetStarted = () => {
     // Clear any existing session to ensure user goes to login page
@@ -700,27 +702,42 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer style={{
-        position: 'relative',
-        zIndex: 10,
-        padding: '3rem 2rem',
-        borderTop: '1px solid rgba(168, 85, 247, 0.1)',
-      }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          textAlign: 'center',
+      {/* Footer */}
+        <footer style={{
+          position: 'relative',
+          zIndex: 10,
+          padding: '3rem 2rem',
+          borderTop: '1px solid rgba(168, 85, 247, 0.1)',
         }}>
-          <p style={{
-            fontSize: '0.9rem',
-            color: 'rgba(255, 255, 255, 0.4)',
+          <div style={{
+            maxWidth: '1200px',
+            margin: '0 auto',
+            textAlign: 'center',
           }}>
-            © 2026 Interns360. Powered by Cirrus Labs.
-          </p>
-        </div>
-      </footer>
+            <p style={{
+              fontSize: '0.9rem',
+              color: 'rgba(255, 255, 255, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+            }}>
+              © 2026 Interns360. Powered by
+              <img
+                src={cl_logo}
+                alt="CirrusLabs Logo"
+                style={{
+                  width: 170,
+                  height: 30,
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.4))',
+                }}
+              />
+            </p>
+          </div>
+        </footer>
+
     </div>
   );
-};
-
+}
 export default HomePage;

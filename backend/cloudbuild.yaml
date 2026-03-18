@@ -1,0 +1,33 @@
+# Backend-only Cloud Build Configuration
+# Use this if you only want to deploy backend
+
+steps:
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-backend'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'interns360'
+      - '--source=.'
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=1Gi'
+      - '--cpu=1'
+      - '--timeout=300s'
+      - '--port=8000'
+
+  - name: 'gcr.io/cloud-builders/curl'
+    id: 'test-backend'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        BACKEND_URL=$(gcloud run services describe interns360 --region=europe-west1 --format="value(status.url)")
+        echo "Testing backend: $BACKEND_URL/health"
+        sleep 5
+        curl -f $BACKEND_URL/health || exit 1
+        echo "✅ Backend deployed successfully!"
+
+timeout: '900s' # 15 minutes

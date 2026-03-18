@@ -12,7 +12,7 @@ import {
   Sparkles,
   ChevronDown,
 } from 'lucide-react';
-import cl_logo from '/dist/cl_logo.png';
+const cl_logo = '/cl_logo.png';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();

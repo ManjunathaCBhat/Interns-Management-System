@@ -65,12 +65,28 @@ from models import (
 # ==================== APP SETUP ====================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Application lifespan - startup and shutdown"""
+    print("[INFO] Starting application...")
+
+    # Connect to database in background task (completely non-blocking)
+    import asyncio
+    asyncio.create_task(init_database())
+
+    print("[INFO] Application startup complete (database connecting in background)")
+    yield
+
+    # Shutdown
+    print("[INFO] Shutting down application...")
+    await close_db()
+    print("[INFO] Application shutdown complete")
+
+
+async def init_database():
+    """Initialize database connection in background"""
     try:
         await connect_db()
     except Exception as exc:
-        print(f"[WARNING]  Startup without database connection: {exc}")
-    yield
-    await close_db()
+        print(f"[WARNING] Background database connection failed: {exc}")
 
 app = FastAPI(
     title="Intern Lifecycle Manager",

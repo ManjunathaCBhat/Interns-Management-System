@@ -21,8 +21,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import Avatar from '@/components/shared/Avatar';
 import { Button } from '@/components/ui/button';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
-import i360_logo from '/dist/i360_logo.png';
-import cl_logo from '/dist/cl_logo.png';
+const i360_logo = '/i360_logo.png';
+const cl_logo = '/cl_logo.png';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;

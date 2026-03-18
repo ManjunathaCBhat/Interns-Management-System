@@ -257,8 +257,9 @@ const InternDashboard: React.FC = () => {
               </p>
             </div>
 
-            {!todaysDSU && (
-              <a href="#dsu-form">
+            {/* {!todaysDSU && ( */}
+              {/* <a href="#dsu-form">
+              <Link to="/intern/daily-updates"></Link>
                 <button className="group relative px-5 py-2.5 bg-white text-[#0F0E47] rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden">
                   <span className="relative z-10 flex items-center gap-2 text-sm">
                     <Sparkles className="h-4 w-4" />
@@ -267,7 +268,18 @@ const InternDashboard: React.FC = () => {
                   <div className="absolute inset-0 bg-gradient-to-r from-[#8686AC] to-[#505081] opacity-0 group-hover:opacity-10 transition-opacity" />
                 </button>
               </a>
-            )}
+            )} */}
+            {!todaysDSU && (
+  <Link to="/intern/daily-updates">
+    <button className="group relative px-5 py-2.5 bg-white text-[#0F0E47] rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 overflow-hidden">
+      <span className="relative z-10 flex items-center gap-2 text-sm">
+        <Sparkles className="h-4 w-4" />
+        Submit DSU
+      </span>
+      <div className="absolute inset-0 bg-gradient-to-r from-[#8686AC] to-[#505081] opacity-0 group-hover:opacity-10 transition-opacity" />
+    </button>
+  </Link>
+)}
           </div>
         </div>
 

@@ -2396,10 +2396,43 @@ async def get_intern(
     return intern
 
 
+# async def calculate_dsu_streak(db, intern_id: str) -> int:
+#     """Calculate consecutive DSU submission streak"""
+#     try:
+#         # Get all DSU entries for this intern, sorted by date descending
+#         dsus = []
+#         async for dsu in db.dsu_entries.find({"internId": intern_id}).sort("date", -1):
+#             dsus.append(dsu)
+
+#         if not dsus:
+#             return 0
+
+#         # Check streak from today backwards
+#         today = date.today()
+#         streak = 0
+#         current_date = today
+
+#         for dsu in dsus:
+#             dsu_date = dsu.get("date")
+#             if isinstance(dsu_date, datetime):
+#                 dsu_date = dsu_date.date()
+
+#             # If DSU is for current_date, increment streak
+#             if dsu_date == current_date:
+#                 streak += 1
+#                 current_date = current_date - timedelta(days=1)
+#             elif dsu_date < current_date:
+#                 # Gap in streak, stop counting
+#                 break
+
+#         return streak
+#     except Exception as e:
+#         print(f"Error calculating DSU streak: {e}")
+#         return 0
+
 async def calculate_dsu_streak(db, intern_id: str) -> int:
-    """Calculate consecutive DSU submission streak"""
+
     try:
-        # Get all DSU entries for this intern, sorted by date descending
         dsus = []
         async for dsu in db.dsu_entries.find({"internId": intern_id}).sort("date", -1):
             dsus.append(dsu)
@@ -2407,22 +2440,32 @@ async def calculate_dsu_streak(db, intern_id: str) -> int:
         if not dsus:
             return 0
 
-        # Check streak from today backwards
         today = date.today()
         streak = 0
         current_date = today
+
+        # Skip weekends at the start
+        while current_date.weekday() in (5, 6):  # 5=Saturday, 6=Sunday
+            current_date = current_date - timedelta(days=1)
 
         for dsu in dsus:
             dsu_date = dsu.get("date")
             if isinstance(dsu_date, datetime):
                 dsu_date = dsu_date.date()
+            elif isinstance(dsu_date, str):
+                dsu_date = date.fromisoformat(dsu_date)
 
-            # If DSU is for current_date, increment streak
+            # Skip weekend DSU entries entirely
+            if dsu_date.weekday() in (5, 6):
+                continue
+
             if dsu_date == current_date:
                 streak += 1
                 current_date = current_date - timedelta(days=1)
+                # Skip weekends when going backwards
+                while current_date.weekday() in (5, 6):
+                    current_date = current_date - timedelta(days=1)
             elif dsu_date < current_date:
-                # Gap in streak, stop counting
                 break
 
         return streak
@@ -2482,15 +2525,20 @@ async def create_dsu(
     current_user: User = Depends(get_current_active_user)
 ):
     """Create DSU entry"""
+    # existing = await db.dsu_entries.find_one({
+    #     "internId": dsu_data.internId,
+    #     "date": dsu_data.date
+    # })
     existing = await db.dsu_entries.find_one({
-        "internId": dsu_data.internId,
-        "date": dsu_data.date
-    })
+    "internId": dsu_data.internId,
+    "date": str(dsu_data.date)
+})
     
     if existing:
         raise HTTPException(status_code=400, detail="DSU already exists for this date")
     
     dsu_dict = dsu_data.model_dump()
+    dsu_dict["date"] = str(dsu_data.date)
     dsu_dict["status"] = "submitted"
     submitted_at = datetime.now(timezone.utc)
     dsu_dict["submittedAt"] = submitted_at

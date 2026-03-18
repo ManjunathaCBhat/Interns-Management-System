@@ -21,6 +21,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import Avatar from '@/components/shared/Avatar';
 import { Button } from '@/components/ui/button';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
+import i360_logo from '/dist/i360_logo.png';
+import cl_logo from '/dist/cl_logo.png';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -146,16 +148,34 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       >
         {/* Logo & Toggle */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          <Link to={getHomeRoute()} className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
-              <span className="text-lg font-bold text-sidebar-primary-foreground">
-                IL
-              </span>
-            </div>
-            {sidebarOpen && (
-              <span className="text-sm font-semibold text-sidebar-foreground truncate">
-                Interns360
-              </span>
+          <Link to={getHomeRoute()} className="flex items-center gap-2 min-w-0">
+            {sidebarOpen ? (
+              /* Expanded: full logo */
+              <img
+                src={i360_logo}
+                alt="Interns360 Logo"
+                style={{
+                  height: 100,
+                  width: 100,
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.4))'
+                }}
+                
+              />
+            ) : (
+              /* Collapsed: logo in small square */
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
+                <img
+                  src={i360_logo}
+                  alt="Interns360 Logo"
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    objectFit: 'contain',
+                    filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.4))'
+                  }}
+                />
+              </div>
             )}
           </Link>
           <button
@@ -224,9 +244,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
       {/* Mobile Header */}
       <div className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between border-b bg-background px-4 md:hidden">
-        <Link to={getHomeRoute()} className="flex items-center gap-2 flex-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary flex-shrink-0">
-            <span className="text-sm font-bold text-primary-foreground">IL</span>
+        <Link to={getHomeRoute()} className="flex flex-1 items-center gap-2">
+          <div
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
+            style={{ background: '#505081' }}
+          >
+            <img src={i360_logo} alt="Interns360" className="h-6 w-auto" />
           </div>
           <span className="font-semibold truncate">Interns360</span>
         </Link>
@@ -329,7 +352,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       <main
         className={cn(
           'flex-1 transition-all duration-300',
-          'pt-14 md:pt-0',  // Add top padding for mobile header only
+          'pt-14 md:pt-0',
           sidebarOpen ? 'md:ml-64' : 'md:ml-20'
         )}
       >

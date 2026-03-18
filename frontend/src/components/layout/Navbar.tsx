@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import i360_logo from '/dist/i360_logo.png';
 
 const Navbar: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -26,8 +27,8 @@ const Navbar: React.FC = () => {
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <span className="text-lg font-bold text-primary-foreground">IL</span>
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary">
+            <img src={i360_logo} alt="Interns360" className="h-7 w-auto" />
           </div>
           <span className="hidden font-semibold sm:inline-block">
             Intern Lifecycle by Cirruslabs

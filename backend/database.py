@@ -18,6 +18,12 @@ db = Database()
 
 async def get_database():
     """Dependency to get database"""
+    if db.db is None:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection not available. Please try again in a few moments."
+        )
     return db.db
 
 async def connect_db():

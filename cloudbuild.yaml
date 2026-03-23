@@ -20,8 +20,7 @@ steps:
       - '--memory=1Gi'
       - '--timeout=300s'
       - '--port=8000'
-      - '--set-env-vars=FRONTEND_URL=${_FRONTEND_URL}'
-      - '--set-env-vars=AZURE_REDIRECT_URI=${_AZURE_REDIRECT_URI}'
+      - '--update-env-vars=FRONTEND_URL=${_FRONTEND_URL},AZURE_REDIRECT_URI=${_AZURE_REDIRECT_URI}'
 
   # ================================
   # FRONTEND - Build Required

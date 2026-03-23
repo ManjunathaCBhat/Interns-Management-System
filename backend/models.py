@@ -413,7 +413,7 @@ class UserUpdate(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., max_length=72, description="Password (max 72 characters due to bcrypt limit)")
 
 
 class Token(BaseModel):

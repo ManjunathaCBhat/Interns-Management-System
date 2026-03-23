@@ -68,25 +68,22 @@ async def lifespan(app: FastAPI):
     """Application lifespan - startup and shutdown"""
     print("[INFO] Starting application...")
 
-    # Connect to database in background task (completely non-blocking)
-    import asyncio
-    asyncio.create_task(init_database())
+    # Connect to database and wait for it (blocking startup)
+    # This prevents 500 errors when requests come in before DB is ready
+    try:
+        await connect_db()
+        print("[INFO] Database connected successfully")
+    except Exception as exc:
+        print(f"[ERROR] Database connection failed: {exc}")
+        print("[WARNING] Application will start without database - some features may not work")
 
-    print("[INFO] Application startup complete (database connecting in background)")
+    print("[INFO] Application startup complete")
     yield
 
     # Shutdown
     print("[INFO] Shutting down application...")
     await close_db()
     print("[INFO] Application shutdown complete")
-
-
-async def init_database():
-    """Initialize database connection in background"""
-    try:
-        await connect_db()
-    except Exception as exc:
-        print(f"[WARNING] Background database connection failed: {exc}")
 
 app = FastAPI(
     title="Intern Lifecycle Manager",
@@ -447,7 +444,14 @@ async def health():
 @app.post("/api/v1/auth/login", response_model=Token)
 async def login(credentials: LoginRequest, db = Depends(get_database)):
     """Login with email and password"""
-    
+
+    # Validate password length (bcrypt limit is 72 bytes)
+    if len(credentials.password) > 72:
+        raise HTTPException(
+            status_code=400,
+            detail="Password is too long (maximum 72 characters)"
+        )
+
     email = normalize_email(credentials.email)
 
     user = await db.users.find_one({"email": email})

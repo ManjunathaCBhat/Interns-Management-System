@@ -3524,7 +3524,7 @@ if __name__ == "__main__":
 
     print(f"Starting Interns360 Backend on port {port}")
     print(f"Reload: {reload_enabled}")
-    print(f"API Docs: http://localhost:{port}/docs")
+    print(f"API Docs: http://0.0.0.0:{port}/docs (or http://localhost:{port}/docs for local access)")
 
     uvicorn.run(
         "main:app",

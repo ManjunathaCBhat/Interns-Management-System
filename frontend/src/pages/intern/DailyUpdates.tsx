@@ -55,6 +55,7 @@ const STATUS_OPTIONS: StatusFilter[] = [
 const toBackendStatus = (status: string): string => {
   const statusMap: Record<string, string> = {
     'OPEN': 'open',
+    'NOT_STARTED': 'open',
     'IN_PROGRESS': 'in_progress',
     'COMPLETED': 'completed',
     'BLOCKED': 'blocked',
@@ -63,9 +64,13 @@ const toBackendStatus = (status: string): string => {
   return statusMap[normalized] || status.toLowerCase();
 };
 
-/* Normalize for display/comparison */
-const normalizeStatus = (status: string) =>
-  status.toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
+/* Normalize for display/comparison - map backend values to frontend display */
+const normalizeStatus = (status: string) => {
+  const normalized = status.toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
+  // Map NOT_STARTED to OPEN for consistent display
+  if (normalized === 'NOT_STARTED') return 'OPEN';
+  return normalized;
+};
 
 /* ---------------- COMPONENT ---------------- */
 
@@ -176,7 +181,10 @@ const DailyUpdates: React.FC = () => {
 
     const payload = {
       title: selectedTask.title,
+      project: selectedTask.project,
       status: toBackendStatus(selectedTask.status),
+      assignedBy: selectedTask.assignedBy,
+      description: selectedTask.description,
     };
 
     await taskService.update(selectedTask._id, payload);
@@ -184,7 +192,7 @@ const DailyUpdates: React.FC = () => {
     setTasks(prev =>
       prev.map(t =>
         t._id === selectedTask._id
-          ? { ...t, ...payload }
+          ? { ...t, ...selectedTask, status: selectedTask.status }
           : t
       )
     );
@@ -338,13 +346,14 @@ const DailyUpdates: React.FC = () => {
                 </Select>
 
                 <Select
+                  key={`status-${taskForm.title}-${taskForm.project}`}
                   value={taskForm.status}
                   onValueChange={v =>
                     setTaskForm({ ...taskForm, status: v })
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select Status" />
                   </SelectTrigger>
                   <SelectContent>
                     {STATUS_OPTIONS.map(s => (
@@ -391,30 +400,77 @@ const DailyUpdates: React.FC = () => {
 
             {selectedTask && (
               <div className="space-y-4">
-                <Input
-                  value={selectedTask.title}
-                  onChange={e =>
-                    setSelectedTask({ ...selectedTask, title: e.target.value })
-                  }
-                />
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Task Name</label>
+                  <Input
+                    value={selectedTask.title}
+                    onChange={e =>
+                      setSelectedTask({ ...selectedTask, title: e.target.value })
+                    }
+                  />
+                </div>
 
-                <Select
-                  value={selectedTask.status}
-                  onValueChange={v =>
-                    setSelectedTask({ ...selectedTask, status: v })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map(s => (
-                      <SelectItem key={s} value={s}>
-                        {s.replace('_', ' ')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Project</label>
+                  <Select
+                    value={selectedTask.project}
+                    onValueChange={v =>
+                      setSelectedTask({ ...selectedTask, project: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map(p => (
+                        <SelectItem key={p._id} value={p.name}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Status</label>
+                  <Select
+                    value={selectedTask.status}
+                    onValueChange={v =>
+                      setSelectedTask({ ...selectedTask, status: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map(s => (
+                        <SelectItem key={s} value={s}>
+                          {s.replace('_', ' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Assigned By</label>
+                  <Input
+                    value={selectedTask.assignedBy || ''}
+                    onChange={e =>
+                      setSelectedTask({ ...selectedTask, assignedBy: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Description</label>
+                  <Textarea
+                    value={selectedTask.description || ''}
+                    onChange={e =>
+                      setSelectedTask({ ...selectedTask, description: e.target.value })
+                    }
+                  />
+                </div>
 
                 <Button onClick={handleUpdateTask} className="w-full">
                   Save Changes

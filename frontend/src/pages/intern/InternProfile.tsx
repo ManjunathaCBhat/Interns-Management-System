@@ -120,6 +120,14 @@ const InternProfile: React.FC = () => {
       .slice(0, 2);
   };
 
+  const capitalizeRole = (role?: string) => {
+    if (!role) return "Intern";
+    return role
+      .split(/[_\s]+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -138,10 +146,23 @@ const InternProfile: React.FC = () => {
   };
 
   const validateForm = () => {
-    if (!startDate || !joinedDate || !endDate || !currentProject || !mentor || 
+    if (!startDate || !joinedDate || !endDate || !currentProject || !mentor ||
         skills.length === 0 || !phone || !college || !degree) {
       return "Please fill all the required details";
     }
+
+    // Validate phone number - should contain only digits, spaces, +, -, (, )
+    const phoneRegex = /^[\d\s+\-()]+$/;
+    if (!phoneRegex.test(phone)) {
+      return "Please enter a valid phone number";
+    }
+
+    // Check if phone has at least 10 digits
+    const digitsOnly = phone.replace(/\D/g, '');
+    if (digitsOnly.length < 10) {
+      return "Phone number must contain at least 10 digits";
+    }
+
     return null;
   };
 
@@ -289,7 +310,7 @@ const InternProfile: React.FC = () => {
               {(user as any)?.employeeId && (
                 <p className="text-lg opacity-90 mt-1">Employee ID: #{(user as any).employeeId}</p>
               )}
-              <p className="opacity-80 mt-1">{user?.role || "Intern"}</p>
+              <p className="opacity-80 mt-1">{capitalizeRole(user?.role)}</p>
             </div>
           </div>
           

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useNavigate } from "react-router-dom";
+import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -36,6 +37,7 @@ interface PTOForm {
 }
 
 interface WFHForm {
+  leaveType: 'casual' | 'sick' | 'emergency';
   reason: string;
   startDate: string;
   endDate: string;
@@ -45,6 +47,7 @@ const PTORequest: React.FC = () => {
 
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const isPastDate = (dateStr: string) => {
     const today = new Date();
@@ -77,6 +80,7 @@ const PTORequest: React.FC = () => {
   });
 
   const [wfhData, setWfhData] = useState<WFHForm>({
+    leaveType: 'casual',
     reason: '',
     startDate: '',
     endDate: '',
@@ -98,41 +102,109 @@ const PTORequest: React.FC = () => {
     if (!user) return;
 
     if (activeTab === "PTO") {
-      await ptoService.create({
-        internId: user.id,
-        name: user.name,
-        email: user.email,
-        team: 'Engineering',
-        type: 'PTO',
-        leaveType: formData.leaveType,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        numberOfDays: calculateDays(formData.startDate, formData.endDate),
-        reason: formData.reason,
-        status: 'pending',
-      });
+      // Validate reason
+      if (!formData.reason || formData.reason.trim() === '') {
+        toast({
+          title: 'Validation Error',
+          description: 'Reason is required',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-      setFormData({ leaveType: 'casual', startDate: '', endDate: '', reason: '' });
-      setOpen(false);
-      fetchRequests();
+      // Validate dates
+      if (new Date(formData.endDate) < new Date(formData.startDate)) {
+        toast({
+          title: 'Validation Error',
+          description: 'End date cannot be before start date',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      try {
+        await ptoService.create({
+          internId: user.id,
+          name: user.name,
+          email: user.email,
+          team: 'Engineering',
+          type: 'PTO',
+          leaveType: formData.leaveType,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          numberOfDays: calculateDays(formData.startDate, formData.endDate),
+          reason: formData.reason,
+          status: 'pending',
+        });
+
+        setFormData({ leaveType: 'casual', startDate: '', endDate: '', reason: '' });
+        setOpen(false);
+        fetchRequests();
+
+        toast({
+          title: 'Success',
+          description: 'PTO Request submitted successfully',
+        });
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error?.response?.data?.detail || 'Failed to submit PTO request',
+          variant: 'destructive',
+        });
+      }
     }
 
     if (activeTab === "WFH") {
-      await ptoService.create({
-        internId: user.id,
-        name: user.name,
-        email: user.email,
-        team: 'Engineering',
-        type: 'WFH',
-        startDate: wfhData.startDate,
-        endDate: wfhData.endDate,
-        numberOfDays: calculateDays(wfhData.startDate, wfhData.endDate),
-        reason: wfhData.reason,
-        status: 'pending',
-      });
-      setWfhData({ reason: '', startDate: '', endDate: '' });
-      setOpen(false);
-      fetchRequests();
+      // Validate reason
+      if (!wfhData.reason || wfhData.reason.trim() === '') {
+        toast({
+          title: 'Validation Error',
+          description: 'Reason is required',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Validate dates
+      if (new Date(wfhData.endDate) < new Date(wfhData.startDate)) {
+        toast({
+          title: 'Validation Error',
+          description: 'End date cannot be before start date',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      try {
+        await ptoService.create({
+          internId: user.id,
+          name: user.name,
+          email: user.email,
+          team: 'Engineering',
+          type: 'WFH',
+          leaveType: wfhData.leaveType,
+          startDate: wfhData.startDate,
+          endDate: wfhData.endDate,
+          numberOfDays: calculateDays(wfhData.startDate, wfhData.endDate),
+          reason: wfhData.reason,
+          status: 'pending',
+        });
+
+        setWfhData({ leaveType: 'casual', reason: '', startDate: '', endDate: '' });
+        setOpen(false);
+        fetchRequests();
+
+        toast({
+          title: 'Success',
+          description: 'WFH Request submitted successfully',
+        });
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error?.response?.data?.detail || 'Failed to submit WFH request',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -204,7 +276,11 @@ const PTORequest: React.FC = () => {
                 dayCellClassNames={(arg)=>arg.isToday?['bg-[#8686AC]/20','border','border-[#0F0E47]']:[]}
                 dateClick={(info:any)=>{
                   if(isPastDate(info.dateStr)){
-                    setError("The selected day is over");
+                    toast({
+                      title: 'Invalid Date',
+                      description: 'The selected day is in the past',
+                      variant: 'destructive',
+                    });
                     return;
                   }
 
@@ -235,7 +311,7 @@ const PTORequest: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
 
-            {/* PTO DROPDOWN RESTORED */}
+            {/* PTO FORM */}
             {activeTab==="PTO" && <>
               <Select value={formData.leaveType} onValueChange={(v:any)=>setFormData({...formData,leaveType:v})}>
                 <SelectTrigger><SelectValue placeholder="Select Leave Type"/></SelectTrigger>
@@ -248,14 +324,23 @@ const PTORequest: React.FC = () => {
 
               <Input type="date" value={formData.startDate} onChange={e=>setFormData({...formData,startDate:e.target.value})}/>
               <Input type="date" value={formData.endDate} onChange={e=>setFormData({...formData,endDate:e.target.value})}/>
-              <Textarea placeholder="Reason" value={formData.reason} onChange={e=>setFormData({...formData,reason:e.target.value})}/>
+              <Textarea placeholder="Reason*" value={formData.reason} onChange={e=>setFormData({...formData,reason:e.target.value})}/>
             </>}
 
-            {/* WFH TEXT BOX */}
+            {/* WFH FORM */}
             {activeTab==="WFH" && <>
-              <Input placeholder="Reason" value={wfhData.reason} onChange={e=>setWfhData({...wfhData,reason:e.target.value})}/>
+              <Select value={wfhData.leaveType} onValueChange={(v:any)=>setWfhData({...wfhData,leaveType:v})}>
+                <SelectTrigger><SelectValue placeholder="Select Leave Type"/></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="casual">Casual Leave</SelectItem>
+                  <SelectItem value="sick">Sick Leave</SelectItem>
+                  <SelectItem value="emergency">Emergency Leave</SelectItem>
+                </SelectContent>
+              </Select>
+
               <Input type="date" value={wfhData.startDate} onChange={e=>setWfhData({...wfhData,startDate:e.target.value})}/>
               <Input type="date" value={wfhData.endDate} onChange={e=>setWfhData({...wfhData,endDate:e.target.value})}/>
+              <Textarea placeholder="Reason*" value={wfhData.reason} onChange={e=>setWfhData({...wfhData,reason:e.target.value})}/>
             </>}
 
             <Button className="w-full">Submit</Button>

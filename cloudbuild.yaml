@@ -20,6 +20,8 @@ steps:
       - '--memory=1Gi'
       - '--timeout=300s'
       - '--port=8000'
+      - '--set-env-vars=FRONTEND_URL=${_FRONTEND_URL}'
+      - '--set-env-vars=AZURE_REDIRECT_URI=${_AZURE_REDIRECT_URI}'
 
   # ================================
   # FRONTEND - Build Required
@@ -110,6 +112,7 @@ timeout: '1200s'
 # Set these in Cloud Build trigger
 substitutions:
   _BACKEND_URL: 'https://interns360-697140918049.europe-west1.run.app'
+  _FRONTEND_URL: 'https://interns360-frontend-697140918049.europe-west1.run.app'
   _AZURE_CLIENT_ID: 'dd2ad1eb-6c5e-46c9-82bf-edda71230acf'
   _AZURE_TENANT_ID: 'a858d9da-8dfa-4b12-9f90-d0448a34f6d1'
   _AZURE_REDIRECT_URI: 'https://interns360-frontend-697140918049.europe-west1.run.app/auth/azure-callback'

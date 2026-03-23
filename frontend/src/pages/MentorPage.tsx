@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Mail, User, Briefcase, Users, BookOpen, UserX } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import profileService from '@/services/profileService';
 
 interface Mentor {
   name: string;
@@ -43,7 +44,31 @@ const MentorPage: React.FC = () => {
     setLoading(true);
     try {
       const response = await apiClient.get('/users/me/mentor');
-      setMentorData(response.data);
+      let data = response.data;
+
+      // If mentor endpoint returns null mentor, try to get from profile
+      if (!data?.mentor) {
+        try {
+          const profileResponse = await profileService.getMyProfile();
+          if (profileResponse.exists && profileResponse.data?.mentor) {
+            // Create mentor object from profile data
+            data = {
+              mentor: {
+                name: profileResponse.data.mentor,
+                email: '',
+                employeeId: '',
+                role: 'Mentor',
+              },
+              mentees: data?.mentees || [],
+              projects: data?.projects || [],
+            };
+          }
+        } catch (profileError) {
+          console.error('Failed to load profile data:', profileError);
+        }
+      }
+
+      setMentorData(data);
     } catch (error: any) {
       console.error('Failed to load mentor data:', error);
       toast({

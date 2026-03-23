@@ -69,7 +69,13 @@ async def send_welcome_email(to_email: str, name: str, role: str = "intern") -> 
     token = await get_graph_access_token()
 
     # Get frontend URL for login link
-    login_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/") + "/login"
+    frontend_url = os.getenv("FRONTEND_URL")
+    if not frontend_url:
+        raise HTTPException(
+            status_code=503,
+            detail="FRONTEND_URL is not configured in environment variables"
+        )
+    login_url = frontend_url.rstrip("/") + "/login"
 
     # Generate email template
     email_template = get_welcome_email_template(

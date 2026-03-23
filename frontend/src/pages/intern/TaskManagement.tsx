@@ -291,7 +291,7 @@ function AddTaskModal({
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md animate-in fade-in-0 zoom-in-95 duration-200">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200">
         <DialogHeader>
           <DialogTitle>Add New Task</DialogTitle>
           <p className="text-xs text-muted-foreground">Fields marked * are required</p>

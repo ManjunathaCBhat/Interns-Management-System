@@ -287,9 +287,14 @@ const DailyUpdates: React.FC = () => {
                     <tr key={task._id} className="border-t">
                       <td className="p-3">{task.title}</td>
                       <td className="p-3">{task.project}</td>
-                      <td className="p-3">
+                      {/* <td className="p-3">
                         <StatusBadge status={task.status} />
-                      </td>
+                      </td> */}
+
+<td className="p-3">
+  <StatusBadge status={normalizeStatus(task.status)} />
+</td>
+
                       <td className="p-3">{task.assignedBy || '-'}</td>
                       <td className="p-3 text-right">
                         <Button

@@ -105,11 +105,28 @@ const KPI_CONFIG = [
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
+// const normalizeStatus = (status: string): TaskStatus => {
+//   const s = status.toUpperCase().replace(/\s+/g, '_');
+//   if (s === 'COMPLETED') return 'DONE';
+//   return s as TaskStatus;
+// };
+
+
 const normalizeStatus = (status: string): TaskStatus => {
-  const s = status.toUpperCase().replace(/\s+/g, '_');
+  const s = status.toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
   if (s === 'COMPLETED') return 'DONE';
+  if (s === 'OPEN' || s === 'NOT_STARTED') return 'NOT_STARTED'; // ✅ ADD THIS LINE
+  if (s === 'IN_PROGRESS') return 'IN_PROGRESS';
+  if (s === 'BLOCKED') return 'BLOCKED';
   return s as TaskStatus;
 };
+
+
+
+
+
+
+
 
 // ─── Animated Count Hook ───────────────────────────────────────────────────────
 
@@ -257,8 +274,6 @@ function Field({ label, required, children }: { label: string; required?: boolea
   );
 }
 
-// ─── Add Task Modal ────────────────────────────────────────────────────────────
-
 function AddTaskModal({
   open, onClose, onSave, projects,
 }: {
@@ -278,6 +293,7 @@ function AddTaskModal({
   const handleSave = async () => {
     if (!form.title.trim()) { setError('Task Name is required.'); return; }
     if (!form.project) { setError('Project is required.'); return; }
+    if (!form.assignedBy) { setError('This field is a must.'); return; }
     setSaving(true);
     try {
       await onSave(form);
@@ -291,12 +307,17 @@ function AddTaskModal({
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200">
-        <DialogHeader>
-          <DialogTitle>Add New Task</DialogTitle>
+      {/* Remove padding from DialogContent to control the inner layout */}
+      <DialogContent className="max-w-md p-0 overflow-hidden flex flex-col max-h-[90vh]">
+        
+        {/* 1. Centered Header Section */}
+        <DialogHeader className="p-6 border-b text-center">
+          <DialogTitle className="text-xl w-full">Add New Task</DialogTitle>
           <p className="text-xs text-muted-foreground">Fields marked * are required</p>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+
+        {/* 2. Scrollable Form Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <Field label="Task Name" required>
             <Input
               placeholder="e.g. Design login page"

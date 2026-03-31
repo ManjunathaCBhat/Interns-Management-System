@@ -28,13 +28,34 @@ interface DashboardStats {
   taskCompletion: number;
 }
 
+// interface RecentIntern {
+//   _id: string;
+//   name: string;
+//   domain: string;
+//   status: string;
+//   currentProject: string;
+// }
+
 interface RecentIntern {
-  _id: string;
+  id: string;
+  _id?: string;
   name: string;
-  domain: string;
-  status: string;
-  currentProject: string;
+  domain?: string;
+  status?: string;
+  currentProject?: string;
+  role?: string;
 }
+
+
+
+
+
+
+
+
+
+
+
 
 interface RecentDSU {
   _id: string;
@@ -90,7 +111,11 @@ const ScrumMasterDashboard: React.FC = () => {
       setStats(statsResponse.data);
 
       // Fetch recent interns
-      const internsResponse = await apiClient.get('/admin/dashboard/recent-interns?limit=5');
+      // const internsResponse = await apiClient.get('/admin/dashboard/recent-interns?limit=5');
+      // setRecentInterns(internsResponse.data);
+
+
+      const internsResponse = await apiClient.get('/users?role=intern');
       setRecentInterns(internsResponse.data);
 
       // Fetch recent DSUs
@@ -207,8 +232,11 @@ const ScrumMasterDashboard: React.FC = () => {
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <Users size={20} style={{ color: COLORS.primary.purple }} /> Team Members
               </h2>
-              <Link
-                to="/scrum-master/interns"
+              {/* <Link
+                to="/scrum-master/interns" */}
+
+                <Link
+  to="/scrum-master/dsu-board"
                 className="text-sm font-semibold flex items-center gap-1"
                 style={{ color: COLORS.primary.purple }}
               >
@@ -221,7 +249,10 @@ const ScrumMasterDashboard: React.FC = () => {
               ) : (
                 recentInterns.map((intern) => (
                   <div
-                    key={intern._id}
+                    // key={intern._id}
+
+
+                    
                     className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-all"
                   >
                     <div className="flex items-center gap-3">
@@ -243,7 +274,8 @@ const ScrumMasterDashboard: React.FC = () => {
                         color: getStatusColor(intern.status),
                       }}
                     >
-                      {intern.status}
+                      {/* {intern.status} */}
+                      {intern.status || intern.role || 'Active'}
                     </span>
                   </div>
                 ))

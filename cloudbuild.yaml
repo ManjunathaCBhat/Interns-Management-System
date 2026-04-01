@@ -1,49 +1,66 @@
-# Cloud Build Configuration
-# Backend: Direct deploy (no build needed - it's Python)
-# Frontend: npm run build + deploy
+# Cloud Build Configuration - Single Service (GCP Buildpacks)
+# Backend uses automatic Python buildpack (--source flag)
+# Frontend builds and copies into backend/static/
 
 steps:
   # ================================
-  # BACKEND - Direct Deploy (No Build)
+  # STEP 1: Build Frontend
   # ================================
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'deploy-backend'
-    entrypoint: 'gcloud'
-    args:
-      - 'run'
-      - 'deploy'
-      - 'interns360'
-      - '--source=backend/'
-      - '--region=europe-west1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--memory=1Gi'
-      - '--timeout=300s'
-      - '--port=8000'
-      - '--update-env-vars=FRONTEND_URL=${_FRONTEND_URL},AZURE_REDIRECT_URI=${_AZURE_REDIRECT_URI}'
-
-  # ================================
-  # FRONTEND - Build Required
-  # ================================
-
-  # Step 1: Install dependencies
   - name: 'node:20'
     id: 'npm-install'
     entrypoint: 'npm'
     args: ['ci']
     dir: 'frontend'
 
-  # Step 2: Build frontend (npm run build - AUTOMATIC!)
   - name: 'node:20'
     id: 'npm-build'
     entrypoint: 'npm'
     args: ['run', 'build']
     dir: 'frontend'
     env:
-      - 'VITE_API_URL=${_BACKEND_URL}/api/v1'
+      - 'VITE_API_URL=/api/v1'  # Same origin - relative path
       - 'VITE_AZURE_CLIENT_ID=${_AZURE_CLIENT_ID}'
       - 'VITE_AZURE_TENANT_ID=${_AZURE_TENANT_ID}'
       - 'VITE_AZURE_REDIRECT_URI=${_AZURE_REDIRECT_URI}'
+
+  # ================================
+  # STEP 2: Copy Frontend to Backend
+  # ================================
+  - name: 'bash'
+    id: 'copy-frontend'
+    script: |
+      #!/bin/bash
+      set -e
+      echo "📦 Copying built frontend to backend/static/"
+
+      # Remove old static files
+      rm -rf backend/static
+
+      # Copy built frontend
+      cp -r frontend/dist backend/static
+
+      echo "✅ Frontend copied successfully"
+      ls -la backend/static/
+
+  # ================================
+  # STEP 3: Deploy Single Service
+  # ================================
+  # GCP automatically detects Python and creates container with buildpacks
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'interns360'
+      - '--source=backend/'  # Uses GCP buildpacks (auto Python detection)
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=1Gi'
+      - '--timeout=300s'
+      - '--port=8000'
+      # Environment variables are preserved from Cloud Run service
 
   # Step 3: Create Dockerfile for built frontend
   - name: 'gcr.io/cloud-builders/docker'
@@ -108,10 +125,14 @@ images:
 
 timeout: '1200s'
 
-# Set these in Cloud Build trigger
+timeout: '1200s'
+
+# Frontend build-time variables (baked into JS bundle at build time)
 substitutions:
-  _BACKEND_URL: 'https://interns360-697140918049.europe-west1.run.app'
-  _FRONTEND_URL: 'https://interns360-frontend-697140918049.europe-west1.run.app'
   _AZURE_CLIENT_ID: 'dd2ad1eb-6c5e-46c9-82bf-edda71230acf'
   _AZURE_TENANT_ID: 'a858d9da-8dfa-4b12-9f90-d0448a34f6d1'
-  _AZURE_REDIRECT_URI: 'https://interns360-frontend-697140918049.europe-west1.run.app/auth/azure-callback'
+  _AZURE_REDIRECT_URI: 'https://interns360-697140918049.europe-west1.run.app/auth/azure-callback'
+
+# NOTE: Backend runtime environment variables (MONGODB_URL, SECRET_KEY, etc.)
+# are managed directly in Cloud Run service, NOT in this file.
+# To update: Cloud Console → Cloud Run → interns360 → Edit & Deploy → Variables & Secrets

@@ -4,6 +4,8 @@ All routes in one file - Enhanced Version
 """
 from fastapi import FastAPI, Depends, HTTPException, status, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 from datetime import datetime, date, timezone, timedelta
 from typing import Optional, List
@@ -99,6 +101,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ==================== STATIC FILES (FRONTEND) ====================
+# Serve frontend static files (React build)
+static_path = Path(__file__).parent / "static"
+if static_path.exists():
+    app.mount("/assets", StaticFiles(directory=str(static_path / "assets")), name="static-assets")
+    print(f"[INFO] Serving frontend static files from {static_path}")
+else:
+    print(f"[WARNING] Static files directory not found at {static_path}")
 
 app.include_router(projects_router)
 
@@ -3525,6 +3536,36 @@ async def clear_read_notifications(
         {"userId": str(current_user.id), "isRead": True}
     )
     return {"success": True, "deleted": result.deleted_count}
+
+# ==================== FRONTEND CATCH-ALL ROUTE ====================
+# This must be the LAST route - serves index.html for all non-API routes
+# Handles React Router (SPA routing)
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    """
+    Catch-all route to serve React frontend for all non-API routes.
+    This enables React Router to work properly (SPA routing).
+    """
+    # Don't catch API routes
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API endpoint not found")
+
+    static_path = Path(__file__).parent / "static"
+    index_file = static_path / "index.html"
+
+    # If requesting a specific file (with extension), try to serve it
+    if "." in full_path.split("/")[-1]:
+        file_path = static_path / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+
+    # For all other routes (or if file not found), serve index.html
+    # This allows React Router to handle the routing
+    if index_file.exists():
+        return FileResponse(index_file)
+    else:
+        raise HTTPException(status_code=404, detail="Frontend not found - build frontend first")
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))

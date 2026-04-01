@@ -1,0 +1,518 @@
+import React, { useEffect, useState } from 'react';
+import {
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+} from 'lucide-react';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import StatusBadge from '@/components/shared/StatusBadge';
+import { useToast } from '@/hooks/use-toast';
+import { taskService } from '@/services/taskService';
+import { projectService } from '@/services/projectService';
+import { Task, Project } from '@/types/intern';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+
+/* ---------------- TYPES ---------------- */
+
+type StatusFilter =
+  | 'ALL'
+  | 'OPEN'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'BLOCKED';
+
+const STATUS_OPTIONS: StatusFilter[] = [
+  'OPEN',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'BLOCKED',
+];
+
+/* Map frontend display values to backend API values */
+const toBackendStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'OPEN': 'open',
+    'NOT_STARTED': 'open',
+    'IN_PROGRESS': 'in_progress',
+    'COMPLETED': 'completed',
+    'BLOCKED': 'blocked',
+  };
+  const normalized = status.toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
+  return statusMap[normalized] || status.toLowerCase();
+};
+
+/* Normalize for display/comparison - map backend values to frontend display */
+const normalizeStatus = (status: string) => {
+  const normalized = status.toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
+  // Map NOT_STARTED to OPEN for consistent display
+  if (normalized === 'NOT_STARTED') return 'OPEN';
+  return normalized;
+};
+
+/* ---------------- COMPONENT ---------------- */
+
+const DailyUpdates: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>('ALL');
+
+  const [selectedTask, setSelectedTask] =
+    useState<Task | null>(null);
+
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    project: '',
+    status: 'OPEN',
+    assignedBy: '',
+    description: '',
+  });
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const projectLoader = user?.role === 'intern'
+      ? projectService.getAssigned()
+      : projectService.getAll();
+
+    const [tasksData, projectsData] = await Promise.all([
+      taskService.getAll({ intern_id: user?.id }),
+      projectLoader,
+    ]);
+    setTasks(tasksData);
+    setProjects(projectsData);
+    setLoading(false);
+  };
+
+  /* ---------------- KPI COUNTS ---------------- */
+  const totalTasks = tasks.length;
+  const openTasks = tasks.filter(
+    t => normalizeStatus(t.status) === 'OPEN'
+  ).length;
+  const completedTasks = tasks.filter(
+    t => normalizeStatus(t.status) === 'COMPLETED'
+  ).length;
+  const inProgressTasks = tasks.filter(
+    t => normalizeStatus(t.status) === 'IN_PROGRESS'
+  ).length;
+  const blockedTasks = tasks.filter(
+    t => normalizeStatus(t.status) === 'BLOCKED'
+  ).length;
+
+
+  /* ---------------- FILTER ---------------- */
+  const filteredTasks =
+    statusFilter === 'ALL'
+      ? tasks
+      : tasks.filter(
+          t => normalizeStatus(t.status) === statusFilter
+        );
+
+  /* ---------------- SUBMIT TASK ---------------- */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (
+      !taskForm.title ||
+      !taskForm.project ||
+      !taskForm.status ||
+      !taskForm.description
+    ) {
+      toast({
+        title: 'Missing fields',
+        description: 'All * fields are required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const created = await taskService.create({
+      ...taskForm,
+      status: toBackendStatus(taskForm.status),
+      internId: user?.id,
+    });
+
+    setTasks(prev => [created, ...prev]);
+    setTaskForm({
+      title: '',
+      project: '',
+      status: 'OPEN',
+      assignedBy: '',
+      description: '',
+    });
+
+    toast({ title: 'Task added successfully' });
+  };
+
+  /* ---------------- EDIT TASK (FIXED) ---------------- */
+  const handleUpdateTask = async () => {
+    if (!selectedTask) return;
+
+    const payload = {
+      title: selectedTask.title,
+      project: selectedTask.project,
+      status: toBackendStatus(selectedTask.status),
+      assignedBy: selectedTask.assignedBy,
+      description: selectedTask.description,
+    };
+
+    await taskService.update(selectedTask._id, payload);
+
+    setTasks(prev =>
+      prev.map(t =>
+        t._id === selectedTask._id
+          ? { ...t, ...selectedTask, status: selectedTask.status }
+          : t
+      )
+    );
+
+    setSelectedTask(null);
+    toast({ title: 'Task updated' });
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Skeleton key={index} className="h-24 w-full" />
+            ))}
+          </div>
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            <Skeleton className="h-96 w-full" />
+            <Skeleton className="h-96 w-full" />
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+
+        {/* ---------------- KPI CARDS ---------------- */}
+        <div className="grid gap-4 md:grid-cols-5">
+          <KpiCard
+            title="Total Tasks"
+            value={totalTasks}
+            icon={<Clock className="text-blue-600" />}
+            onClick={() => setStatusFilter('ALL')}
+          />
+          <KpiCard
+            title="Open"
+            value={openTasks}
+            icon={<Clock className="text-blue-500" />}
+            onClick={() => setStatusFilter('OPEN')}
+          />
+          <KpiCard
+            title="In Progress"
+            value={inProgressTasks}
+            icon={<Clock className="text-orange-600" />}
+            onClick={() => setStatusFilter('IN_PROGRESS')}
+          />
+          <KpiCard
+            title="Completed"
+            value={completedTasks}
+            icon={<CheckCircle className="text-green-600" />}
+            onClick={() => setStatusFilter('COMPLETED')}
+          />
+          <KpiCard
+            title="Blocked"
+            value={blockedTasks}
+            icon={<AlertTriangle className="text-red-600" />}
+            onClick={() => setStatusFilter('BLOCKED')}
+          />
+        </div>
+
+        {/* ---------------- MAIN GRID ---------------- */}
+        <div className="grid gap-6 lg:grid-cols-2">
+
+          {/* ---------------- LEFT TABLE ---------------- */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Past Tasks</CardTitle>
+              <div className="flex gap-2 mt-2">
+                {STATUS_OPTIONS.map(s => (
+                  <StatusBadge key={s} status={s} />
+                ))}
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="p-3 text-left">Task</th>
+                    <th className="p-3 text-left">Project</th>
+                    <th className="p-3 text-left">Status</th>
+                    <th className="p-3 text-left">Assigned By</th>
+                    <th className="p-3 text-right">Edit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTasks.map(task => (
+                    <tr key={task._id} className="border-t">
+                      <td className="p-3">{task.title}</td>
+                      <td className="p-3">{task.project}</td>
+                      {/* <td className="p-3">
+                        <StatusBadge status={task.status} />
+                      </td> */}
+
+<td className="p-3">
+  <StatusBadge status={normalizeStatus(task.status)} />
+</td>
+
+                      <td className="p-3">{task.assignedBy || '-'}</td>
+                      <td className="p-3 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setSelectedTask({
+                              ...task,
+                              status: normalizeStatus(task.status),
+                            })
+                          }
+                        >
+                          Edit
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+
+          {/* ---------------- RIGHT FORM ---------------- */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Submit Task</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" onSubmit={handleSubmit}>
+                <Input
+                  placeholder="Task Name*"
+                  value={taskForm.title}
+                  onChange={e =>
+                    setTaskForm({ ...taskForm, title: e.target.value })
+                  }
+                />
+
+                <Select
+                  value={taskForm.project}
+                  onValueChange={v =>
+                    setTaskForm({ ...taskForm, project: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Project*" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map(p => (
+                      <SelectItem key={p._id} value={p.name}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  key={`status-${taskForm.title}-${taskForm.project}`}
+                  value={taskForm.status}
+                  onValueChange={v =>
+                    setTaskForm({ ...taskForm, status: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map(s => (
+                      <SelectItem key={s} value={s}>
+                        {s.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Input
+                  placeholder="Assigned By"
+                  value={taskForm.assignedBy}
+                  onChange={e =>
+                    setTaskForm({ ...taskForm, assignedBy: e.target.value })
+                  }
+                />
+
+                <Textarea
+                  placeholder="Description*"
+                  value={taskForm.description}
+                  onChange={e =>
+                    setTaskForm({ ...taskForm, description: e.target.value })
+                  }
+                />
+
+                <Button
+                  type="submit"
+                  className="w-full bg-[#0F0E47] hover:bg-[#272757]"
+                >
+                  Submit Task
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ---------------- EDIT MODAL ---------------- */}
+        <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Task</DialogTitle>
+            </DialogHeader>
+
+            {selectedTask && (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Task Name</label>
+                  <Input
+                    value={selectedTask.title}
+                    onChange={e =>
+                      setSelectedTask({ ...selectedTask, title: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Project</label>
+                  <Select
+                    value={selectedTask.project}
+                    onValueChange={v =>
+                      setSelectedTask({ ...selectedTask, project: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map(p => (
+                        <SelectItem key={p._id} value={p.name}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Status</label>
+                  <Select
+                    value={selectedTask.status}
+                    onValueChange={v =>
+                      setSelectedTask({ ...selectedTask, status: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map(s => (
+                        <SelectItem key={s} value={s}>
+                          {s.replace('_', ' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Assigned By</label>
+                  <Input
+                    value={selectedTask.assignedBy || ''}
+                    onChange={e =>
+                      setSelectedTask({ ...selectedTask, assignedBy: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Description</label>
+                  <Textarea
+                    value={selectedTask.description || ''}
+                    onChange={e =>
+                      setSelectedTask({ ...selectedTask, description: e.target.value })
+                    }
+                  />
+                </div>
+
+                <Button onClick={handleUpdateTask} className="w-full">
+                  Save Changes
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default DailyUpdates;
+
+/* ---------------- KPI CARD ---------------- */
+const KpiCard = ({
+  title,
+  value,
+  icon,
+  onClick,
+}: {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) => (
+  <Card
+    onClick={onClick}
+    className="cursor-pointer transition hover:bg-muted/50"
+  >
+    <CardContent className="p-4 flex items-center gap-4">
+      {icon}
+      <div>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-xl font-bold">{value}</p>
+      </div>
+    </CardContent>
+  </Card>
+);

@@ -223,9 +223,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   <p className="truncate text-sm font-medium text-sidebar-foreground">
                     {user?.name}
                   </p>
-                  <p className="truncate text-xs text-sidebar-foreground/60 capitalize">
+                  {/* <p className="truncate text-xs text-sidebar-foreground/60 capitalize">
                     {user?.role?.replace('_', ' ')}
-                  </p>
+                  </p> */}
+
+
+<p className="truncate text-xs text-sidebar-foreground/60">
+  {user?.role === 'scrum_master' ? 'Scrum Master' : user?.role === 'admin' ? 'Admin' : 'Intern'}
+</p>
+
+
+
                 </div>
               )}
             </div>
@@ -303,9 +311,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     <p className="text-sm font-medium text-sidebar-foreground">
                       {user?.name}
                     </p>
-                    <p className="text-xs text-sidebar-foreground/60 capitalize">
+                    {/* <p className="text-xs text-sidebar-foreground/60 capitalize">
                       {user?.role?.replace('_', ' ')}
-                    </p>
+                    </p> */}
+
+
+
+<p className="text-xs text-sidebar-foreground/60">
+  {user?.role === 'scrum_master' ? 'Scrum Master' : user?.role === 'admin' ? 'Admin' : 'Intern'}
+</p>
+
+
+
                   </div>
                 </div>
                 <Button

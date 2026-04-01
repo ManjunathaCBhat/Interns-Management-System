@@ -204,7 +204,9 @@ const Index: React.FC = () => {
   const [startIndex, setStartIndex] = useState(0);
   const [exportOpen, setExportOpen] = useState(false);
   const [fromDate, setFromDate] = useState("");
+  // const [toDate, setToDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [exportError, setExportError] = useState("");
 
   // Sidebar state removed - now using DashboardLayout
 
@@ -265,9 +267,28 @@ const Index: React.FC = () => {
     loadData();
   }, []);
 
-  useEffect(() => {
-    fetchAttendance(selectedDate);
-  }, [selectedDate]);
+  // useEffect(() => {
+  //   fetchAttendance(selectedDate);
+  // }, [selectedDate]);
+
+
+useEffect(() => {
+  const loadDSUsForDate = async () => {
+    try {
+      const response = await apiClient.get(`/dsu-entries/?date_from=${selectedDate}&date_to=${selectedDate}`);
+      const data = Array.isArray(response.data) ? response.data : (response.data.items || []);
+      setDsus(data);
+    } catch (error) {
+      console.error('Failed to load DSUs for date:', error);
+    }
+  };
+  loadDSUsForDate();
+  fetchAttendance(selectedDate);
+}, [selectedDate]);
+
+
+
+
 
   const refreshData = async () => {
     try {
@@ -304,7 +325,7 @@ const Index: React.FC = () => {
     interns.map((intern) => [normalizeEmail(intern.email), intern])
   );
 
-  const internMembers: BoardMember[] = internUsers.map((user) => {
+  const internMembers: BoardMember[] = internUsers.filter((user) => user.role === 'intern').map((user) => {
     const match = internsByEmail.get(normalizeEmail(user.email));
     return {
       _id: match?._id || user.id,
@@ -389,42 +410,87 @@ const Index: React.FC = () => {
   const canGoLeft = startIndex > 0;
   const canGoRight = startIndex + CARDS_VISIBLE < paddedMembers.length;
 
-  const exportCSV = () => {
-    const filteredTasks = tasks.filter((t) => {
-      if (fromDate && new Date(t.created_at) < new Date(fromDate)) return false;
-      if (toDate && new Date(t.created_at) > new Date(toDate)) return false;
-      if (internFilter !== "all" && t.internId !== internFilter) return false;
-      if (projectFilter !== "all" && t.project !== projectFilter) return false;
-      if (statusFilter !== "all" && t.status !== statusFilter) return false;
-      return true;
-    });
+  // const exportCSV = () => {
+  //   const filteredTasks = tasks.filter((t) => {
+  //     if (fromDate && new Date(t.created_at) < new Date(fromDate)) return false;
+  //     if (toDate && new Date(t.created_at) > new Date(toDate)) return false;
+  //     if (internFilter !== "all" && t.internId !== internFilter) return false;
+  //     if (projectFilter !== "all" && t.project !== projectFilter) return false;
+  //     if (statusFilter !== "all" && t.status !== statusFilter) return false;
+  //     return true;
+  //   });
 
-    const headers = ["Intern", "Task", "Project", "Status", "Priority", "Due Date", "Created"];
-    const rows = filteredTasks.map((t) => {
-      const intern = interns.find((i) => i._id === t.internId);
-      return [
-        intern?.name || "Unknown",
-        t.title,
-        t.project,
-        t.status,
-        t.priority,
-        t.dueDate,
-        t.created_at,
-      ];
-    });
+  //   const headers = ["Intern", "Task", "Project", "Status", "Priority", "Due Date", "Created"];
+  //   const rows = filteredTasks.map((t) => {
+  //     const intern = interns.find((i) => i._id === t.internId);
+  //     return [
+  //       intern?.name || "Unknown",
+  //       t.title,
+  //       t.project,
+  //       t.status,
+  //       t.priority,
+  //       t.dueDate,
+  //       t.created_at,
+  //     ];
+  //   });
 
-    const csv =
-      headers.join(",") +
-      "\n" +
-      rows.map((r) => r.map((v) => `"${v ?? ""}"`).join(",")).join("\n");
+  //   const csv =
+  //     headers.join(",") +
+  //     "\n" +
+  //     rows.map((r) => r.map((v) => `"${v ?? ""}"`).join(",")).join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `DSU_Report_${selectedDate}.csv`;
-    a.click();
-    setExportOpen(false);
-  };
+  //   const blob = new Blob([csv], { type: "text/csv" });
+  //   const a = document.createElement("a");
+  //   a.href = URL.createObjectURL(blob);
+  //   a.download = `DSU_Report_${selectedDate}.csv`;
+  //   a.click();
+  //   setExportOpen(false);
+  // };
+
+const exportCSV = () => {
+  if (!fromDate || !toDate) {
+    setExportError("Please select both From Date and To Date before downloading.");
+    return;
+  }
+  setExportError("");
+
+  const filteredTasks = tasks.filter((t) => {
+    if (fromDate && new Date(t.created_at) < new Date(fromDate)) return false;
+    if (toDate && new Date(t.created_at) > new Date(toDate)) return false;
+    if (internFilter !== "all" && t.internId !== internFilter) return false;
+    if (projectFilter !== "all" && t.project !== projectFilter) return false;
+    if (statusFilter !== "all" && t.status !== statusFilter) return false;
+    return true;
+  });
+
+  const headers = ["Intern", "Task", "Project", "Status", "Priority", "Due Date", "Created"];
+  const rows = filteredTasks.map((t) => {
+    const intern = interns.find((i) => i._id === t.internId);
+    return [
+      intern?.name || "Unknown",
+      t.title,
+      t.project,
+      t.status,
+      t.priority,
+      t.dueDate,
+      t.created_at,
+    ];
+  });
+
+  const csv =
+    headers.join(",") +
+    "\n" +
+    rows.map((r) => r.map((v) => `"${v ?? ""}"`).join(",")).join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `DSU_Report_${selectedDate}.csv`;
+  a.click();
+  setExportOpen(false);
+};
+
+
 
   /* ================= INLINE STYLES ================= */
   const containerStyle: React.CSSProperties = {
@@ -902,10 +968,14 @@ const Index: React.FC = () => {
             <button style={outlineButtonStyle} onClick={refreshData}>
               <RefreshCw size={14} /> Refresh
             </button>
-            {isAuthorized && (
+            {/* {isAuthorized && (
               <button style={primaryButtonStyle} onClick={() => setExportOpen(true)}>
                 <Download size={14} /> Export
-              </button>
+              </button> */}
+              {currentUser?.role === 'admin' && (
+  <button style={primaryButtonStyle} onClick={() => setExportOpen(true)}>
+    <Download size={14} /> Export
+  </button>
             )}
           </div>
         </div>
@@ -1174,9 +1244,21 @@ const Index: React.FC = () => {
                   style={inputStyle}
                 />
               </div>
-              <p style={{ fontSize: "12px", color: "#64748b" }}>
+              {/* <p style={{ fontSize: "12px", color: "#64748b" }}>
                 Current filters will be applied to the export.
-              </p>
+              </p> */}
+              <p style={{ fontSize: "12px", color: "#64748b" }}>
+  Current filters will be applied to the export.
+</p>
+{exportError && (
+  <p style={{ fontSize: "12px", color: "#dc2626", background: "#fef2f2", padding: "8px 12px", borderRadius: "8px", border: "1px solid #fecaca" }}>
+    ⚠️ {exportError}
+  </p>
+)}
+
+
+
+
             </div>
             <div style={modalFooterStyle}>
               <button style={outlineButtonStyle} onClick={() => setExportOpen(false)}>

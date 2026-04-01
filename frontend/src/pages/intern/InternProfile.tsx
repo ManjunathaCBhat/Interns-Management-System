@@ -14,11 +14,14 @@ const InternProfile: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   //  Access Control 
-  const allowedRoles = ["intern", "scrum master"];
-  const userRole = user?.role?.toLowerCase() || "";
+  // const allowedRoles = ["intern", "scrum master"];
+  // const userRole = user?.role?.toLowerCase() || "";
   
-  //check permission
-  const hasAccess = allowedRoles.some(role => userRole.includes(role));
+  // //check permission
+  // const hasAccess = allowedRoles.some(role => userRole.includes(role));
+  const allowedRoles = ["intern", "scrum_master"];
+const userRole = user?.role?.toLowerCase() || "";
+const hasAccess = allowedRoles.some(role => userRole.includes(role));
 
   if (!hasAccess) {
     return (

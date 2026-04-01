@@ -1446,7 +1446,6 @@ async def get_blocked_dsus(
     
     return blocked
 
-
 @app.get("/api/v1/admin/dashboard/recent-dsus")
 async def get_recent_dsus(
     limit: int = 5,
@@ -1461,19 +1460,24 @@ async def get_recent_dsus(
     async for dsu in db.dsu_entries.find().sort("submittedAt", -1).limit(limit):
         dsu["_id"] = str(dsu["_id"])
         
-        # Get intern details
+        # Get intern details - check both interns and users collections
         try:
             intern = await db.interns.find_one({"_id": ObjectId(dsu["internId"])})
             if intern:
                 dsu["internName"] = intern.get("name", "Unknown")
+            else:
+                # Fallback: look in users collection
+                user = await db.users.find_one({"_id": ObjectId(dsu["internId"])})
+                if user:
+                    dsu["internName"] = user.get("name", "Unknown")
+                else:
+                    dsu["internName"] = "Unknown"
         except:
             dsu["internName"] = "Unknown"
         
         dsus.append(dsu)
     
     return dsus
-
-
 @app.get("/api/v1/admin/dashboard/pending-ptos")
 async def get_pending_ptos(
     limit: int = 5,

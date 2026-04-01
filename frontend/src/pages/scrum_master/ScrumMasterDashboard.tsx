@@ -267,16 +267,36 @@ const ScrumMasterDashboard: React.FC = () => {
                         <p className="text-xs text-slate-500">{intern.domain}</p>
                       </div>
                     </div>
-                    <span
+                    {/* <span
                       className="px-2 py-1 rounded-full text-xs font-medium capitalize"
                       style={{
                         backgroundColor: getStatusBgColor(intern.status),
                         color: getStatusColor(intern.status),
                       }}
                     >
-                      {/* {intern.status} */}
-                      {intern.status || intern.role || 'Active'}
-                    </span>
+                      {intern.status} 
+                      
+                    </span> */}
+
+<span
+  className="px-2 py-1 rounded-full text-xs font-medium capitalize"
+  style={{
+    backgroundColor: getStatusBgColor('active'),
+    color: getStatusColor('active'),
+  }}
+>
+  Active
+</span>
+
+
+
+
+
+
+
+
+
+
                   </div>
                 ))
               )}

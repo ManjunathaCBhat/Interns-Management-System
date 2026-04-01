@@ -265,9 +265,28 @@ const Index: React.FC = () => {
     loadData();
   }, []);
 
-  useEffect(() => {
-    fetchAttendance(selectedDate);
-  }, [selectedDate]);
+  // useEffect(() => {
+  //   fetchAttendance(selectedDate);
+  // }, [selectedDate]);
+
+
+useEffect(() => {
+  const loadDSUsForDate = async () => {
+    try {
+      const response = await apiClient.get(`/dsu-entries/?date_from=${selectedDate}&date_to=${selectedDate}`);
+      const data = Array.isArray(response.data) ? response.data : (response.data.items || []);
+      setDsus(data);
+    } catch (error) {
+      console.error('Failed to load DSUs for date:', error);
+    }
+  };
+  loadDSUsForDate();
+  fetchAttendance(selectedDate);
+}, [selectedDate]);
+
+
+
+
 
   const refreshData = async () => {
     try {

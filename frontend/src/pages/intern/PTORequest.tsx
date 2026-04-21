@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { AlertCircle, Plus } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { AlertCircle, Plus, Info, Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { ptoService, PTORequest as PTORequestType } from '@/services/ptoService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,7 +44,7 @@ interface WFHForm {
 }
 
 const PTORequest: React.FC = () => {
-
+  const calendarRef = useRef<any>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -155,21 +155,11 @@ const PTORequest: React.FC = () => {
     }
 
     if (activeTab === "WFH") {
-      // Validate reason
-      if (!wfhData.reason || wfhData.reason.trim() === '') {
+      // Validate date
+      if (!wfhData.startDate) {
         toast({
           title: 'Validation Error',
-          description: 'Reason is required',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Validate dates
-      if (new Date(wfhData.endDate) < new Date(wfhData.startDate)) {
-        toast({
-          title: 'Validation Error',
-          description: 'End date cannot be before start date',
+          description: 'Date is required',
           variant: 'destructive',
         });
         return;
@@ -184,13 +174,13 @@ const PTORequest: React.FC = () => {
           type: 'WFH',
           leaveType: wfhData.leaveType,
           startDate: wfhData.startDate,
-          endDate: wfhData.endDate,
-          numberOfDays: calculateDays(wfhData.startDate, wfhData.endDate),
-          reason: wfhData.reason,
+          endDate: wfhData.startDate, // Same as start date for single-day WFH
+          numberOfDays: 1,
+          reason: wfhData.reason || '',
           status: 'pending',
         });
 
-        setWfhData({ leaveType: 'casual', reason: '', startDate: '', endDate: '' });
+        setWfhData({ leaveType: 'casual', reason: '', startDate: '', endDate: wfhData.startDate });
         setOpen(false);
         fetchRequests();
 
@@ -236,22 +226,18 @@ const PTORequest: React.FC = () => {
 
   return (
     <DashboardLayout>
+      {/* Header Section */}
+      <div className="rounded-2xl bg-gradient-to-br from-[#0F0E47] to-[#272757] p-4 md:p-6 mb-6">
+        <h1 className="text-xl font-bold text-white md:text-2xl">WFH Requests</h1>
+        <p className="mt-1 text-sm text-white/80">Manage your work from home schedule</p>
+      </div>
 
-      <Tabs defaultValue="PTO" onValueChange={setActiveTab}>
-        <TabsList className="scale-125 mb-4">
-          <TabsTrigger value="PTO" className="px-6 py-3 text-base font-semibold">PTO Requests</TabsTrigger>
-          <TabsTrigger value="WFH" className="px-6 py-3 text-base font-semibold">WFH Requests</TabsTrigger>
-        </TabsList>
-
-        {["PTO","WFH"].map(tab => (
+      <Tabs defaultValue="WFH" onValueChange={setActiveTab}>
+        {["WFH"].map(tab => (
           <TabsContent key={tab} value={tab}>
 
             <div className="flex justify-between items-center mb-3">
-              <p className="text-sm text-muted-foreground font-medium">
-                👉 Click any date to create a {tab} request
-              </p>
-
-              <div className="flex gap-4 text-sm -mt-3">
+              <div className="flex gap-4 text-sm">
                 <span className="flex items-center gap-1">
                   <span className="w-3 h-3 rounded-full bg-orange-400"></span> Pending
                 </span>
@@ -259,95 +245,121 @@ const PTORequest: React.FC = () => {
                   <span className="w-3 h-3 rounded-full bg-green-500"></span> Approved
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-3 h-3 rounded-full bg-[#8686AC]"></span> Rejected
+                  <span className="w-3 h-3 rounded-full bg-red-500"></span> Rejected
                 </span>
               </div>
+
+              <Button
+                onClick={() => setOpen(true)}
+                className="shadow-lg px-6 py-2"
+              >
+                <Plus className="mr-2 h-4 w-4"/>New Request
+              </Button>
             </div>
 
-            <div className="mx-auto max-w-3xl">
-              <FullCalendar
-                plugins={[dayGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth"
-                events={tab==="PTO" ? toCalendarEvents(ptoRequests) : toCalendarEvents(wfhRequests)}
-                nowIndicator
-                height="550px"
-                aspectRatio={1.8}
-                dayMaxEventRows={1}
-                dayCellClassNames={(arg)=>arg.isToday?['bg-[#8686AC]/20','border','border-[#0F0E47]']:[]}
-                dateClick={(info:any)=>{
-                  if(isPastDate(info.dateStr)){
-                    toast({
-                      title: 'Invalid Date',
-                      description: 'The selected day is in the past',
-                      variant: 'destructive',
-                    });
-                    return;
-                  }
+            <div className="flex items-center gap-4 mx-auto max-w-4xl">
+              <button
+                onClick={() => calendarRef.current?.getApi().prev()}
+                className="p-3 rounded-lg bg-[#0F0E47] text-white hover:bg-[#272757] transition-colors"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
 
-                  tab==="PTO"
-                    ?setFormData({...formData,startDate:info.dateStr,endDate:info.dateStr})
-                    :setWfhData({...wfhData,startDate:info.dateStr,endDate:info.dateStr});
+              <div className="flex-1">
+                <FullCalendar
+                  ref={calendarRef}
+                  plugins={[dayGridPlugin, interactionPlugin]}
+                  initialView="dayGridMonth"
+                  events={tab==="PTO" ? toCalendarEvents(ptoRequests) : toCalendarEvents(wfhRequests)}
+                  nowIndicator
+                  height="520px"
+                  aspectRatio={1.8}
+                  dayMaxEventRows={1}
+                  headerToolbar={{
+                    left: '',
+                    center: 'title',
+                    right: ''
+                  }}
+                  dayCellClassNames={(arg)=>arg.isToday?['bg-[#8686AC]/20','border','border-[#0F0E47]']:[]}
+                  dateClick={(info:any)=>{
+                    if(isPastDate(info.dateStr)){
+                      toast({
+                        title: 'Invalid Date',
+                        description: 'The selected day is in the past',
+                        variant: 'destructive',
+                      });
+                      return;
+                    }
 
-                  setOpen(true);
-                }}
-              />
+                    tab==="PTO"
+                      ?setFormData({...formData,startDate:info.dateStr,endDate:info.dateStr})
+                      :setWfhData({...wfhData,startDate:info.dateStr,endDate:info.dateStr});
+
+                    setOpen(true);
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={() => calendarRef.current?.getApi().next()}
+                className="p-3 rounded-lg bg-[#0F0E47] text-white hover:bg-[#272757] transition-colors"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
             </div>
 
           </TabsContent>
         ))}
       </Tabs>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button className="fixed right-6 bottom-6 shadow-xl px-6 py-3 text-base">
-            <Plus className="mr-2 h-4 w-4"/>New Request
-          </Button>
-        </DialogTrigger>
+      {open && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 z-50"
+            onClick={() => setOpen(false)}
+          />
 
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{activeTab==="PTO"?"Create PTO Request":"Create WFH Request"}</DialogTitle>
-          </DialogHeader>
+          {/* Modal */}
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-white rounded-lg shadow-xl">
+            {/* Header */}
+            <div className="p-6 border-b text-center relative">
+              <h2 className="text-xl font-semibold">WFH Request</h2>
+              <button
+                onClick={() => setOpen(false)}
+                className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Form Body */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Select Date</label>
+                <Input
+                  type="date"
+                  value={wfhData.startDate}
+                  onChange={e=>setWfhData({...wfhData,startDate:e.target.value})}
+                  required
+                />
+              </div>
 
-            {/* PTO FORM */}
-            {activeTab==="PTO" && <>
-              <Select value={formData.leaveType} onValueChange={(v:any)=>setFormData({...formData,leaveType:v})}>
-                <SelectTrigger><SelectValue placeholder="Select Leave Type"/></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="casual">Casual Leave</SelectItem>
-                  <SelectItem value="sick">Sick Leave</SelectItem>
-                  <SelectItem value="emergency">Emergency Leave</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Reason (Optional)</label>
+                <Textarea
+                  placeholder="Enter reason..."
+                  value={wfhData.reason}
+                  onChange={e=>setWfhData({...wfhData,reason:e.target.value})}
+                  rows={3}
+                />
+              </div>
 
-              <Input type="date" value={formData.startDate} onChange={e=>setFormData({...formData,startDate:e.target.value})}/>
-              <Input type="date" value={formData.endDate} onChange={e=>setFormData({...formData,endDate:e.target.value})}/>
-              <Textarea placeholder="Reason*" value={formData.reason} onChange={e=>setFormData({...formData,reason:e.target.value})}/>
-            </>}
-
-            {/* WFH FORM */}
-            {activeTab==="WFH" && <>
-              <Select value={wfhData.leaveType} onValueChange={(v:any)=>setWfhData({...wfhData,leaveType:v})}>
-                <SelectTrigger><SelectValue placeholder="Select Leave Type"/></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="casual">Casual Leave</SelectItem>
-                  <SelectItem value="sick">Sick Leave</SelectItem>
-                  <SelectItem value="emergency">Emergency Leave</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Input type="date" value={wfhData.startDate} onChange={e=>setWfhData({...wfhData,startDate:e.target.value})}/>
-              <Input type="date" value={wfhData.endDate} onChange={e=>setWfhData({...wfhData,endDate:e.target.value})}/>
-              <Textarea placeholder="Reason*" value={wfhData.reason} onChange={e=>setWfhData({...wfhData,reason:e.target.value})}/>
-            </>}
-
-            <Button className="w-full">Submit</Button>
-
-          </form>
-        </DialogContent>
-      </Dialog>
+              <Button className="w-full">Submit</Button>
+            </form>
+          </div>
+        </>
+      )}
 
       {error && (
         <Card className="mt-4 border-red-300 bg-red-50">

@@ -403,6 +403,27 @@ class UserResponse(BaseModel):
     created_at: Optional[datetime] = None
     profilePicture: Optional[str] = None  # Base64 encoded image
 
+    # Intern-specific fields
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
+    college: Optional[str] = None
+    degree: Optional[str] = None
+    branch: Optional[str] = None
+    year: Optional[int] = None
+    skills: Optional[List[str]] = None
+    startDate: Optional[str] = None
+    endDate: Optional[str] = None
+    joinedDate: Optional[str] = None
+    internType: Optional[str] = None
+    isPaid: Optional[bool] = None
+    mentor: Optional[str] = None
+    currentProject: Optional[str] = None
+    organization: Optional[str] = None
+    domain: Optional[str] = None
+    status: Optional[str] = None
+
 
 class UserUpdate(BaseModel):
     role: Optional[UserRole] = None

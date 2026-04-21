@@ -1,51 +1,43 @@
-# Cloud Build Configuration - Single Service (GCP Buildpacks)
-# Backend uses automatic Python buildpack (--source flag)
-# Frontend builds and copies into backend/static/
+# Cloud Build Configuration - Docker Build with GCP Environment Variables
+# All environment variables fetched from GCP (Secret Manager or Cloud Build substitutions)
 
 steps:
   # ================================
-  # STEP 1: Build Frontend
+  # STEP 1: Build Docker Image
   # ================================
-  - name: 'node:20'
-    id: 'npm-install'
-    entrypoint: 'npm'
-    args: ['ci']
-    dir: 'frontend'
-
-  - name: 'node:20'
-    id: 'npm-build'
-    entrypoint: 'npm'
-    args: ['run', 'build']
-    dir: 'frontend'
-    env:
-      - 'VITE_API_URL=/api/v1'  # Same origin - relative path
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-image'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/interns360:$SHORT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/interns360:latest'
+      - '--build-arg'
+      - 'VITE_API_URL=/api/v1'
+      - '--build-arg'
       - 'VITE_AZURE_CLIENT_ID=${_AZURE_CLIENT_ID}'
+      - '--build-arg'
       - 'VITE_AZURE_TENANT_ID=${_AZURE_TENANT_ID}'
+      - '--build-arg'
       - 'VITE_AZURE_REDIRECT_URI=${_AZURE_REDIRECT_URI}'
+      - '.'
 
   # ================================
-  # STEP 2: Copy Frontend to Backend
+  # STEP 2: Push Docker Image to GCR
   # ================================
-  - name: 'bash'
-    id: 'copy-frontend'
-    script: |
-      #!/bin/bash
-      set -e
-      echo "📦 Copying built frontend to backend/static/"
-
-      # Remove old static files
-      rm -rf backend/static
-
-      # Copy built frontend
-      cp -r frontend/dist backend/static
-
-      echo "✅ Frontend copied successfully"
-      ls -la backend/static/
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-image'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/interns360'
 
   # ================================
-  # STEP 3: Deploy Single Service
+  # STEP 3: Deploy to Cloud Run
   # ================================
-  # GCP automatically detects Python and creates container with buildpacks
+  # Environment variables are automatically fetched from existing Cloud Run service
+  # If this is a new deployment, you'll need to set them once via gcloud or console
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy'
     entrypoint: 'gcloud'
@@ -53,23 +45,43 @@ steps:
       - 'run'
       - 'deploy'
       - 'interns360'
-      - '--source=backend/'  # Uses GCP buildpacks (auto Python detection)
+      - '--image=gcr.io/$PROJECT_ID/interns360:$SHORT_SHA'
       - '--region=europe-west1'
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--memory=1Gi'
       - '--timeout=300s'
       - '--port=8000'
-      # Environment variables are preserved from Cloud Run service
+      # Environment variables are preserved from existing Cloud Run service
+      # On first deployment, they need to be set manually or via --set-env-vars
 
 timeout: '1200s'
 
+# Images to store in Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/interns360:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/interns360:latest'
+
 # Frontend build-time variables (baked into JS bundle at build time)
+# These can be stored as Cloud Build trigger substitutions or defaulted here
 substitutions:
+  _BACKEND_URL: 'https://interns360-697140918049.europe-west1.run.app'
   _AZURE_CLIENT_ID: 'dd2ad1eb-6c5e-46c9-82bf-edda71230acf'
   _AZURE_TENANT_ID: 'a858d9da-8dfa-4b12-9f90-d0448a34f6d1'
   _AZURE_REDIRECT_URI: 'https://interns360-697140918049.europe-west1.run.app/auth/azure-callback'
 
 # NOTE: Backend runtime environment variables (MONGODB_URL, SECRET_KEY, etc.)
-# are managed directly in Cloud Run service, NOT in this file.
-# To update: Cloud Console → Cloud Run → interns360 → Edit & Deploy → Variables & Secrets
+# are automatically preserved from the existing Cloud Run service during deployment.
+#
+# For FIRST-TIME deployment, set them using one of these methods:
+#
+# Method 1: Add to deploy step above (not recommended for secrets):
+#   - '--set-env-vars=MONGODB_URL=value,SECRET_KEY=value'
+#
+# Method 2: Use Secret Manager (RECOMMENDED):
+#   - '--set-secrets=MONGODB_URL=mongodb-url:latest,SECRET_KEY=secret-key:latest'
+#
+# Method 3: Set in GCP Console after first deployment:
+#   Cloud Run → interns360 → Edit & Deploy → Variables & Secrets
+#
+# Method 4: Use env-vars-file (see below for availableSecrets configuration)

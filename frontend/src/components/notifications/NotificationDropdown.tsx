@@ -116,7 +116,8 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
       <button
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'relative flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+          'relative flex items-center w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+          isCollapsed ? 'justify-center' : 'gap-3',
           open
             ? 'bg-sidebar-primary text-sidebar-primary-foreground'
             : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'

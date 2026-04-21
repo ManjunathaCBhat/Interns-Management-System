@@ -62,7 +62,87 @@ docker build -t gcr.io/YOUR_PROJECT_ID/interns360:latest .
 docker push gcr.io/YOUR_PROJECT_ID/interns360:latest
 ```
 
-## Step 4: Deploy to Cloud Run with Environment Variables
+## Step 4: Set Up Secret Manager (Recommended)
+
+The recommended approach is to store sensitive values in GCP Secret Manager and reference them in Cloud Run.
+
+### Automated Setup
+
+Run the provided setup script:
+
+```bash
+# Make script executable
+chmod +x setup-secrets.sh
+
+# Run the script (it will prompt for secret values)
+./setup-secrets.sh
+```
+
+The script will:
+- Enable required GCP APIs
+- Create secrets in Secret Manager
+- Grant Cloud Build and Cloud Run access to secrets
+- Set up all necessary IAM permissions
+
+### Manual Setup
+
+If you prefer manual setup:
+
+```bash
+# Create secrets
+echo -n "mongodb+srv://user:pass@cluster.mongodb.net/" | \
+  gcloud secrets create mongodb-url --data-file=-
+
+echo -n "your-super-secret-jwt-key-min-32-characters" | \
+  gcloud secrets create jwt-secret-key --data-file=-
+
+echo -n "your-azure-client-secret" | \
+  gcloud secrets create azure-secret-key --data-file=-
+
+# Get project info
+PROJECT_ID=$(gcloud config get-value project)
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+
+# Grant Cloud Build access
+for SECRET in mongodb-url jwt-secret-key azure-secret-key; do
+  gcloud secrets add-iam-policy-binding $SECRET \
+    --member="serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+done
+
+# Grant Cloud Run access
+for SECRET in mongodb-url jwt-secret-key azure-secret-key; do
+  gcloud secrets add-iam-policy-binding $SECRET \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+done
+```
+
+## Step 5: Deploy with Cloud Build
+
+### Option A: Deploy with Secret Manager (Recommended)
+
+```bash
+# Update substitutions in cloudbuild-with-secrets.yaml first
+# Then deploy:
+gcloud builds submit --config=cloudbuild-with-secrets.yaml
+```
+
+This will:
+1. Build the Docker image with frontend
+2. Push to Google Container Registry
+3. Deploy to Cloud Run with secrets from Secret Manager
+
+### Option B: Deploy with Basic cloudbuild.yaml
+
+```bash
+# This preserves existing environment variables in Cloud Run
+gcloud builds submit --config=cloudbuild.yaml
+```
+
+Note: Environment variables from the existing Cloud Run service are preserved. For first-time deployment, set them manually (see Step 6).
+
+## Step 6: Manual Deployment to Cloud Run (Alternative)
 
 ### Initial Deployment
 

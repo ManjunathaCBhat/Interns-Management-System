@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Calendar, GraduationCap, Briefcase, Building, Loader2, MapPin, Phone, Tag } from 'lucide-react';
+import { Calendar, GraduationCap, Briefcase, Building, Loader2, Tag, Plus, X, Trash2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,11 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import apiClient from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface InternshipPeriod {
+  startDate: string;
+  endDate: string;
+  type: string;
+}
 
 const ProfileCompletion: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
 
   // SSO Data (pre-filled, read-only)
@@ -29,20 +37,22 @@ const ProfileCompletion: React.FC = () => {
     azureOid: '',
   });
 
+  const [phoneDeleted, setPhoneDeleted] = useState(false);
+
   // Form data for missing fields
   const [formData, setFormData] = useState({
-    startDate: '',
-    endDate: '',
     college: '',
     degree: '',
     branch: '',
-    year: '',
-    cgpa: '',
-    internType: 'unpaid',
-    isPaid: false,
-    skills: '',
-    batch: '',
+    passingYear: '',
+    primarySkills: '',
+    secondarySkills: '',
   });
+
+  // Multiple internship periods
+  const [internshipPeriods, setInternshipPeriods] = useState<InternshipPeriod[]>([
+    { startDate: '', endDate: '', type: 'Project Intern' }
+  ]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -79,11 +89,6 @@ const ProfileCompletion: React.FC = () => {
       profilePicture,
       azureOid,
     });
-
-    // Pre-fill internType from position if available
-    if (position.toLowerCase().includes('paid')) {
-      setFormData(prev => ({ ...prev, internType: 'paid', isPaid: true }));
-    }
   }, [searchParams]);
 
   const handleChange = (field: string, value: string) => {
@@ -91,8 +96,32 @@ const ProfileCompletion: React.FC = () => {
     setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
+  const handlePeriodChange = (index: number, field: keyof InternshipPeriod, value: string) => {
+    const updatedPeriods = [...internshipPeriods];
+    updatedPeriods[index][field] = value;
+    setInternshipPeriods(updatedPeriods);
+    setErrors(prev => ({ ...prev, [`period_${index}_${field}`]: '' }));
+  };
+
+  const addInternshipPeriod = () => {
+    setInternshipPeriods([...internshipPeriods, { startDate: '', endDate: '', type: 'Project Intern' }]);
+  };
+
+  const removeInternshipPeriod = (index: number) => {
+    if (internshipPeriods.length > 1) {
+      setInternshipPeriods(internshipPeriods.filter((_, i) => i !== index));
+    }
+  };
+
+  const deletePhoneNumber = () => {
+    setPhoneDeleted(true);
+    setSsoData(prev => ({ ...prev, phone: '' }));
+  };
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     // Validate SSO data
     if (!ssoData.firstName.trim() || !ssoData.lastName.trim()) {
@@ -101,21 +130,44 @@ const ProfileCompletion: React.FC = () => {
     if (!ssoData.email.trim()) newErrors.email = 'Email is required from SSO';
 
     // Validate required form fields
-    if (!formData.startDate) newErrors.startDate = 'Start date is required';
-    if (!formData.endDate) newErrors.endDate = 'End date is required';
-    if (!formData.college.trim()) newErrors.college = 'College name is required';
-    if (!formData.degree.trim()) newErrors.degree = 'Degree is required';
+    if (!formData.primarySkills.trim()) newErrors.primarySkills = 'Primary skills are required';
+    if (!formData.secondarySkills.trim()) newErrors.secondarySkills = 'Secondary skills are required';
 
-    // Date validation
-    if (formData.startDate && formData.endDate) {
-      if (new Date(formData.endDate) <= new Date(formData.startDate)) {
-        newErrors.endDate = 'End date must be after start date';
+    // Validate internship periods
+    internshipPeriods.forEach((period, index) => {
+      if (!period.startDate) {
+        newErrors[`period_${index}_startDate`] = 'Start date is required';
       }
-    }
+      if (!period.endDate) {
+        newErrors[`period_${index}_endDate`] = 'End date is required';
+      }
+      if (!period.type) {
+        newErrors[`period_${index}_type`] = 'Internship type is required';
+      }
 
-    // CGPA validation (if provided)
-    if (formData.cgpa && (parseFloat(formData.cgpa) < 0 || parseFloat(formData.cgpa) > 10)) {
-      newErrors.cgpa = 'CGPA must be between 0 and 10';
+      // Date validation
+      if (period.startDate && period.endDate) {
+        const startDate = new Date(period.startDate);
+        const endDate = new Date(period.endDate);
+
+        if (endDate <= startDate) {
+          newErrors[`period_${index}_endDate`] = 'End date must be after start date';
+        }
+      }
+    });
+
+    // Validate that the last period's end date is not less than today
+    if (internshipPeriods.length > 0) {
+      const lastPeriod = internshipPeriods[internshipPeriods.length - 1];
+      if (lastPeriod.endDate) {
+        const lastEndDate = new Date(lastPeriod.endDate);
+        lastEndDate.setHours(0, 0, 0, 0);
+
+        if (lastEndDate < today) {
+          newErrors[`period_${internshipPeriods.length - 1}_endDate`] =
+            'The end date of your last internship period cannot be in the past. You cannot create an account with an expired internship.';
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -128,7 +180,7 @@ const ProfileCompletion: React.FC = () => {
     if (!validate()) {
       toast({
         title: 'Validation Error',
-        description: 'Please fill in all required fields',
+        description: 'Please fill in all required fields and fix any errors',
         variant: 'destructive',
       });
       return;
@@ -139,46 +191,72 @@ const ProfileCompletion: React.FC = () => {
     try {
       // Combine SSO data and form data
       const fullName = `${ssoData.firstName} ${ssoData.lastName}`.trim();
-      const skillsArray = formData.skills
-        ? formData.skills.split(',').map(s => s.trim()).filter(Boolean)
+
+      // Combine primary and secondary skills
+      const primarySkillsArray = formData.primarySkills
+        ? formData.primarySkills.split(',').map(s => s.trim()).filter(Boolean)
         : [];
+      const secondarySkillsArray = formData.secondarySkills
+        ? formData.secondarySkills.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+      const allSkills = [...primarySkillsArray, ...secondarySkillsArray];
+
+      // Use the first period for backward compatibility (or latest period)
+      const primaryPeriod = internshipPeriods[0];
 
       const profileData = {
         // SSO Data
         name: fullName,
         email: ssoData.email,
-        phone: ssoData.phone,
+        phone: phoneDeleted ? undefined : ssoData.phone,
         location: ssoData.location,
         department: ssoData.department,
         position: ssoData.position,
-        profilePicture: ssoData.profilePicture, // Base64 image
+        profilePicture: ssoData.profilePicture,
         azure_oid: ssoData.azureOid,
 
         // Form Data
-        startDate: formData.startDate,
-        endDate: formData.endDate,
         college: formData.college,
         degree: formData.degree,
         branch: formData.branch || undefined,
-        year: formData.year ? parseInt(formData.year) : undefined,
-        cgpa: formData.cgpa ? parseFloat(formData.cgpa) : undefined,
-        internType: formData.internType,
-        isPaid: formData.isPaid,
-        skills: skillsArray,
-        batch: formData.batch || undefined,
-        organization: ssoData.location || 'Cirrus Labs', // Use location as organization
-        domain: ssoData.department || undefined, // Map department to domain
+        year: formData.passingYear ? parseInt(formData.passingYear) : undefined,
+
+        // Internship periods - send first period as primary for backward compatibility
+        startDate: primaryPeriod.startDate,
+        endDate: primaryPeriod.endDate,
+        internType: primaryPeriod.type,
+        isPaid: primaryPeriod.type === 'FTE',
+
+        // Additional data
+        internshipPeriods: internshipPeriods, // Send all periods for future use
+        skills: allSkills,
+        primarySkills: primarySkillsArray,
+        secondarySkills: secondarySkillsArray,
+        organization: ssoData.location || 'Cirrus Labs',
+        domain: ssoData.department || undefined,
       };
 
       const response = await apiClient.post('/auth/sso/complete-profile', profileData);
 
+      // Auto-login after successful registration
+      if (response.data.access_token) {
+        localStorage.setItem('ilm_token', response.data.access_token);
+        localStorage.setItem('ilm_last_activity', Date.now().toString());
+        if (response.data.user) {
+          localStorage.setItem('ilm_user', JSON.stringify(response.data.user));
+        }
+      }
+
       toast({
-        title: 'Profile Submitted!',
-        description: 'Your profile has been submitted for admin approval.',
+        title: 'Welcome to Interns360!',
+        description: 'Your profile has been created successfully. Check your email for a welcome message.',
       });
 
-      // Redirect to pending approval page
-      navigate('/pending-approval', { replace: true });
+      // Redirect directly to dashboard
+      setTimeout(() => {
+        window.location.href = '/intern/dashboard';
+      }, 1000);
+
     } catch (error: any) {
       console.error('Profile completion error:', error);
       toast({
@@ -192,21 +270,25 @@ const ProfileCompletion: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F0E47] via-[#272757] to-[#0F0E47] flex items-center justify-center p-6">
-      <Card className="w-full max-w-2xl shadow-2xl">
-        <CardHeader className="space-y-2 text-center border-b bg-gradient-to-r from-[#0F0E47]/5 to-[#272757]/5">
-          <CardTitle className="text-3xl font-bold text-[#0F0E47]">
+    <div className="min-h-screen bg-gradient-to-br from-[#0F0E47] via-[#272757] to-[#0F0E47] flex items-center justify-center p-4">
+      <Card className="w-full max-w-6xl shadow-2xl">
+        <CardHeader className="space-y-1 text-center border-b bg-gradient-to-r from-[#0F0E47]/5 to-[#272757]/5 py-4">
+          <CardTitle className="text-2xl font-bold text-[#0F0E47]">
             Complete Your Profile
           </CardTitle>
-          <CardDescription className="text-base">
+          <CardDescription className="text-sm">
             Please provide your internship details to complete registration
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* SSO Data Section - Read Only */}
-            <div className="bg-gradient-to-r from-[#8686AC]/10 to-[#505081]/5 border-2 border-[#8686AC]/20 rounded-xl p-5 space-y-4">
+        <CardContent className="pt-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* 2-Column Layout Wrapper */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* LEFT COLUMN */}
+              <div className="space-y-4">
+                {/* SSO Data Section - Read Only */}
+                <div className="bg-gradient-to-r from-[#8686AC]/10 to-[#505081]/5 border-2 border-[#8686AC]/20 rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-3 mb-4">
                 {/* Profile Picture */}
                 {ssoData.profilePicture ? (
@@ -226,10 +308,10 @@ const ProfileCompletion: React.FC = () => {
                     <div className="p-1.5 rounded-lg bg-[#505081]/10">
                       <Briefcase className="h-4 w-4 text-[#505081]" />
                     </div>
-                    <h3 className="text-sm font-bold text-[#0F0E47]">Information from SSO</h3>
+                    <h3 className="text-sm font-bold text-[#0F0E47]">Information from Azure SSO</h3>
                     <span className="text-xs text-[#8686AC] ml-auto">(Read-only)</span>
                   </div>
-                  <p className="text-xs text-[#8686AC] mt-1">Profile data from your organization account</p>
+                  <p className="text-xs text-[#8686AC] mt-1">Profile data fetched from your organization account</p>
                 </div>
               </div>
 
@@ -254,14 +336,29 @@ const ProfileCompletion: React.FC = () => {
                   />
                 </div>
 
-                {/* Phone */}
+                {/* Phone - Optional with delete button */}
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-[#505081]">Phone</Label>
-                  <Input
-                    value={ssoData.phone}
-                    readOnly
-                    className="bg-white/60 border-[#8686AC]/30 text-[#0F0E47] font-medium"
-                  />
+                  <Label className="text-xs font-semibold text-[#505081]">
+                    Phone (Optional - Personal Info)
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      value={phoneDeleted ? '' : ssoData.phone}
+                      readOnly
+                      placeholder={phoneDeleted ? 'Deleted' : ''}
+                      className="bg-white/60 border-[#8686AC]/30 text-[#0F0E47] font-medium pr-10"
+                    />
+                    {!phoneDeleted && ssoData.phone && (
+                      <button
+                        type="button"
+                        onClick={deletePhoneNumber}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-red-500 hover:text-red-700 transition-colors"
+                        title="Delete phone number"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Location */}
@@ -273,271 +370,292 @@ const ProfileCompletion: React.FC = () => {
                     className="bg-white/60 border-[#8686AC]/30 text-[#0F0E47] font-medium"
                   />
                 </div>
+                </div>
+              </div>
 
-                {/* Department */}
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-[#505081]">Department</Label>
-                  <Input
-                    value={ssoData.department}
-                    readOnly
-                    className="bg-white/60 border-[#8686AC]/30 text-[#0F0E47] font-medium"
-                  />
+              <div className="pt-6">
+                <h3 className="text-base font-bold text-[#0F0E47] mb-4 flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-[#505081]" />
+                  Educational Details
+                </h3>
+              </div>
+
+              {/* Educational Info */}
+              <div className="space-y-4">
+                {/* College and Year on same line */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* College */}
+                  <div className="space-y-2">
+                    <Label htmlFor="college" className="text-sm font-semibold text-[#0F0E47]">
+                      College Name (Optional)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="college"
+                        type="text"
+                        value={formData.college}
+                        onChange={(e) => handleChange('college', e.target.value)}
+                        placeholder="Enter college name"
+                        className={`pl-10 border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 ${
+                          errors.college ? 'border-red-500' : 'border-gray-200'
+                        }`}
+                        disabled={loading}
+                      />
+                      <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#505081]" />
+                    </div>
+                    {errors.college && <p className="text-xs text-red-500">{errors.college}</p>}
+                  </div>
+
+                  {/* Passing/Passed Year */}
+                  <div className="space-y-2">
+                    <Label htmlFor="passingYear" className="text-sm font-semibold text-[#0F0E47]">
+                      Passing/Passed Year (Optional)
+                    </Label>
+                    <Input
+                      id="passingYear"
+                      type="number"
+                      value={formData.passingYear}
+                      onChange={(e) => handleChange('passingYear', e.target.value)}
+                      placeholder="e.g., 2024"
+                      className={`border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 ${
+                        errors.passingYear ? 'border-red-500' : 'border-gray-200'
+                      }`}
+                      disabled={loading}
+                    />
+                    {errors.passingYear && <p className="text-xs text-red-500">{errors.passingYear}</p>}
+                  </div>
                 </div>
 
-                {/* Position */}
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-[#505081]">Position</Label>
-                  <Input
-                    value={ssoData.position}
-                    readOnly
-                    className="bg-white/60 border-[#8686AC]/30 text-[#0F0E47] font-medium"
-                  />
+                {/* Degree and Branch on same line */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Degree */}
+                  <div className="space-y-2">
+                    <Label htmlFor="degree" className="text-sm font-semibold text-[#0F0E47]">
+                      Degree/Course (Optional)
+                    </Label>
+                    <Input
+                      id="degree"
+                      type="text"
+                      value={formData.degree}
+                      onChange={(e) => handleChange('degree', e.target.value)}
+                      placeholder="e.g., MCA, BCA, B.Tech"
+                      className="border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  {/* Branch */}
+                  <div className="space-y-2">
+                    <Label htmlFor="branch" className="text-sm font-semibold text-[#0F0E47]">
+                      Branch (Optional)
+                    </Label>
+                    <Input
+                      id="branch"
+                      type="text"
+                      value={formData.branch}
+                      onChange={(e) => handleChange('branch', e.target.value)}
+                      placeholder="e.g., CS, ISE, etc"
+                      className="border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20"
+                      disabled={loading}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-[#8686AC]/20 pt-6">
-              <h3 className="text-base font-bold text-[#0F0E47] mb-4 flex items-center gap-2">
-                <GraduationCap className="h-5 w-5 text-[#505081]" />
-                Complete Your Internship Details
-              </h3>
-            </div>
-
-            {/* Internship Dates */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startDate" className="text-sm font-semibold text-[#0F0E47]">
-                  Start Date *
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => handleChange('startDate', e.target.value)}
-                    className={`pl-10 border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 ${
-                      errors.startDate ? 'border-red-500' : 'border-gray-200'
-                    }`}
-                    disabled={loading}
-                  />
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#505081] pointer-events-none" />
+            {/* RIGHT COLUMN */}
+            <div className="space-y-4">
+              {/* Internship Periods */}
+              {internshipPeriods.map((period, index) => (
+              <div key={index} className={`border-2 border-[#8686AC]/20 rounded-lg p-4 space-y-4 relative ${index === 0 ? 'min-h-[240px]' : ''}`}>
+                <div className="flex justify-between items-center mb-2">
+                  {index === 0 ? (
+                    <h3 className="text-base font-bold text-[#0F0E47] flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 text-[#505081]" />
+                      Internship Periods
+                      <div className="relative group">
+                        <Info className="h-4 w-4 text-[#8686AC] cursor-help" />
+                        <div className="absolute left-0 top-6 hidden group-hover:block z-50 w-64 p-3 bg-[#0F0E47] text-white text-xs rounded-lg shadow-lg">
+                          Add multiple internship periods if you've worked as Project Intern, RS Intern, or FTE at different times
+                        </div>
+                      </div>
+                    </h3>
+                  ) : (
+                    <h4 className="text-sm font-semibold text-[#0F0E47]">Period {index + 1}</h4>
+                  )}
+                  <div className="flex items-center gap-2">
+                    {index === 0 && (
+                      <Button
+                        type="button"
+                        onClick={addInternshipPeriod}
+                        size="sm"
+                        variant="outline"
+                        className="text-[#0F0E47] border-[#0F0E47] hover:bg-[#0F0E47] hover:text-white"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Period
+                      </Button>
+                    )}
+                    {internshipPeriods.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeInternshipPeriod(index)}
+                        className="text-red-500 hover:text-red-700"
+                        title="Remove this period"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {errors.startDate && <p className="text-xs text-red-500">{errors.startDate}</p>}
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="endDate" className="text-sm font-semibold text-[#0F0E47]">
-                  End Date *
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) => handleChange('endDate', e.target.value)}
-                    min={formData.startDate}
-                    className={`pl-10 border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 ${
-                      errors.endDate ? 'border-red-500' : 'border-gray-200'
-                    }`}
-                    disabled={loading}
-                  />
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#505081] pointer-events-none" />
+                <div className="space-y-4">
+                  {/* Start and End Date on same line */}
+                  <div className={period.type === 'FTE' ? 'grid grid-cols-1' : 'grid grid-cols-2 gap-4'}>
+                    {/* Start Date */}
+                    <div className="space-y-2">
+                      <Label htmlFor={`startDate_${index}`} className="text-sm font-semibold text-[#0F0E47]">
+                        Start Date *
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id={`startDate_${index}`}
+                          type="date"
+                          value={period.startDate}
+                          onChange={(e) => handlePeriodChange(index, 'startDate', e.target.value)}
+                          className={`pl-7 border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 ${
+                            errors[`period_${index}_startDate`] ? 'border-red-500' : 'border-gray-200'
+                          }`}
+                          disabled={loading}
+                        />
+                        <Calendar className="absolute left-1.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#505081] pointer-events-none" />
+                      </div>
+                      {errors[`period_${index}_startDate`] && (
+                        <p className="text-xs text-red-500">{errors[`period_${index}_startDate`]}</p>
+                      )}
+                    </div>
+
+                    {/* End Date - Hidden for FTE */}
+                    {period.type !== 'FTE' && (
+                      <div className="space-y-2">
+                        <Label htmlFor={`endDate_${index}`} className="text-sm font-semibold text-[#0F0E47]">
+                          End Date *
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id={`endDate_${index}`}
+                            type="date"
+                            value={period.endDate}
+                            onChange={(e) => handlePeriodChange(index, 'endDate', e.target.value)}
+                            min={period.startDate}
+                            className={`pl-7 border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 ${
+                              errors[`period_${index}_endDate`] ? 'border-red-500' : 'border-gray-200'
+                            }`}
+                            disabled={loading}
+                          />
+                          <Calendar className="absolute left-1.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#505081] pointer-events-none" />
+                        </div>
+                        {errors[`period_${index}_endDate`] && (
+                          <p className="text-xs text-red-500">{errors[`period_${index}_endDate`]}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Internship Type - Full width below */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`type_${index}`} className="text-sm font-semibold text-[#0F0E47]">
+                      Internship Type *
+                    </Label>
+                    <Select
+                      value={period.type}
+                      onValueChange={(value) => handlePeriodChange(index, 'type', value)}
+                      disabled={loading}
+                    >
+                      <SelectTrigger className={`border-2 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 ${
+                        errors[`period_${index}_type`] ? 'border-red-500' : 'border-gray-200'
+                      }`}>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Project Intern">Project Intern</SelectItem>
+                        <SelectItem value="RS Intern">RS Intern</SelectItem>
+                        <SelectItem value="FTE">FTE (Full-Time Employee)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors[`period_${index}_type`] && (
+                      <p className="text-xs text-red-500">{errors[`period_${index}_type`]}</p>
+                    )}
+                  </div>
                 </div>
-                {errors.endDate && <p className="text-xs text-red-500">{errors.endDate}</p>}
               </div>
-            </div>
+            ))}
 
-            {/* Educational Info */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* College */}
+              {/* Primary Skills */}
               <div className="space-y-2">
-                <Label htmlFor="college" className="text-sm font-semibold text-[#0F0E47]">
-                  College Name *
+                <Label htmlFor="primarySkills" className="text-sm font-semibold text-[#0F0E47]">
+                  Primary Skills *
                 </Label>
                 <div className="relative">
                   <Input
-                    id="college"
+                    id="primarySkills"
                     type="text"
-                    value={formData.college}
-                    onChange={(e) => handleChange('college', e.target.value)}
-                    placeholder="Enter college name"
+                    value={formData.primarySkills}
+                    onChange={(e) => handleChange('primarySkills', e.target.value)}
+                    placeholder="e.g., React, Python, Java (comma-separated)"
                     className={`pl-10 border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 ${
-                      errors.college ? 'border-red-500' : 'border-gray-200'
+                      errors.primarySkills ? 'border-red-500' : 'border-gray-200'
                     }`}
                     disabled={loading}
                   />
-                  <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#505081]" />
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#505081]" />
                 </div>
-                {errors.college && <p className="text-xs text-red-500">{errors.college}</p>}
+                {errors.primarySkills && <p className="text-xs text-red-500">{errors.primarySkills}</p>}
               </div>
 
-              {/* Degree */}
+              {/* Secondary Skills */}
               <div className="space-y-2">
-                <Label htmlFor="degree" className="text-sm font-semibold text-[#0F0E47]">
-                  Degree *
+                <Label htmlFor="secondarySkills" className="text-sm font-semibold text-[#0F0E47]">
+                  Secondary Skills *
                 </Label>
                 <div className="relative">
                   <Input
-                    id="degree"
+                    id="secondarySkills"
                     type="text"
-                    value={formData.degree}
-                    onChange={(e) => handleChange('degree', e.target.value)}
-                    placeholder="e.g., B.Tech, MCA, BCA"
+                    value={formData.secondarySkills}
+                    onChange={(e) => handleChange('secondarySkills', e.target.value)}
+                    placeholder="e.g., Docker, AWS, Git (comma-separated)"
                     className={`pl-10 border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 ${
-                      errors.degree ? 'border-red-500' : 'border-gray-200'
+                      errors.secondarySkills ? 'border-red-500' : 'border-gray-200'
                     }`}
                     disabled={loading}
                   />
-                  <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#505081]" />
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#505081]" />
                 </div>
-                {errors.degree && <p className="text-xs text-red-500">{errors.degree}</p>}
+                {errors.secondarySkills && <p className="text-xs text-red-500">{errors.secondarySkills}</p>}
               </div>
             </div>
-
-            {/* Branch, Year, CGPA */}
-            <div className="grid grid-cols-3 gap-4">
-              {/* Branch */}
-              <div className="space-y-2">
-                <Label htmlFor="branch" className="text-sm font-semibold text-[#0F0E47]">
-                  Branch
-                </Label>
-                <Input
-                  id="branch"
-                  type="text"
-                  value={formData.branch}
-                  onChange={(e) => handleChange('branch', e.target.value)}
-                  placeholder="e.g., CSE, IT"
-                  className="border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Year */}
-              <div className="space-y-2">
-                <Label htmlFor="year" className="text-sm font-semibold text-[#0F0E47]">
-                  Year
-                </Label>
-                <Select
-                  value={formData.year}
-                  onValueChange={(value) => handleChange('year', value)}
-                  disabled={loading}
-                >
-                  <SelectTrigger className="border-2 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20">
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1st Year</SelectItem>
-                    <SelectItem value="2">2nd Year</SelectItem>
-                    <SelectItem value="3">3rd Year</SelectItem>
-                    <SelectItem value="4">4th Year</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* CGPA */}
-              <div className="space-y-2">
-                <Label htmlFor="cgpa" className="text-sm font-semibold text-[#0F0E47]">
-                  CGPA
-                </Label>
-                <Input
-                  id="cgpa"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="10"
-                  value={formData.cgpa}
-                  onChange={(e) => handleChange('cgpa', e.target.value)}
-                  placeholder="e.g., 8.5"
-                  className={`border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 ${
-                    errors.cgpa ? 'border-red-500' : 'border-gray-200'
-                  }`}
-                  disabled={loading}
-                />
-                {errors.cgpa && <p className="text-xs text-red-500">{errors.cgpa}</p>}
-              </div>
-            </div>
-
-            {/* Intern Type and Batch */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Intern Type */}
-              <div className="space-y-2">
-                <Label htmlFor="internType" className="text-sm font-semibold text-[#0F0E47]">
-                  Intern Type *
-                </Label>
-                <Select
-                  value={formData.internType}
-                  onValueChange={(value) => {
-                    handleChange('internType', value);
-                    handleChange('isPaid', value === 'paid' ? 'true' : 'false');
-                  }}
-                  disabled={loading}
-                >
-                  <SelectTrigger className="border-2 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="paid">Paid Internship</SelectItem>
-                    <SelectItem value="unpaid">Unpaid Internship</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Batch */}
-              <div className="space-y-2">
-                <Label htmlFor="batch" className="text-sm font-semibold text-[#0F0E47]">
-                  Batch (Optional)
-                </Label>
-                <Input
-                  id="batch"
-                  type="text"
-                  value={formData.batch}
-                  onChange={(e) => handleChange('batch', e.target.value)}
-                  placeholder="e.g., 2024-Q1"
-                  className="border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20"
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            {/* Skills */}
-            <div className="space-y-2">
-              <Label htmlFor="skills" className="text-sm font-semibold text-[#0F0E47]">
-                Skills (Optional)
-              </Label>
-              <div className="relative">
-                <Textarea
-                  id="skills"
-                  value={formData.skills}
-                  onChange={(e) => handleChange('skills', e.target.value)}
-                  placeholder="e.g., React, Python, Java (comma-separated)"
-                  rows={3}
-                  className="pl-10 border-2 transition-all focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 resize-none"
-                  disabled={loading}
-                />
-                <Tag className="absolute left-3 top-3 h-4 w-4 text-[#505081]" />
-              </div>
-              <p className="text-xs text-[#8686AC]">Separate multiple skills with commas</p>
             </div>
 
             {/* Submit Button */}
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-[#0F0E47] to-[#272757] hover:from-[#272757] hover:to-[#505081] text-white py-6 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+              className="w-full bg-gradient-to-r from-[#0F0E47] to-[#272757] hover:from-[#272757] hover:to-[#505081] text-white py-4 text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
             >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Submitting...
+                  Creating Your Account...
                 </>
               ) : (
-                'Submit Profile'
+                'Complete Registration'
               )}
             </Button>
           </form>
 
           <p className="text-center text-sm text-[#505081] mt-6">
-            Your profile will be reviewed by an administrator before you can access the system.
+            Your account will be created immediately upon submission. Welcome to Interns360!
           </p>
         </CardContent>
       </Card>

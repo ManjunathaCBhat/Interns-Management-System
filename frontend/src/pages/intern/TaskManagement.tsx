@@ -305,19 +305,26 @@ function AddTaskModal({
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      {/* Remove padding from DialogContent to control the inner layout */}
-      <DialogContent className="max-w-md p-0 overflow-hidden flex flex-col max-h-[90vh]">
-        
-        {/* 1. Centered Header Section */}
-        <DialogHeader className="p-6 border-b text-center">
-          <DialogTitle className="text-xl w-full">Add New Task</DialogTitle>
-          <p className="text-xs text-muted-foreground">Fields marked * are required</p>
-        </DialogHeader>
+  if (!open) return null;
 
-        {/* 2. Scrollable Form Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/50 z-50"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-white rounded-lg shadow-xl">
+        {/* Header */}
+        <div className="p-6 border-b text-center">
+          <h2 className="text-xl font-semibold">Add New Task</h2>
+          <p className="text-xs text-muted-foreground mt-1">Fields marked * are required</p>
+        </div>
+
+        {/* Form Body */}
+        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
           <Field label="Task Name" required>
             <Input
               placeholder="e.g. Design login page"
@@ -368,20 +375,21 @@ function AddTaskModal({
           {error && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
           )}
-
-          <div className="flex gap-3 pt-1">
-            <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-            <Button
-              className="flex-1 bg-[#0F0E47] hover:bg-[#272757] active:scale-95 transition-transform"
-              disabled={saving}
-              onClick={handleSave}
-            >
-              {saving ? 'Adding…' : 'Add Task'}
-            </Button>
-          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Footer */}
+        <div className="p-6 border-t flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button
+            className="flex-1 bg-[#0F0E47] hover:bg-[#272757]"
+            disabled={saving}
+            onClick={handleSave}
+          >
+            {saving ? 'Adding…' : 'Add Task'}
+          </Button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -652,18 +660,17 @@ const TaskManagement: React.FC = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
+      <div className="space-y-6 bg-gray-50 min-h-screen">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">Task Board</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {isScrumMaster ? 'Managing intern tasks' : 'Your sprint tasks'}
-            </p>
-          </div>
+        <div className="rounded-2xl bg-gradient-to-br from-[#0F0E47] to-[#272757] p-6 md:p-8">
+          <h1 className="text-2xl font-bold text-white md:text-3xl">Task Board</h1>
+          <p className="mt-1 text-white/80">
+            {isScrumMaster ? 'Managing intern tasks' : 'Your sprint tasks'}
+          </p>
         </div>
 
+        <div className="px-6">
         {/* ── KPI Cards ── */}
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           {KPI_CONFIG.map(cfg => (
@@ -679,7 +686,7 @@ const TaskManagement: React.FC = () => {
         </div>
 
         {/* ── Scrum Board ── */}
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 pb-6">
           {COLUMNS.map(col => {
             const colTasks = tasks.filter(t => normalizeStatus(t.status) === col.id);
             const isOver   = dragOver === col.id;
@@ -764,6 +771,7 @@ const TaskManagement: React.FC = () => {
               </div>
             );
           })}
+        </div>
         </div>
       </div>
 

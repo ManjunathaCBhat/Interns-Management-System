@@ -64,38 +64,59 @@ const hasAccess = allowedRoles.some(role => userRole.includes(role));
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  //Load Data 
+  //Load Data
   useEffect(() => {
   const loadProfileData = async () => {
     try {
       setIsLoading(true);
-      
+
       const [response, assignedProjects] = await Promise.all([
         profileService.getMyProfile(),
         projectService.getAssigned(),
       ]);
 
+      console.log('Profile response:', response);
+      console.log('Assigned projects:', assignedProjects);
+
       const projectNames = assignedProjects.map((p) => p.name);
       setProjects(projectNames);
-      
+
+      // Priority: Use backend data from profile service, fallback to AuthContext
       if (response.exists && response.data) {
         const data = response.data;
-        
-        setStartDate(data.startDate || "");
-        setJoinedDate(data.joinedDate || "");
-        setEndDate(data.endDate || "");
+        console.log('Setting profile data from backend:', data);
+
+        setStartDate(data.startDate || user?.startDate || "");
+        setJoinedDate(data.joinedDate || user?.joinedDate || "");
+        setEndDate(data.endDate || user?.endDate || "");
+        setCurrentProject(data.currentProject || user?.currentProject || "");
+        setMentor(data.mentor || user?.mentor || "");
+        setPhone(data.phone || user?.phone || "");
+        setInternType(data.internType || user?.internType || "Intern");
+        setPayType(data.payType || (user?.isPaid ? "Paid" : "Unpaid"));
+        setCollege(data.college || user?.college || "");
+        setDegree(data.degree || user?.degree || "");
+        setSkills(data.skills || user?.skills || []);
+
+        // Add current project to projects list if not already there
         const current = data.currentProject || "";
-        setCurrentProject(current);
         if (current && !projectNames.includes(current)) {
           setProjects((prev) => [...prev, current]);
         }
-        setMentor(data.mentor || "");
-        setPhone(data.phone || "");
-        setInternType(data.internType || "Intern");
-        setPayType(data.payType || "Unpaid");
-        setCollege(data.college || "");
-        setDegree(data.degree || "");
-        setSkills(data.skills || []);
+      } else if (user) {
+        // Fallback to AuthContext if no backend data
+        console.log('Using data from AuthContext');
+        setStartDate(user.startDate || "");
+        setJoinedDate(user.joinedDate || "");
+        setEndDate(user.endDate || "");
+        setCurrentProject(user.currentProject || "");
+        setMentor(user.mentor || "");
+        setPhone(user.phone || "");
+        setInternType(user.internType || "Intern");
+        setPayType(user.isPaid ? "Paid" : "Unpaid");
+        setCollege(user.college || "");
+        setDegree(user.degree || "");
+        setSkills(user.skills || []);
       }
     } catch (error) {
       console.error("Error loading profile data:", error);
@@ -303,7 +324,7 @@ const hasAccess = allowedRoles.some(role => userRole.includes(role));
         )}
 
           {/* header section */}
-        <div className="rounded-2xl p-6 text-white bg-gradient-to-r from-slate-900 via-blue-900 to-teal-700 flex items-center justify-between">
+        <div className="rounded-2xl p-6 text-white bg-gradient-to-r from-[#1e1145] via-[#2d1b69] to-[#1e1145] flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="h-20 w-20 rounded-full bg-teal-500 flex items-center justify-center text-2xl font-bold shadow-lg">
               {getInitials(user?.name)}
@@ -327,169 +348,218 @@ const hasAccess = allowedRoles.some(role => userRole.includes(role));
           )}
         </div>
 
-        
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-          {/* Left Panel */}
-          <Card className="lg:col-span-2 shadow-md">
-            <CardContent className="p-6 space-y-4">
-              <h2 className="text-xl font-semibold text-gray-800 border-b pb-2">Profile Timeline</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* Left Panel - Education Timeline */}
+          <Card className="lg:col-span-1 shadow-md bg-gradient-to-br from-[#1e1145] via-[#2d1b69] to-[#1e1145] border-0">
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold text-white mb-8">Education</h2>
 
               {isEditMode ? (
-                <>
-                    {/* edit mode */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Date <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                <div className="space-y-6">
+                  {/* Edit mode - Simple form */}
+                  <div className="space-y-4 bg-slate-800/50 p-4 rounded-lg border border-cyan-500/20">
+                    <div>
+                      <label className="block text-sm font-medium text-cyan-400 mb-1">
+                        College <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={college}
+                        onChange={(e) => setCollege(e.target.value)}
+                        className="w-full border border-cyan-500/30 bg-slate-700/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent placeholder-gray-400"
+                        placeholder="Enter college name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-cyan-400 mb-1">
+                        Degree <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={degree}
+                        onChange={(e) => setDegree(e.target.value)}
+                        className="w-full border border-cyan-500/30 bg-slate-700/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent placeholder-gray-400"
+                        placeholder="e.g., Master of Computer Applications"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-cyan-400 mb-1">
+                        Start Date <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full border border-cyan-500/30 bg-slate-700/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-cyan-400 mb-1">
+                        End Date <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full border border-cyan-500/30 bg-slate-700/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Joined Date <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={joinedDate}
-                      onChange={(e) => setJoinedDate(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+                  <div className="space-y-4 bg-slate-800/50 p-4 rounded-lg border border-cyan-500/20 mt-4">
+                    <div>
+                      <label className="block text-sm font-medium text-cyan-400 mb-1">
+                        Joined Date <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={joinedDate}
+                        onChange={(e) => setJoinedDate(e.target.value)}
+                        className="w-full border border-cyan-500/30 bg-slate-700/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Date <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Current Project <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={currentProject}
-                      onChange={(e) => setCurrentProject(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select project</option>
-                      {projects.map((project) => (
-                        <option key={project} value={project}>{project}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Mentor <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={mentor}
-                      onChange={(e) => setMentor(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Enter mentor name"
-                    />
-                  </div>
-
-                  {/* Skills Section */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Skills <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex gap-2 mb-3">
+                    <div>
+                      <label className="block text-sm font-medium text-cyan-400 mb-1">
+                        Current Project <span className="text-red-400">*</span>
+                      </label>
                       <select
-                        value={selectedSkill}
-                        onChange={(e) => setSelectedSkill(e.target.value)}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={currentProject}
+                        onChange={(e) => setCurrentProject(e.target.value)}
+                        className="w-full border border-cyan-500/30 bg-slate-700/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                       >
-                        <option value="">Select skill</option>
-                        {allSkills.map((skill) => (
-                          <option key={skill} value={skill}>{skill}</option>
+                        <option value="" className="bg-slate-800">Select project</option>
+                        {projects.map((project) => (
+                          <option key={project} value={project} className="bg-slate-800">{project}</option>
                         ))}
                       </select>
-                      <button
-                        type="button"
-                        onClick={addSkill}
-                        className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
-                      >
-                        Add
-                      </button>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      {skills.map((skill) => (
-                        <span
-                          key={skill}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 border border-blue-200 rounded-full font-medium"
+                    <div>
+                      <label className="block text-sm font-medium text-cyan-400 mb-1">
+                        Mentor <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={mentor}
+                        onChange={(e) => setMentor(e.target.value)}
+                        className="w-full border border-cyan-500/30 bg-slate-700/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent placeholder-gray-400"
+                        placeholder="Enter mentor name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-cyan-400 mb-2">
+                        Skills <span className="text-red-400">*</span>
+                      </label>
+                      <div className="flex gap-2 mb-3">
+                        <select
+                          value={selectedSkill}
+                          onChange={(e) => setSelectedSkill(e.target.value)}
+                          className="flex-1 border border-cyan-500/30 bg-slate-700/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                         >
-                          {skill}
-                          <button
-                            type="button"
-                            onClick={() => removeSkill(skill)}
-                            className="text-red-500 hover:text-red-700 font-bold text-lg leading-none"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                    {/* view mode */}
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Start Date</p>
-                    <p className="text-base text-gray-900 mt-1">{startDate ? formatDate(startDate) : "N/A"}</p>
-                  </div>
+                          <option value="" className="bg-slate-800">Select skill</option>
+                          {allSkills.map((skill) => (
+                            <option key={skill} value={skill} className="bg-slate-800">{skill}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={addSkill}
+                          className="px-4 py-2 rounded-lg bg-cyan-600 text-white font-medium hover:bg-cyan-700 transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
 
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Joined Date</p>
-                    <p className="text-base text-gray-900 mt-1">{joinedDate ? formatDate(joinedDate) : "N/A"}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">End Date</p>
-                    <p className="text-base text-gray-900 mt-1">{endDate ? formatDate(endDate) : "N/A"}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Current Project</p>
-                    <p className="text-base text-gray-900 mt-1">{currentProject || "N/A"}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Mentor</p>
-                    <p className="text-base text-gray-900 mt-1">{mentor || "N/A"}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-2">Skills</p>
-                    <div className="flex flex-wrap gap-2">
-                      {skills.length > 0 ? (
-                        skills.map((skill) => (
+                      <div className="flex flex-wrap gap-2">
+                        {skills.map((skill) => (
                           <span
                             key={skill}
-                            className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 border border-blue-200 rounded-full font-medium"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-full font-medium"
                           >
                             {skill}
+                            <button
+                              type="button"
+                              onClick={() => removeSkill(skill)}
+                              className="text-red-400 hover:text-red-300 font-bold text-lg leading-none"
+                            >
+                              ×
+                            </button>
                           </span>
-                        ))
-                      ) : (
-                        <p className="text-gray-500 text-sm">No skills added</p>
-                      )}
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* View mode - Beautiful Timeline - Education & Internship Period */}
+                  <div className="relative pl-8 space-y-8">
+                    {/* Vertical Line */}
+                    <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#fbbf24] via-[#f59e0b] to-transparent"></div>
+
+                    {/* Timeline Item 1 - Education */}
+                    <div className="relative">
+                      {/* Circle Dot */}
+                      <div className="absolute -left-[26px] top-2 w-5 h-5 rounded-full bg-[#fbbf24] border-4 border-[#1e1145] shadow-lg shadow-[#fbbf24]/50"></div>
+
+                      <div className="bg-[#2d1b69]/40 backdrop-blur-sm border border-[#fbbf24]/30 rounded-xl p-5 hover:border-[#fbbf24]/50 transition-all duration-300 hover:shadow-lg hover:shadow-[#fbbf24]/20">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="text-lg font-bold text-white">{degree || 'Degree Not Set'}</h3>
+                          <span className="px-3 py-1 bg-[#fbbf24]/20 text-[#fbbf24] text-xs font-semibold rounded-full border border-[#f59e0b]/30">
+                            {endDate ? new Date(endDate).getFullYear() : 'Current'}
+                          </span>
+                        </div>
+                        <p className="text-[#fbbf24] text-sm font-medium mb-1">{college || 'College Not Set'}</p>
+                        {startDate && endDate && (
+                          <p className="text-gray-300 text-xs">
+                            {formatDate(startDate)} - {formatDate(endDate)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Timeline Item 2 - Internship Period */}
+                    <div className="relative">
+                      {/* Circle Dot */}
+                      <div className="absolute -left-[26px] top-2 w-5 h-5 rounded-full bg-[#10b981] border-4 border-[#1e1145] shadow-lg shadow-[#10b981]/50"></div>
+
+                      <div className="bg-[#2d1b69]/40 backdrop-blur-sm border border-[#10b981]/30 rounded-xl p-5 hover:border-[#10b981]/50 transition-all duration-300 hover:shadow-lg hover:shadow-[#10b981]/20">
+                        <div className="flex items-start justify-between mb-3">
+                          <h3 className="text-lg font-bold text-white">Internship Period</h3>
+                          {joinedDate && (
+                            <span className="px-3 py-1 bg-[#10b981]/30 text-[#10b981] text-xs font-semibold rounded-full border border-[#059669]/40">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-300">Start Date:</span>
+                            <span className="text-white font-semibold">{joinedDate ? formatDate(joinedDate) : 'Not Set'}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-300">End Date:</span>
+                            <span className="text-white font-semibold">{endDate ? formatDate(endDate) : 'Not Set'}</span>
+                          </div>
+                          {joinedDate && endDate && (
+                            <div className="pt-2 mt-2 border-t border-[#505081]/30">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[#10b981] font-medium">Duration:</span>
+                                <span className="text-[#10b981] font-bold">
+                                  {Math.ceil((new Date(endDate).getTime() - new Date(joinedDate).getTime()) / (1000 * 60 * 60 * 24))} days
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </>
@@ -497,138 +567,141 @@ const hasAccess = allowedRoles.some(role => userRole.includes(role));
             </CardContent>
           </Card>
 
-          {/* Right Panel  */}
-          <Card className="lg:col-span-3 shadow-md">
-            <CardContent className="p-6 space-y-4">
-              <h2 className="text-xl font-semibold text-gray-800 border-b pb-2">Contact Details</h2>
+          {/* Right Panel - Internship, Skills & Contact Details */}
+          <Card className="lg:col-span-2 shadow-md">
+            <CardContent className="p-6 space-y-6">
 
-              {isEditMode ? (
+              {!isEditMode && (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                      <input
-                        type="text"
-                        value={user?.name || ""}
-                        disabled
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-700"
-                      />
+                  {/* Internship Info Section - Orange theme from login */}
+                  <div className="bg-gradient-to-br from-[#f97316]/20 via-[#ea580c]/10 to-[#f97316]/20 border-2 border-[#f97316] rounded-xl p-6 shadow-md">
+                    <div className="flex items-start justify-between mb-4">
+                      <h3 className="text-xl font-bold text-[#ea580c]">Internship at Consoleflare</h3>
+                      {joinedDate && (
+                        <span className="px-3 py-1.5 bg-gradient-to-r from-[#10b981] to-[#059669] text-white text-xs font-bold rounded-full shadow-md">
+                          Current
+                        </span>
+                      )}
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <input
-                        type="email"
-                        value={user?.email || ""}
-                        disabled
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-700"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter phone number"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Intern Type</label>
-                      <select
-                        value={internType}
-                        onChange={(e) => setInternType(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option>Intern</option>
-                        <option>Full Time</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Pay Type</label>
-                      <select
-                        value={payType}
-                        onChange={(e) => setPayType(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option>Paid</option>
-                        <option>Unpaid</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        College <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={college}
-                        onChange={(e) => setCollege(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter college name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Degree <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={degree}
-                        onChange={(e) => setDegree(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter degree"
-                      />
+                    <div className="grid grid-cols-2 gap-6 text-sm">
+                      <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-[#f97316]/30">
+                        <p className="text-[#ea580c] font-semibold mb-1">Project</p>
+                        <p className="text-gray-900 font-bold text-base">{currentProject || 'N/A'}</p>
+                      </div>
+                      <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-[#f97316]/30">
+                        <p className="text-[#ea580c] font-semibold mb-1">Mentor</p>
+                        <p className="text-gray-900 font-bold text-base">{mentor || 'N/A'}</p>
+                      </div>
+                      {joinedDate && (
+                        <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-[#f97316]/30">
+                          <p className="text-[#ea580c] font-semibold mb-1">Joined Date</p>
+                          <p className="text-[#f97316] font-bold text-base">{formatDate(joinedDate)}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Name</p>
-                      <p className="text-base text-gray-900 mt-1">{user?.name || "N/A"}</p>
-                    </div>
 
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Email</p>
-                      <p className="text-base text-gray-900 mt-1">{user?.email || "N/A"}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Phone</p>
-                      <p className="text-base text-gray-900 mt-1">{phone || "N/A"}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Intern Type</p>
-                      <p className="text-base text-gray-900 mt-1">{internType || "N/A"}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Pay Type</p>
-                      <p className="text-base text-gray-900 mt-1">{payType || "N/A"}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">College</p>
-                      <p className="text-base text-gray-900 mt-1">{college || "N/A"}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Degree</p>
-                      <p className="text-base text-gray-900 mt-1">{degree || "N/A"}</p>
+                  {/* Skills Section - Purple theme from login */}
+                  <div className="bg-gradient-to-br from-[#505081]/20 via-[#272757]/10 to-[#505081]/20 border-2 border-[#505081] rounded-xl p-6 shadow-md">
+                    <h3 className="text-xl font-bold text-[#272757] mb-4">Skills</h3>
+                    <div className="flex flex-wrap gap-3">
+                      {skills.length > 0 ? (
+                        skills.map((skill) => (
+                          <span
+                            key={skill}
+                            className="px-5 py-2.5 text-sm bg-gradient-to-r from-[#505081] to-[#272757] text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
+                          >
+                            {skill}
+                          </span>
+                        ))
+                      ) : (
+                        <p className="text-[#505081] text-sm font-medium">No skills added yet</p>
+                      )}
                     </div>
                   </div>
                 </>
               )}
+
+              {/* Contact & Work Details */}
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Contact & Work Details</h2>
+
+                {isEditMode ? (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <input
+                          type="text"
+                          value={user?.name || ""}
+                          disabled
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-700"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={user?.email || ""}
+                          disabled
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-700"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Phone <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter phone number"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Intern Type</label>
+                        <select
+                          value={internType}
+                          onChange={(e) => setInternType(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option>Intern</option>
+                          <option>Full Time</option>
+                        </select>
+                      </div>
+
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Name</p>
+                        <p className="text-base text-gray-900 mt-1">{user?.name || "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Email</p>
+                        <p className="text-base text-gray-900 mt-1">{user?.email || "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Phone</p>
+                        <p className="text-base text-gray-900 mt-1">{phone || "N/A"}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Intern Type</p>
+                        <p className="text-base text-gray-900 mt-1">{internType || "N/A"}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

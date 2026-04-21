@@ -13,6 +13,27 @@ export interface User {
   auth_provider?: string;
   profilePicture?: string;  // Base64 encoded image
   created_at?: string;
+
+  // Intern-specific fields
+  phone?: string;
+  location?: string;
+  department?: string;
+  position?: string;
+  college?: string;
+  degree?: string;
+  branch?: string;
+  year?: number;
+  skills?: string[];
+  startDate?: string;
+  endDate?: string;
+  joinedDate?: string;
+  internType?: string;
+  isPaid?: boolean;
+  mentor?: string;
+  currentProject?: string;
+  organization?: string;
+  domain?: string;
+  status?: string;
 }
 
 export interface UserRegistration {

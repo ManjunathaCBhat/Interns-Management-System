@@ -6,10 +6,11 @@ import os
 from datetime import datetime, timezone
 from fastapi import HTTPException, Depends
 from dotenv import load_dotenv
-from azure_auth import validate_azure_token, normalize_email, ADMIN_EMAILS
+from azure_auth import validate_azure_token, normalize_email
 from auth import create_access_token
 from models import UserResponse
 from database import get_database
+from email_service import send_welcome_email
 
 load_dotenv()
 
@@ -118,7 +119,7 @@ async def handle_azure_sso_callback(code: str, db):
             }
 
         # Case 2: User exists but not approved
-        if not existing_user.get("is_approved", False) and email not in ADMIN_EMAILS:
+        if not existing_user.get("is_approved", False):
             print(f"[SSO Handler] User pending approval: {email}")
             return {
                 "status": "pending_approval",
@@ -242,10 +243,7 @@ async def complete_sso_profile(profile_data: dict, db):
         if existing_username:
             username = f"{username}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-        # Determine if admin (auto-approve)
-        is_admin = email in ADMIN_EMAILS
-
-        # Create new user
+        # Create new user - AUTO-APPROVE ALL USERS AS INTERN
         new_user = {
             "username": username,
             "email": email,
@@ -253,7 +251,7 @@ async def complete_sso_profile(profile_data: dict, db):
             "auth_provider": "azure_ad",
             "azure_oid": profile_data.get("azure_oid"),
             "is_active": True,
-            "is_approved": is_admin,  # Admins auto-approved
+            "is_approved": True,  # Auto-approve all users
             "role": "admin" if is_admin else "intern",
             "hashed_password": None,  # No password for SSO users
 
@@ -272,13 +270,14 @@ async def complete_sso_profile(profile_data: dict, db):
             "degree": profile_data.get("degree"),
             "branch": profile_data.get("branch"),
             "year": profile_data.get("year"),
-            "cgpa": profile_data.get("cgpa"),
             "internType": profile_data.get("internType", "unpaid"),
             "isPaid": profile_data.get("isPaid", False),
             "status": "active",
             "organization": profile_data.get("organization", "Cirrus Labs"),
             "domain": profile_data.get("domain"),
-            "batch": profile_data.get("batch"),
+
+            # Store multiple internship periods
+            "internshipPeriods": profile_data.get("internshipPeriods", []),
 
             # Defaults
             "taskCount": 0,
@@ -291,20 +290,49 @@ async def complete_sso_profile(profile_data: dict, db):
         }
 
         result = await db.users.insert_one(new_user)
+        user_id = str(result.inserted_id)
 
-        print(f"[SSO Handler] Profile completed for: {email}, is_approved: {is_admin}")
+        print(f"[SSO Handler] Profile completed for: {email}, auto-approved: True")
 
-        # TODO: Send welcome email here
-        # await send_welcome_email(email, profile_data.get("name"))
+        # Generate access token for immediate login
+        user_role = "intern"
+        access_token = create_access_token(
+            data={"sub": username, "role": user_role}
+        )
 
-        # TODO: Notify admins about new user if not admin
-        # if not is_admin:
-        #     await notify_admins_new_user(email, profile_data.get("name"))
+        # Prepare user response
+        user_response = UserResponse(
+            id=user_id,
+            username=username,
+            email=email,
+            name=profile_data.get("name"),
+            employee_id=None,
+            role=user_role,
+            is_active=True,
+            is_approved=True,
+            created_at=datetime.now(timezone.utc),
+            profilePicture=profile_data.get("profilePicture")
+        )
+
+        # Send welcome email
+        try:
+            await send_welcome_email(
+                to_email=email,
+                name=profile_data.get("name"),
+                role=user_role
+            )
+            print(f"[SSO Handler] Welcome email sent to: {email}")
+        except Exception as email_error:
+            # Log error but don't fail the registration
+            print(f"[SSO Handler] Failed to send welcome email: {str(email_error)}")
 
         return {
-            "message": "Profile submitted successfully" if not is_admin else "Profile completed and approved",
-            "status": "approved" if is_admin else "pending_approval",
-            "user_id": str(result.inserted_id)
+            "message": "Welcome to Interns360! Your account has been created successfully.",
+            "status": "approved",
+            "user_id": user_id,
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": user_response.model_dump()
         }
 
     except HTTPException:

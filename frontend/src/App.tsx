@@ -30,7 +30,6 @@ import ScrumMasterTaskManagement from '@/pages/intern/TaskManagement';
 // Intern Pages
 import InternDashboard from '@/pages/intern/InternDashboard';
 import InternProfile from '@/pages/intern/InternProfile';
-import DailyUpdates from '@/pages/intern/DailyUpdates';
 import PTORequest from '@/pages/intern/PTORequest';
 import TaskManagement from "./pages/intern/TaskManagement";
 import { Toaster } from '@/components/ui/toaster';
@@ -270,14 +269,6 @@ const AppRoutes: React.FC = () => {
         }
       />
       <Route
-        path="/scrum-master/daily-updates"
-        element={
-          <ProtectedRoute allowedRoles={['scrum_master', 'admin']}>
-            <DailyUpdates />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/scrum-master/tasks"
         element={
           <ProtectedRoute allowedRoles={['scrum_master', 'admin']}>
@@ -330,14 +321,6 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/intern/daily-updates"
-        element={
-          <ProtectedRoute allowedRoles={['intern']}>
-            <DailyUpdates />
-          </ProtectedRoute>
-        }
-      />
       <Route 
         path="/intern/tasks" 
         element={<ProtectedRoute allowedRoles={['intern']}>
@@ -369,14 +352,6 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute allowedRoles={['intern', 'scrum_master']}>
             <InternProfile />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/daily-updates"
-        element={
-          <ProtectedRoute allowedRoles={['intern']}>
-            <DailyUpdates />
           </ProtectedRoute>
         }
       />

@@ -18,14 +18,6 @@ load_dotenv()
 # Azure AD configuration
 security = HTTPBearer(auto_error=False)
 
-# Admin emails that are auto-approved with admin role
-ADMIN_EMAILS = [
-    "mukund.hs@cirruslabs.io",
-    "manjunatha.bhat@cirruslabs.io",
-    "karan.ry@cirruslabs.io"
-]
-
-
 def normalize_email(email: str) -> str:
     """Normalize email to lowercase for consistent storage and lookup"""
     return email.lower().strip() if email else email
@@ -221,10 +213,9 @@ async def get_or_create_azure_user(azure_user: AzureUser, db):
 
     from datetime import datetime, timezone
 
-    # Check if this is an admin email (auto-approve with admin role)
-    is_admin = email in ADMIN_EMAILS
-    role = "admin" if is_admin else "intern"
-    is_approved = is_admin  # Admins are auto-approved, others need approval
+    # All users get intern role
+    role = "intern"
+    is_approved = True  # Auto-approve all users
 
     new_user = {
         "username": username,

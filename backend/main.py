@@ -200,12 +200,6 @@ else:
 
 
 
-ADMIN_EMAILS = [
-    "mukund.hs@cirruslabs.io",
-    "manjunatha.bhat@cirruslabs.io",
-    "karan.ry@cirruslabs.io"
-]
-
 RESET_SENDER_EMAIL = os.getenv("SENDER_MAIL")
 
 
@@ -511,10 +505,9 @@ async def register(user_data: UserCreate, db = Depends(get_database)):
     if existing:
         raise HTTPException(status_code=400, detail="User with this email or username already exists")
 
-    # Check if this is an admin email (auto-approve with admin role)
-    is_admin = email in ADMIN_EMAILS
-    role = "admin" if is_admin else "intern"
-    is_approved = is_admin  # Admins are auto-approved
+    # All users get intern role and require approval
+    role = "intern"
+    is_approved = False
 
     user_dict = {
         "username": username,
@@ -761,7 +754,26 @@ async def get_current_user_profile(current_user: User = Depends(get_current_acti
         is_active=current_user.is_active,
         is_approved=current_user.is_approved,
         created_at=current_user.created_at,
-        profilePicture=current_user.profilePicture
+        profilePicture=current_user.profilePicture,
+        phone=getattr(current_user, 'phone', None),
+        location=getattr(current_user, 'location', None),
+        department=getattr(current_user, 'department', None),
+        position=getattr(current_user, 'position', None),
+        college=getattr(current_user, 'college', None),
+        degree=getattr(current_user, 'degree', None),
+        branch=getattr(current_user, 'branch', None),
+        year=getattr(current_user, 'year', None),
+        skills=getattr(current_user, 'skills', None),
+        startDate=getattr(current_user, 'startDate', None),
+        endDate=getattr(current_user, 'endDate', None),
+        joinedDate=getattr(current_user, 'joinedDate', None),
+        internType=getattr(current_user, 'internType', None),
+        isPaid=getattr(current_user, 'isPaid', None),
+        mentor=getattr(current_user, 'mentor', None),
+        currentProject=getattr(current_user, 'currentProject', None),
+        organization=getattr(current_user, 'organization', None),
+        domain=getattr(current_user, 'domain', None),
+        status=getattr(current_user, 'status', None)
     )
 
 
@@ -3377,23 +3389,27 @@ async def get_my_profile(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get current user's intern profile"""
-    
-    intern = await db.interns.find_one({"email": current_user.email})
-    
-    if not intern:
-        
+
+    # Look in users collection, not interns
+    user = await db.users.find_one({"email": current_user.email})
+
+    if not user:
         return {
             "exists": False,
             "message": "Profile not found"
         }
-    
-    intern["_id"] = str(intern["_id"])
-    if "joinedDate" in intern and isinstance(intern["joinedDate"], date):
-        intern["joinedDate"] = intern["joinedDate"].isoformat()
-    
+
+    user["_id"] = str(user["_id"])
+
+    # Convert date fields to ISO format
+    date_fields = ["joinedDate", "startDate", "endDate", "created_at", "updated_at"]
+    for field in date_fields:
+        if field in user and isinstance(user[field], date):
+            user[field] = user[field].isoformat()
+
     return {
         "exists": True,
-        "data": intern
+        "data": user
     }
 
 
@@ -3404,43 +3420,45 @@ async def update_my_profile(
     current_user: User = Depends(get_current_active_user)
 ):
     """Update current user's intern profile"""
-    
-    intern = await db.interns.find_one({"email": current_user.email})
-    
+
+    # Look in users collection
+    user = await db.users.find_one({"email": current_user.email})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     update_data = {}
-    
-    
+
+    # Date fields
     if "startDate" in profile_data:
         update_data["startDate"] = profile_data["startDate"]
     if "joinedDate" in profile_data:
         update_data["joinedDate"] = profile_data["joinedDate"]
     if "endDate" in profile_data:
         update_data["endDate"] = profile_data["endDate"]
-    
 
-    allowed_fields = ["currentProject", "mentor", "skills", "phone", 
+    # Other profile fields
+    allowed_fields = ["currentProject", "mentor", "skills", "phone",
                      "internType", "payType", "college", "degree", "batch"]
-    
+
     for field in allowed_fields:
         if field in profile_data:
             update_data[field] = profile_data[field]
-    
+
     update_data["updated_at"] = datetime.now(timezone.utc)
-    
-    if intern:
-        # Update existing profile
-        result = await db.interns.find_one_and_update(
-            {"email": current_user.email},
-            {"$set": update_data},
-            return_document=True
-        )
+
+    # Update in users collection
+    result = await db.users.find_one_and_update(
+        {"email": current_user.email},
+        {"$set": update_data},
+        return_document=True
+    )
+
+    if result:
+        result["_id"] = str(result["_id"])
+        return {"success": True, "data": result}
     else:
-        # Create new intern profile
-        update_data["email"] = current_user.email
-        update_data["name"] = current_user.name
-        update_data["status"] = "active"
-        update_data["taskCount"] = 0
-        update_data["completedTasks"] = 0
+        raise HTTPException(status_code=500, detail="Failed to update profile")
         update_data["dsuStreak"] = 0
         update_data["created_at"] = datetime.now(timezone.utc)
         

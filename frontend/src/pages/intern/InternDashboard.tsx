@@ -47,10 +47,12 @@ const InternDashboard: React.FC = () => {
   const [internData, setInternData] = useState<any>(null); // ✅ NEW: Store intern details
   
   const [dsuForm, setDsuForm] = useState({
-    yesterday: '',
-    today: '',
-    blockers: '',
+    taskName: '',
+    project: '',
+    description: '',
   });
+
+  const [projects, setProjects] = useState<string[]>([]);
   
   // ✅ NEW: PTO Form State
   const [ptoForm, setPtoForm] = useState({
@@ -78,12 +80,17 @@ const InternDashboard: React.FC = () => {
   //   return Math.max(0, daysRemaining);
   // };
 
-  const calculateDaysRemaining = (endDate: string | null | undefined): string => {
-  if (!endDate) return 'Not Available';
+  const calculateDaysRemaining = (endDate: string | null | undefined): string | number => {
+  if (!endDate) {
+    console.log('No endDate provided');
+    return 'N/A';
+  }
+  console.log('Calculating days for endDate:', endDate);
   const end = new Date(endDate);
   const now = new Date();
   const daysRemaining = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return String(Math.max(0, daysRemaining));
+  console.log('Days remaining:', daysRemaining);
+  return Math.max(0, daysRemaining);
 };
 
   useEffect(() => {
@@ -98,10 +105,17 @@ const InternDashboard: React.FC = () => {
         dsuService.getByDate(user?.id || '', today),
         internService.getById(user?.id || ''), // ✅ NEW: Fetch intern details
       ]);
-      
+
+      console.log('Intern Detail:', internDetail);
+      console.log('End Date:', internDetail?.endDate);
+
       setTasks(tasksData);
       setTodaysDSU(dsuData);
       setInternData(internDetail); // ✅ NEW
+
+      // Extract unique project names from tasks
+      const uniqueProjects = [...new Set(tasksData.map((task: Task) => task.project).filter(Boolean))];
+      setProjects(uniqueProjects);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -111,31 +125,35 @@ const InternDashboard: React.FC = () => {
 
   const handleDSUSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!dsuForm.yesterday || !dsuForm.today) {
+
+    if (!dsuForm.taskName || !dsuForm.project) {
       toast({
         title: 'Missing fields',
-        description: 'Please fill in yesterday and today fields',
+        description: 'Please fill in task name and project',
         variant: 'destructive',
       });
       return;
     }
 
     setIsSubmitting(true);
-    
+
     try {
       await dsuService.create({
         internId: user?.id || '',
         date: today,
-        ...dsuForm,
+        yesterday: '',
+        today: dsuForm.description || `${dsuForm.taskName} - ${dsuForm.project}`,
+        blockers: '',
+        taskName: dsuForm.taskName,
+        project: dsuForm.project,
       });
-      
+
       toast({
         title: 'DSU Submitted!',
         description: 'Your daily standup has been recorded.',
       });
-      
-      setDsuForm({ yesterday: '', today: '', blockers: '' });
+
+      setDsuForm({ taskName: '', project: '', description: '' });
       fetchData();
     } catch (error) {
       toast({
@@ -148,47 +166,23 @@ const InternDashboard: React.FC = () => {
     }
   };
 
-  // ✅ NEW: PTO Submit Handler
+  // ✅ NEW: WFH Submit Handler
   const handlePTOSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!ptoForm.startDate || !ptoForm.endDate) {
-      toast({
-        title: 'Missing dates',
-        description: 'Please select start and end dates',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (new Date(ptoForm.endDate) < new Date(ptoForm.startDate)) {
-      toast({
-        title: 'Invalid dates',
-        description: 'End date must be after start date',
-        variant: 'destructive',
-      });
-      return;
-    }
 
     setIsPTOSubmitting(true);
-    
-    try {
-      const numberOfDays = Math.ceil(
-        (new Date(ptoForm.endDate).getTime() - new Date(ptoForm.startDate).getTime()) 
-        / (1000 * 60 * 60 * 24)
-      ) + 1;
 
-      
+    try {
       toast({
-        title: 'PTO Request Submitted!',
-        description: `Your leave request for ${numberOfDays} day(s) has been submitted for approval.`,
+        title: 'WFH Request Submitted!',
+        description: 'Your work from home request has been submitted for approval.',
       });
-      
+
       setPtoForm({ startDate: '', endDate: '', reason: '' });
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.response?.data?.detail || 'Failed to submit PTO request',
+        description: error.response?.data?.detail || 'Failed to submit WFH request',
         variant: 'destructive',
       });
     } finally {
@@ -367,9 +361,10 @@ const InternDashboard: React.FC = () => {
                 </div>
                 <div className="flex flex-col items-end">
                   <p className="text-3xl font-bold text-[#0F0E47] group-hover:text-[#272757] transition-colors">
-                    {/* {calculateDaysRemaining(internData?.joinedDate || new Date().toISOString())} */}
-
-                    {calculateDaysRemaining(internData?.endDate)}
+                    {(() => {
+                      const days = calculateDaysRemaining(internData?.endDate || user?.endDate);
+                      return days === 'N/A' ? <span className="text-lg">Not Set</span> : days;
+                    })()}
                   </p>
                   <ArrowRight className="h-4 w-4 text-[#8686AC] opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-1 transition-all duration-300 mt-1" />
                 </div>
@@ -399,10 +394,6 @@ const InternDashboard: React.FC = () => {
                   </div>
                   <div className="space-y-3 text-sm">
                     <div className="p-3 rounded-lg bg-gradient-to-r from-[#8686AC]/5 to-transparent border-l-4 border-[#505081]">
-                      <p className="font-semibold text-[#0F0E47] mb-1.5">Yesterday</p>
-                      <p className="text-[#505081] line-clamp-2">{todaysDSU.yesterday}</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-gradient-to-r from-[#8686AC]/5 to-transparent border-l-4 border-[#505081]">
                       <p className="font-semibold text-[#0F0E47] mb-1.5">Today</p>
                       <p className="text-[#505081] line-clamp-2">{todaysDSU.today}</p>
                     </div>
@@ -411,34 +402,36 @@ const InternDashboard: React.FC = () => {
               ) : (
                 <form onSubmit={handleDSUSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-[#0F0E47]">Yesterday *</label>
-                    <Textarea
-                      value={dsuForm.yesterday}
-                      onChange={(e) => setDsuForm({ ...dsuForm, yesterday: e.target.value })}
-                      placeholder="What you worked on..."
+                    <label className="text-sm font-semibold text-[#0F0E47]">Task Name *</label>
+                    <Input
+                      value={dsuForm.taskName}
+                      onChange={(e) => setDsuForm({ ...dsuForm, taskName: e.target.value })}
+                      placeholder="Enter task name..."
                       required
-                      rows={2}
-                      className="border-2 border-gray-200 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 transition-all resize-none"
+                      className="border-2 border-gray-200 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 transition-all"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-[#0F0E47]">Today *</label>
-                    <Textarea
-                      value={dsuForm.today}
-                      onChange={(e) => setDsuForm({ ...dsuForm, today: e.target.value })}
-                      placeholder="What you'll work on..."
+                    <label className="text-sm font-semibold text-[#0F0E47]">Project *</label>
+                    <select
+                      value={dsuForm.project}
+                      onChange={(e) => setDsuForm({ ...dsuForm, project: e.target.value })}
                       required
-                      rows={2}
-                      className="border-2 border-gray-200 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 transition-all resize-none"
-                    />
+                      className="w-full border-2 border-gray-200 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 transition-all rounded-md px-3 py-2"
+                    >
+                      <option value="">Select project...</option>
+                      {projects.map((proj) => (
+                        <option key={proj} value={proj}>{proj}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-[#0F0E47]">Blockers</label>
+                    <label className="text-sm font-semibold text-[#0F0E47]">Description (Optional)</label>
                     <Textarea
-                      value={dsuForm.blockers}
-                      onChange={(e) => setDsuForm({ ...dsuForm, blockers: e.target.value })}
-                      placeholder="Any blockers..."
-                      rows={2}
+                      value={dsuForm.description}
+                      onChange={(e) => setDsuForm({ ...dsuForm, description: e.target.value })}
+                      placeholder="What you'll work on today..."
+                      rows={3}
                       className="border-2 border-gray-200 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 transition-all resize-none"
                     />
                   </div>
@@ -517,55 +510,30 @@ const InternDashboard: React.FC = () => {
             <CardHeader className="border-b bg-gradient-to-r from-[#0F0E47]/5 to-[#272757]/5 backdrop-blur-sm">
               <CardTitle className="flex items-center gap-2 text-lg text-[#0F0E47]">
                 <div className="p-2 rounded-lg bg-[#505081]/10">
-                  <Umbrella className="h-5 w-5 text-[#505081]" />
+                  <Calendar className="h-5 w-5 text-[#505081]" />
                 </div>
-                Request Time Off
+                Work From Home
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <form onSubmit={handlePTOSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#0F0E47]">Start Date *</label>
+                  <label className="text-sm font-semibold text-[#0F0E47]">Start Date (Optional)</label>
                   <Input
                     type="date"
                     value={ptoForm.startDate}
                     onChange={(e) => setPtoForm({ ...ptoForm, startDate: e.target.value })}
                     min={today}
-                    required
                     className="border-2 border-gray-200 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 transition-all"
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-[#0F0E47]">End Date *</label>
-                  <Input
-                    type="date"
-                    value={ptoForm.endDate}
-                    onChange={(e) => setPtoForm({ ...ptoForm, endDate: e.target.value })}
-                    min={ptoForm.startDate || today}
-                    required
-                    className="border-2 border-gray-200 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 transition-all"
-                  />
-                </div>
-
-                {ptoForm.startDate && ptoForm.endDate && (
-                  <div className="bg-gradient-to-br from-[#8686AC]/10 to-[#505081]/5 p-4 rounded-xl text-center border-2 border-[#8686AC]/20 shadow-inner">
-                    <p className="text-sm font-medium text-[#505081]">Total Days</p>
-                    <p className="text-3xl font-bold text-[#0F0E47] mt-1">
-                      {Math.ceil(
-                        (new Date(ptoForm.endDate).getTime() - new Date(ptoForm.startDate).getTime())
-                        / (1000 * 60 * 60 * 24)
-                      ) + 1}
-                    </p>
-                  </div>
-                )}
 
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-[#0F0E47]">Reason (Optional)</label>
                   <Textarea
                     value={ptoForm.reason}
                     onChange={(e) => setPtoForm({ ...ptoForm, reason: e.target.value })}
-                    placeholder="Brief reason for leave..."
+                    placeholder="Brief reason for WFH..."
                     rows={2}
                     className="border-2 border-gray-200 focus:border-[#505081] focus:ring-2 focus:ring-[#8686AC]/20 transition-all resize-none"
                   />
@@ -582,10 +550,7 @@ const InternDashboard: React.FC = () => {
                       Submitting...
                     </>
                   ) : (
-                    <>
-                      <Umbrella className="mr-2 h-4 w-4" />
-                      Request PTO
-                    </>
+                    'Request WFH'
                   )}
                 </Button>
               </form>

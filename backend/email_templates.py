@@ -133,6 +133,23 @@ def get_welcome_email_template(user_name: str, user_email: str, login_url: str) 
             background: linear-gradient(to right, transparent, #e0e0e0, transparent);
             margin: 30px 0;
         }}
+        @media (prefers-color-scheme: dark) {{
+            body {{
+                background-color: #1a1a1a !important;
+            }}
+            .email-container {{
+                background-color: #ffffff !important;
+            }}
+            .content {{
+                background-color: #ffffff !important;
+            }}
+            .features {{
+                background-color: #f8f9fa !important;
+            }}
+            .footer {{
+                background-color: #f8f9fa !important;
+            }}
+        }}
     </style>
 </head>
 <body>
@@ -173,14 +190,6 @@ def get_welcome_email_template(user_name: str, user_email: str, login_url: str) 
                     <div class="feature-icon">📊</div>
                     <div class="feature-text">Track your tasks and projects</div>
                 </div>
-                <div class="feature-item">
-                    <div class="feature-icon">🎯</div>
-                    <div class="feature-text">Monitor your performance and growth</div>
-                </div>
-                <div class="feature-item">
-                    <div class="feature-icon">🌴</div>
-                    <div class="feature-text">Request time off easily</div>
-                </div>
             </div>
 
             <div class="divider"></div>
@@ -188,18 +197,10 @@ def get_welcome_email_template(user_name: str, user_email: str, login_url: str) 
             <p class="message">
                 <strong>Your Login Email:</strong> <span style="color: #0F0E47;">{user_email}</span>
             </p>
-
-            <p class="message">
-                If you have any questions or need assistance, feel free to reach out to the support team.
-            </p>
         </div>
 
         <!-- Footer -->
         <div class="footer">
-            <p class="footer-text">
-                <strong>Need Help?</strong><br>
-                Contact us at <a href="mailto:support@interns360.com" class="footer-link">support@interns360.com</a>
-            </p>
             <p class="footer-text">
                 © 2026 Interns360 by Cirrus Labs. All rights reserved.
             </p>

@@ -1,18 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { getAzureLoginUrl } from "@/config/azure";
-import apiClient from "@/services/apiClient";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 const injectStyles = () => {
   const styleId = "login-animations";
@@ -33,411 +21,301 @@ const injectStyles = () => {
       0%, 100% { transform: translateY(0px) rotate(2deg); }
       50% { transform: translateY(-10px) rotate(-2deg); }
     }
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
-    }
     @keyframes blink {
       0%, 90%, 100% { transform: scaleY(1); }
       95% { transform: scaleY(0.1); }
-    }
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-      20%, 40%, 60%, 80% { transform: translateX(4px); }
-    }
-    .input-shake {
-      animation: shake 0.4s ease-in-out;
-    }
-
-    @keyframes sad {
-      0%, 100% { transform: translateY(0) rotate(0deg); }
-      50% { transform: translateY(3px) rotate(-2deg); }
     }
     @keyframes gradientShift {
       0% { background-position: 0% 50%; }
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes ripple {
+      0% {
+        transform: scale(0);
+        opacity: 0.6;
+      }
+      100% {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+    @keyframes wave {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-15deg); }
+      75% { transform: rotate(15deg); }
+    }
+    @keyframes bounce-hi {
+      0%, 100% { transform: translateY(0) scale(1); opacity: 1; }
+      50% { transform: translateY(-10px) scale(1.1); opacity: 1; }
+    }
+    @keyframes excited {
+      0%, 100% { transform: scale(1); }
+      25% { transform: scale(1.05) rotate(-5deg); }
+      50% { transform: scale(1.08); }
+      75% { transform: scale(1.05) rotate(5deg); }
     }
   `;
   document.head.appendChild(style);
 };
 
 interface CharacterProps {
-  showPassword: boolean;
-  hasError: boolean;
-  isTyping: boolean;
   mouseX: number;
   mouseY: number;
+  position: "left" | "right";
 }
 
-const AnimatedCharacters: React.FC<CharacterProps> = ({ showPassword, hasError, isTyping, mouseX, mouseY }) => {
+const Character: React.FC<CharacterProps> = ({ mouseX, mouseY, position }) => {
+  const [hoveredChar, setHoveredChar] = React.useState<number | null>(null);
   const getEyeOffset = (charWidth: number) => {
     const offset = (mouseX - 50) / 50;
     return Math.max(-charWidth * 0.15, Math.min(charWidth * 0.15, offset));
   };
 
-  // Calculate head tilt and movement based on mouse position
   const headRotation = ((mouseX - 50) / 50) * 15;
-  const headTilt = ((mouseY - 50) / 50) * 10;
   const headOffsetX = ((mouseX - 50) / 50) * 8;
   const headOffsetY = ((mouseY - 50) / 50) * 6;
 
+  // Left side: Purple and Yellow characters
+  // Right side: Orange character
+  const isLeft = position === "left";
+  const bendRotation = isLeft ? -30 : 30;
+
+  if (isLeft) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "40px",
+          alignItems: "center",
+        }}
+      >
+        {/* Purple Character */}
+        <div
+          onMouseEnter={() => setHoveredChar(1)}
+          onMouseLeave={() => setHoveredChar(null)}
+          style={{
+            width: "70px",
+            height: "130px",
+            background: "linear-gradient(180deg, #505081 0%, #272757 100%)",
+            borderRadius: "35px 35px 30px 30px",
+            position: "relative",
+            animation: hoveredChar === 1 ? "excited 0.6s ease-in-out infinite" : "floatSlow 4s ease-in-out infinite",
+            boxShadow: hoveredChar === 1 ? "0 16px 40px rgba(124, 58, 237, 0.6)" : "0 12px 30px rgba(124, 58, 237, 0.3)",
+            transform: `translate(${headOffsetX * 0.6}px, ${headOffsetY * 0.6}px) rotate(${bendRotation + headRotation * 0.5}deg)`,
+            transition: "transform 0.3s ease-out, box-shadow 0.3s ease",
+            cursor: "pointer",
+          }}
+        >
+          <div style={{ position: "absolute", top: "38px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "12px" }}>
+            {[0, 1].map((i) => (
+              <div key={i} style={{ width: "14px", height: "14px", background: "#1e1145", borderRadius: "50%", position: "relative", overflow: "hidden" }}>
+                <div style={{ width: "6px", height: "6px", background: "white", borderRadius: "50%", position: "absolute", top: "3px", left: `${5 + getEyeOffset(70) * 0.3}px`, transition: "left 0.05s" }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ position: "absolute", top: "65px", left: "50%", transform: "translateX(-50%)", width: hoveredChar === 1 ? "20px" : "8px", height: hoveredChar === 1 ? "10px" : "8px", background: "#1e1145", borderRadius: hoveredChar === 1 ? "0 0 20px 20px" : "50%", transition: "all 0.3s ease" }} />
+          <div style={{ position: "absolute", top: "5px", left: "-20px", fontSize: "22px", animation: "float 2s ease-in-out infinite" }}>✦</div>
+          {hoveredChar === 1 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-35px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "rgba(30, 17, 69, 0.95)",
+                color: "white",
+                padding: "6px 12px",
+                borderRadius: "12px",
+                fontSize: "14px",
+                fontWeight: 600,
+                animation: "bounce-hi 0.6s ease-in-out infinite",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Hi! 👋
+            </div>
+          )}
+        </div>
+
+        {/* Orange Character */}
+        <div
+          onMouseEnter={() => setHoveredChar(2)}
+          onMouseLeave={() => setHoveredChar(null)}
+          style={{
+            width: "100px",
+            height: "120px",
+            background: "linear-gradient(180deg, #f97316 0%, #ea580c 100%)",
+            borderRadius: "50px 50px 45px 45px",
+            position: "relative",
+            animation: hoveredChar === 2 ? "excited 0.6s ease-in-out infinite" : "float 3s ease-in-out infinite",
+            boxShadow: hoveredChar === 2 ? "0 16px 40px rgba(249, 115, 22, 0.6)" : "0 12px 30px rgba(249, 115, 22, 0.3)",
+            transform: `translate(${headOffsetX}px, ${headOffsetY}px) rotate(${bendRotation + headRotation}deg)`,
+            transition: "transform 0.3s ease-out, box-shadow 0.3s ease",
+            cursor: "pointer",
+          }}
+        >
+          <div style={{ position: "absolute", top: "32px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "20px" }}>
+            {[0, 1].map((i) => (
+              <div key={i} style={{ width: "18px", height: "18px", background: "#1e1145", borderRadius: "50%", animation: "blink 4s infinite", position: "relative", overflow: "hidden" }}>
+                <div style={{ width: "7px", height: "7px", background: "white", borderRadius: "50%", position: "absolute", top: "4px", left: `${6 + getEyeOffset(100) * 0.4}px`, transition: "left 0.05s" }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ position: "absolute", top: "65px", left: "50%", transform: "translateX(-50%)", width: hoveredChar === 2 ? "24px" : "14px", height: hoveredChar === 2 ? "12px" : "14px", background: "#1e1145", borderRadius: hoveredChar === 2 ? "0 0 24px 24px" : "50%", transition: "all 0.3s ease" }} />
+          {hoveredChar === 2 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-40px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "rgba(30, 17, 69, 0.95)",
+                color: "white",
+                padding: "6px 12px",
+                borderRadius: "12px",
+                fontSize: "14px",
+                fontWeight: 600,
+                animation: "bounce-hi 0.6s ease-in-out infinite",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Hello! 🎉
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Right side - Yellow and Another Character
   return (
     <div
       style={{
         display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "center",
-        gap: "10px",
-        marginBottom: "40px",
-        height: "200px",
-        position: "relative",
+        flexDirection: "column",
+        gap: "40px",
+        alignItems: "center",
       }}
     >
-      {/* Character 1 - Purple tall blob */}
+      {/* Yellow Character */}
       <div
-        style={{
-          width: "70px",
-          height: "130px",
-          background: "linear-gradient(180deg, #505081 0%, #272757 100%)",
-          borderRadius: "35px 35px 30px 30px",
-          position: "relative",
-          animation: hasError ? "shake 0.4s ease-in-out, sad 1.5s ease-in-out infinite" : "floatSlow 4s ease-in-out infinite",
-          boxShadow: "0 12px 30px rgba(124, 58, 237, 0.3)",
-          willChange: "transform",
-          transform: `translate(${headOffsetX * 0.6}px, ${headOffsetY * 0.6}px) rotate(${headRotation * 0.5}deg)`,
-          transition: "transform 0.1s ease-out",
-        }}
-      >
-        {/* Eyes */}
-        <div
-          style={{
-            position: "absolute",
-            top: "38px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex",
-            gap: "12px",
-          }}
-        >
-          <div
-            style={{
-              width: "14px",
-              height: showPassword ? "14px" : "4px",
-              background: "#1e1145",
-              borderRadius: showPassword ? "50%" : "2px",
-              transition: "all 0.3s ease",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {showPassword && (
-              <div
-                style={{
-                  width: "6px",
-                  height: "6px",
-                  background: "white",
-                  borderRadius: "50%",
-                  position: "absolute",
-                  top: "3px",
-                  left: `${5 + getEyeOffset(70) * 0.3}px`,
-                  transition: "left 0.05s ease-out",
-                }}
-              />
-            )}
-          </div>
-          <div
-            style={{
-              width: "14px",
-              height: showPassword ? "14px" : "4px",
-              background: "#1e1145",
-              borderRadius: showPassword ? "50%" : "2px",
-              transition: "all 0.3s ease",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {showPassword && (
-              <div
-                style={{
-                  width: "6px",
-                  height: "6px",
-                  background: "white",
-                  borderRadius: "50%",
-                  position: "absolute",
-                  top: "3px",
-                  left: `${5 + getEyeOffset(70) * 0.3}px`,
-                  transition: "left 0.05s ease-out",
-                }}
-              />
-            )}
-          </div>
-        </div>
-        {/* Mouth */}
-        <div
-          style={{
-            position: "absolute",
-            top: "65px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: hasError ? "12px" : "8px",
-            height: hasError ? "12px" : "8px",
-            background: "#1e1145",
-            borderRadius: hasError ? "50% 50% 0 0" : "50%",
-            transition: "all 0.3s ease",
-          }}
-        />
-      </div>
-
-      {/* Character 2 - Orange main blob */}
-      <div
-        style={{
-          width: "100px",
-          height: "120px",
-          background: "linear-gradient(180deg, #f97316 0%, #ea580c 100%)",
-          borderRadius: "50px 50px 45px 45px",
-          position: "relative",
-          animation: hasError ? "shake 0.4s ease-in-out" : isTyping ? "bounce 0.5s ease-in-out infinite" : "float 3s ease-in-out infinite",
-          boxShadow: "0 12px 30px rgba(249, 115, 22, 0.3)",
-          zIndex: 2,
-          willChange: "transform",
-          transform: `translate(${headOffsetX}px, ${headOffsetY}px) rotate(${headRotation}deg) skewY(${headTilt * 0.3}deg)`,
-          transition: "transform 0.1s ease-out",
-        }}
-      >
-        {/* Eyes */}
-        <div
-          style={{
-            position: "absolute",
-            top: "32px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex",
-            gap: "20px",
-          }}
-        >
-          <div
-            style={{
-              width: "18px",
-              height: showPassword ? "18px" : "5px",
-              background: "#1e1145",
-              borderRadius: showPassword ? "50%" : "3px",
-              transition: "all 0.3s ease",
-              animation: showPassword ? "blink 4s infinite" : "none",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {showPassword && (
-              <div
-                style={{
-                  width: "7px",
-                  height: "7px",
-                  background: "white",
-                  borderRadius: "50%",
-                  position: "absolute",
-                  top: "4px",
-                  left: `${6 + getEyeOffset(100) * 0.4}px`,
-                  transition: "left 0.05s ease-out",
-                }}
-              />
-            )}
-          </div>
-          <div
-            style={{
-              width: "18px",
-              height: showPassword ? "18px" : "5px",
-              background: "#1e1145",
-              borderRadius: showPassword ? "50%" : "3px",
-              transition: "all 0.3s ease",
-              animation: showPassword ? "blink 4s infinite" : "none",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {showPassword && (
-              <div
-                style={{
-                  width: "7px",
-                  height: "7px",
-                  background: "white",
-                  borderRadius: "50%",
-                  position: "absolute",
-                  top: "4px",
-                  left: `${6 + getEyeOffset(100) * 0.4}px`,
-                  transition: "left 0.05s ease-out",
-                }}
-              />
-            )}
-          </div>
-        </div>
-        {/* Mouth */}
-        <div
-          style={{
-            position: "absolute",
-            top: "65px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: hasError ? "20px" : "14px",
-            height: hasError ? "10px" : "14px",
-            background: "#1e1145",
-            borderRadius: hasError ? "0 0 20px 20px" : "50%",
-            transition: "all 0.3s ease",
-          }}
-        />
-      </div>
-
-      {/* Character 3 - Yellow small blob */}
-      <div
+        onMouseEnter={() => setHoveredChar(3)}
+        onMouseLeave={() => setHoveredChar(null)}
         style={{
           width: "60px",
           height: "80px",
           background: "linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%)",
           borderRadius: "30px 30px 27px 27px",
           position: "relative",
-          animation: hasError ? "shake 0.4s ease-in-out, sad 1.2s ease-in-out infinite" : "floatFast 2.5s ease-in-out infinite 0.5s",
-          boxShadow: "0 12px 30px rgba(251, 191, 36, 0.3)",
-          willChange: "transform",
-          transform: `translate(${headOffsetX * 0.8}px, ${headOffsetY * 0.8}px) rotate(${headRotation * 0.7}deg)`,
-          transition: "transform 0.1s ease-out",
+          animation: hoveredChar === 3 ? "excited 0.6s ease-in-out infinite" : "floatFast 2.5s ease-in-out infinite 0.5s",
+          boxShadow: hoveredChar === 3 ? "0 16px 40px rgba(251, 191, 36, 0.6)" : "0 12px 30px rgba(251, 191, 36, 0.3)",
+          transform: `translate(${headOffsetX * 0.8}px, ${headOffsetY * 0.8}px) rotate(${bendRotation + headRotation * 0.7}deg)`,
+          transition: "transform 0.3s ease-out, box-shadow 0.3s ease",
+          cursor: "pointer",
         }}
       >
-        {/* Eyes */}
-        <div
-          style={{
-            position: "absolute",
-            top: "23px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex",
-            gap: "10px",
-          }}
-        >
-          <div
-            style={{
-              width: "12px",
-              height: showPassword ? "12px" : "3px",
-              background: "#1e1145",
-              borderRadius: showPassword ? "50%" : "2px",
-              transition: "all 0.3s ease",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {showPassword && (
-              <div
-                style={{
-                  width: "5px",
-                  height: "5px",
-                  background: "white",
-                  borderRadius: "50%",
-                  position: "absolute",
-                  top: "2px",
-                  left: `${4 + getEyeOffset(60) * 0.25}px`,
-                  transition: "left 0.05s ease-out",
-                }}
-              />
-            )}
-          </div>
-          <div
-            style={{
-              width: "12px",
-              height: showPassword ? "12px" : "3px",
-              background: "#1e1145",
-              borderRadius: showPassword ? "50%" : "2px",
-              transition: "all 0.3s ease",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {showPassword && (
-              <div
-                style={{
-                  width: "5px",
-                  height: "5px",
-                  background: "white",
-                  borderRadius: "50%",
-                  position: "absolute",
-                  top: "2px",
-                  left: `${4 + getEyeOffset(60) * 0.25}px`,
-                  transition: "left 0.05s ease-out",
-                }}
-              />
-            )}
-          </div>
+        <div style={{ position: "absolute", top: "23px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "10px" }}>
+          {[0, 1].map((i) => (
+            <div key={i} style={{ width: "12px", height: "12px", background: "#1e1145", borderRadius: "50%", position: "relative", overflow: "hidden" }}>
+              <div style={{ width: "5px", height: "5px", background: "white", borderRadius: "50%", position: "absolute", top: "2px", left: `${4 + getEyeOffset(60) * 0.25}px`, transition: "left 0.05s" }} />
+            </div>
+          ))}
         </div>
-        {/* Mouth */}
-        <div
-          style={{
-            position: "absolute",
-            top: "45px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: hasError ? "9px" : "7px",
-            height: hasError ? "7px" : "7px",
-            background: "#1e1145",
-            borderRadius: hasError ? "0 0 12px 12px" : "50%",
-            transition: "all 0.3s ease",
-          }}
-        />
+        <div style={{ position: "absolute", top: "45px", left: "50%", transform: "translateX(-50%)", width: hoveredChar === 3 ? "16px" : "7px", height: hoveredChar === 3 ? "8px" : "7px", background: "#1e1145", borderRadius: hoveredChar === 3 ? "0 0 16px 16px" : "50%", transition: "all 0.3s ease" }} />
+        <div style={{ position: "absolute", top: "5px", right: "-20px", fontSize: "22px", animation: "float 2s ease-in-out infinite 0.5s" }}>✦</div>
+        {hoveredChar === 3 && (
+          <div
+            style={{
+              position: "absolute",
+              top: "-35px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "rgba(30, 17, 69, 0.95)",
+              color: "white",
+              padding: "6px 12px",
+              borderRadius: "12px",
+              fontSize: "14px",
+              fontWeight: 600,
+              animation: "bounce-hi 0.6s ease-in-out infinite",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Hey! ✨
+          </div>
+        )}
       </div>
 
-      {/* Sparkles */}
+      {/* Green Character */}
       <div
+        onMouseEnter={() => setHoveredChar(4)}
+        onMouseLeave={() => setHoveredChar(null)}
         style={{
-          position: "absolute",
-          top: "5px",
-          right: "15px",
-          fontSize: "22px",
-          animation: "float 2s ease-in-out infinite",
+          width: "75px",
+          height: "110px",
+          background: "linear-gradient(180deg, #10b981 0%, #059669 100%)",
+          borderRadius: "37px 37px 33px 33px",
+          position: "relative",
+          animation: hoveredChar === 4 ? "excited 0.6s ease-in-out infinite" : "floatSlow 3.5s ease-in-out infinite 0.3s",
+          boxShadow: hoveredChar === 4 ? "0 16px 40px rgba(16, 185, 129, 0.6)" : "0 12px 30px rgba(16, 185, 129, 0.3)",
+          transform: `translate(${headOffsetX * 0.7}px, ${headOffsetY * 0.7}px) rotate(${bendRotation + headRotation * 0.6}deg)`,
+          transition: "transform 0.3s ease-out, box-shadow 0.3s ease",
+          cursor: "pointer",
         }}
       >
-        ✦
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          top: "35px",
-          left: "10px",
-          fontSize: "16px",
-          animation: "float 3s ease-in-out infinite 0.5s",
-        }}
-      >
-        ✦
+        <div style={{ position: "absolute", top: "35px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "15px" }}>
+          {[0, 1].map((i) => (
+            <div key={i} style={{ width: "16px", height: "16px", background: "#1e1145", borderRadius: "50%", position: "relative", overflow: "hidden" }}>
+              <div style={{ width: "6px", height: "6px", background: "white", borderRadius: "50%", position: "absolute", top: "4px", left: `${5 + getEyeOffset(75) * 0.35}px`, transition: "left 0.05s" }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ position: "absolute", top: "60px", left: "50%", transform: "translateX(-50%)", width: hoveredChar === 4 ? "22px" : "10px", height: hoveredChar === 4 ? "11px" : "10px", background: "#1e1145", borderRadius: hoveredChar === 4 ? "0 0 22px 22px" : "50%", transition: "all 0.3s ease" }} />
+        {hoveredChar === 4 && (
+          <div
+            style={{
+              position: "absolute",
+              top: "-38px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "rgba(30, 17, 69, 0.95)",
+              color: "white",
+              padding: "6px 12px",
+              borderRadius: "12px",
+              fontSize: "14px",
+              fontWeight: 600,
+              animation: "bounce-hi 0.6s ease-in-out infinite",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Hi there! 💚
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [hasLoginError, setHasLoginError] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [mouseX, setMouseX] = useState(50);
   const [mouseY, setMouseY] = useState(50);
-  const [forgotOpen, setForgotOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [forgotError, setForgotError] = useState<string | null>(null);
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const typingTimeout = useRef<NodeJS.Timeout>();
-
-  const { login } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [ripples, setRipples] = useState<Array<{ x: number; y: number; id: number }>>([]);
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   useEffect(() => {
     injectStyles();
@@ -454,477 +332,170 @@ const LoginPage: React.FC = () => {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
-  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>, field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setter(e.target.value);
-    setErrors({ ...errors, [field]: undefined });
-    setHasLoginError(false);
-    setIsTyping(true);
+  const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const id = Date.now();
 
-    if (typingTimeout.current) clearTimeout(typingTimeout.current);
-    typingTimeout.current = setTimeout(() => setIsTyping(false), 500);
-  };
-
-  const validate = () => {
-    const newErrors: typeof errors = {};
-    if (!email) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = "Invalid email format";
-    if (!password) newErrors.password = "Password is required";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleForgotSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!forgotEmail) {
-      setForgotError("Email is required");
-      return;
-    }
-    if (!/\S+@\S+\.\S+/.test(forgotEmail)) {
-      setForgotError("Invalid email format");
-      return;
-    }
-
-    setForgotError(null);
-    setForgotLoading(true);
-
-    try {
-      await apiClient.post("/auth/forgot-password", {
-        email: forgotEmail.trim(),
-      });
-
-      toast({
-        title: "Reset email sent",
-        description: `Check ${forgotEmail} for a reset link. The link expires in 1 hour.`,
-      });
-
-      setForgotOpen(false);
-      setForgotEmail("");
-    } catch (error: any) {
-      const detail = error?.response?.data?.detail;
-      const message = detail
-        ? `Unable to send reset email. ${detail}`
-        : "Unable to send reset email. Please try again later.";
-      setForgotError(message);
-    } finally {
-      setForgotLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) {
-      setHasLoginError(true);
-      setTimeout(() => setHasLoginError(false), 2000);
-      return;
-    }
+    setRipples([...ripples, { x, y, id }]);
+    setTimeout(() => {
+      setRipples((prev) => prev.filter((ripple) => ripple.id !== id));
+    }, 600);
 
     setLoading(true);
-    const result = await login(email, password);
-
-    if (result.success) {
-      toast({
-        title: "Welcome back!",
-        description: "You have logged in successfully.",
-      });
-
-      const stored = localStorage.getItem("ilm_user");
-      if (stored) {
-        const user = JSON.parse(stored);
-        let redirectPath = "/intern";
-        switch (user.role) {
-          case "admin":
-            redirectPath = "/admin";
-            break;
-          case "scrum_master":
-            redirectPath = "/scrum-master";
-            break;
-          case "intern":
-          default:
-            redirectPath = "/intern";
-            break;
-        }
-        navigate(redirectPath);
-      }
-    } 
-      else {
-        setErrors({
-          password: "Invalid password",
-        });
-
-        setHasLoginError(true);
-        setTimeout(() => setHasLoginError(false), 400);
-
-        toast({
-          title: "Login failed",
-          description: result.error || "Invalid email or password",
-          variant: "destructive",
-        });
-      }
-
-
-    setLoading(false);
+    setTimeout(() => {
+      window.location.href = getAzureLoginUrl();
+    }, 400);
   };
 
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-
   return (
-    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      {/* LEFT PANEL - Only on desktop */}
-      {!isMobile && (
-        <div
-          style={{
-            flex: 1,
-            background: "linear-gradient(135deg, #1e1145 0%, #2d1b69 50%, #1e1145 100%)",
-            backgroundSize: "200% 200%",
-            animation: "gradientShift 8s ease infinite",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            position: "relative",
-            overflow: "hidden",
-            padding: "40px",
-          }}
-        >
-          {/* Floating circles background */}
-          <div
-            style={{
-              position: "absolute",
-              width: "200px",
-              height: "200px",
-              borderRadius: "50%",
-              background: "rgba(168, 85, 247, 0.2)",
-              top: "-50px",
-              left: "-50px",
-              animation: "float 6s ease-in-out infinite",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              width: "150px",
-              height: "150px",
-              borderRadius: "50%",
-              background: "rgba(168, 85, 247, 0.15)",
-              bottom: "100px",
-              right: "-30px",
-              animation: "floatSlow 8s ease-in-out infinite",
-            }}
-          />
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        background: "linear-gradient(135deg, #1e1145 0%, #2d1b69 50%, #1e1145 100%)",
+        backgroundSize: "200% 200%",
+        animation: "gradientShift 8s ease infinite",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Floating circles background */}
+      <div style={{ position: "absolute", width: "400px", height: "400px", borderRadius: "50%", background: "rgba(168, 85, 247, 0.12)", top: "-100px", left: "-100px", animation: "float 6s ease-in-out infinite" }} />
+      <div style={{ position: "absolute", width: "300px", height: "300px", borderRadius: "50%", background: "rgba(168, 85, 247, 0.08)", bottom: "-50px", right: "-50px", animation: "floatSlow 8s ease-in-out infinite" }} />
 
-          <AnimatedCharacters
-            showPassword={showPassword}
-            hasError={hasLoginError}
-            isTyping={isTyping}
-            mouseX={mouseX}
-            mouseY={mouseY}
-          />
-          <Link to="/" style={{ textDecoration: "none" }}>
-          <h1
-            style={{
-              fontSize: "28px",
-              fontWeight: 800,
-              color: "#fff",
-              marginBottom: "12px",
-              textAlign: "center",
-              zIndex: 10,
-            }}
-          >
-            Interns<span style={{ color: "#8686AC" }}>360</span>
-          </h1>
-          </Link>
-          <p
-            style={{
-              fontSize: "15px",
-              color: "rgba(255,255,255,0.8)",
-              marginBottom: "40px",
-              textAlign: "center",
-              maxWidth: "280px",
-              lineHeight: 1.6,
-              zIndex: 10,
-            }}
-          >
-            Manage interns, attendance, standups, and performance in one platform.
-          </p>
-        </div>
-      )}
-
-      {/* RIGHT PANEL */}
+      {/* Container with Characters and Login Form */}
       <div
         style={{
-          flex: 1,
+          position: "relative",
+          zIndex: 10,
+          margin: "auto",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#ffffff",
-          padding: "40px",
-          animation: mounted ? "fadeIn 0.6s ease-out forwards" : "none",
+          width: "100%",
+          maxWidth: "1200px",
+          padding: "40px 20px",
+          gap: "60px",
         }}
       >
-        <div style={{ width: "100%", maxWidth: "380px" }}>
-          <h2
-            style={{
-              fontSize: "24px",
-              fontWeight: 700,
-              color: "#1e1145",
-              marginBottom: "8px",
-              textAlign: "center",
-            }}
-          >
-            Welcome back!
-          </h2>
-          <p
-            style={{
-              fontSize: "14px",
-              color: "#64748b",
-              marginBottom: "24px",
-              textAlign: "center",
-            }}
-          >
-            Please enter your details
-          </p>
+        {/* Left Characters */}
+        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center" }}>
+          <Character mouseX={mouseX} mouseY={mouseY} position="left" />
+        </div>
 
-          <form onSubmit={handleSubmit}>
-            {/* Email */}
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", fontSize: "14px", fontWeight: 500, color: "#1e1145", marginBottom: "6px" }}>
-                Email
-              </label>
-              <input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={handleInputChange(setEmail, "email")}
-                className={hasLoginError && errors.email ? "input-shake" : ""}
-                style={{
-                  width: "100%",
-                  padding: "12px 16px",
-                  fontSize: "15px",
-                  border: `2px solid ${errors.email ? "#ef4444" : "#e2e8f0"}`,
-                  borderRadius: "10px",
-                  outline: "none",
-                  transition: "all 0.2s ease",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "#0F0E47";
-                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,14,71,0.12)";
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = errors.email ? "#ef4444" : "#e2e8f0";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              />
-              {errors.email && <p style={{ fontSize: "12px", color: "#ef4444", marginTop: "4px" }}>{errors.email}</p>}
-            </div>
-
-            {/* Password */}
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", fontSize: "14px", fontWeight: 500, color: "#1e1145", marginBottom: "6px" }}>
-                Password
-              </label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={handleInputChange(setPassword, "password")}
-                  className={hasLoginError && errors.password ? "input-shake" : ""}
-                  style={{
-                    width: "100%",
-                    padding: "12px 16px",
-                    paddingRight: "48px",
-                    fontSize: "15px",
-                    border: `2px solid ${errors.password ? "#ef4444" : "#e2e8f0"}`,
-                    borderRadius: "10px",
-                    outline: "none",
-                    transition: "all 0.2s ease",
-                    boxSizing: "border-box",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "#0F0E47";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,14,71,0.12)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = errors.password ? "#ef4444" : "#e2e8f0";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: "absolute",
-                    right: "14px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#64748b",
-                    padding: "4px",
-                    display: "flex",
-                    transition: "color 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#0F0E47")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#64748b")}
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-              {errors.password && <p style={{ fontSize: "12px", color: "#ef4444", marginTop: "4px" }}>{errors.password}</p>}
-            </div>
-
-            {/* Remember & Forgot */}
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "20px",
-                    fontSize: "13px",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setForgotOpen(true)}
-                    style={{
-                      color: "#0F0E47",
-                      fontWeight: 600,
-                      textDecoration: "none",
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-
-
-            {/* Login Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: "100%",
-                padding: "14px",
-                fontSize: "15px",
-                fontWeight: 600,
-                color: "#fff",
-                background: loading ? "#94a3b8" : "linear-gradient(135deg, #1e1145, #2d1b69)",
-                border: "none",
-                borderRadius: "10px",
-                cursor: loading ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                boxShadow: loading ? "none" : "0 4px 20px rgba(30,17,69,0.3)",
-                transition: "all 0.3s ease",
-              }}
-            >
-              {loading && <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />}
-              {loading ? "Logging in..." : "Log in"}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div style={{ display: "flex", alignItems: "center", margin: "24px 0", gap: "16px" }}>
-            <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }} />
-            <span style={{ fontSize: "13px", color: "#94a3b8" }}>OR</span>
-            <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }} />
+        {/* Login Card */}
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "420px",
+            background: "rgba(255, 255, 255, 0.98)",
+            backdropFilter: "blur(20px)",
+            borderRadius: "20px",
+            padding: "56px 48px 32px 48px",
+            boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+            animation: mounted ? "fadeIn 0.6s ease-out forwards" : "none",
+          }}
+        >
+          {/* Interns360 Logo */}
+          <div style={{ textAlign: "center", marginBottom: "40px" }}>
+            <img src="/interns360_logo.png" alt="Interns360" style={{ height: "28px", width: "auto", display: "block", margin: "0 auto 24px auto" }} />
+            <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#1e1145", margin: 0, letterSpacing: "-0.5px" }}>Login</h1>
           </div>
 
           {/* Azure SSO Button */}
           <button
             type="button"
-            onClick={() => (window.location.href = getAzureLoginUrl())}
+            onClick={handleButtonClick}
+            disabled={loading}
             style={{
               width: "100%",
-              padding: "12px",
-              fontSize: "14px",
-              fontWeight: 500,
-              color: "#1e1145",
-              background: "#fff",
-              border: "2px solid #e2e8f0",
-              borderRadius: "10px",
-              cursor: "pointer",
+              padding: "16px",
+              fontSize: "16px",
+              fontWeight: 600,
+              color: "#fff",
+              background: loading ? "linear-gradient(135deg, #3d2b7a 0%, #2d1b69 100%)" : "linear-gradient(135deg, #1e1145 0%, #2d1b69 100%)",
+              border: "none",
+              borderRadius: "12px",
+              cursor: loading ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "10px",
-              transition: "all 0.2s ease",
+              gap: "12px",
+              boxShadow: "0 8px 24px rgba(30, 17, 69, 0.4)",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              marginBottom: "32px",
+              position: "relative",
+              overflow: "hidden",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#f8fafc";
-              e.currentTarget.style.borderColor = "#0F0E47";
+              if (!loading) {
+                e.currentTarget.style.transform = "translateY(-2px) scale(1.02)";
+                e.currentTarget.style.boxShadow = "0 12px 32px rgba(30, 17, 69, 0.5), 0 0 20px rgba(168, 85, 247, 0.3)";
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#fff";
-              e.currentTarget.style.borderColor = "#e2e8f0";
+              if (!loading) {
+                e.currentTarget.style.transform = "translateY(0) scale(1)";
+                e.currentTarget.style.boxShadow = "0 8px 24px rgba(30, 17, 69, 0.4)";
+              }
+            }}
+            onMouseDown={(e) => {
+              if (!loading) e.currentTarget.style.transform = "translateY(0) scale(0.98)";
+            }}
+            onMouseUp={(e) => {
+              if (!loading) e.currentTarget.style.transform = "translateY(-2px) scale(1.02)";
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 21 21">
-              <path d="M10 0H0V10H10V0Z" fill="#F25022" />
-              <path d="M21 0H11V10H21V0Z" fill="#7FBA00" />
-              <path d="M10 11H0V21H10V11Z" fill="#00A4EF" />
-              <path d="M21 11H11V21H21V11Z" fill="#FFB900" />
-            </svg>
-            Log in with Microsoft
+            {ripples.map((ripple) => (
+              <span
+                key={ripple.id}
+                style={{
+                  position: "absolute",
+                  left: ripple.x,
+                  top: ripple.y,
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "50%",
+                  background: "rgba(255, 255, 255, 0.6)",
+                  animation: "ripple 0.6s ease-out",
+                  pointerEvents: "none",
+                }}
+              />
+            ))}
+            {loading ? (
+              <>
+                <div style={{ width: "20px", height: "20px", border: "3px solid rgba(255,255,255,0.3)", borderTop: "3px solid #fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                Signing in...
+              </>
+            ) : (
+              <>
+                <svg width="20" height="20" viewBox="0 0 21 21">
+                  <path d="M10 0H0V10H10V0Z" fill="#F25022" />
+                  <path d="M21 0H11V10H21V0Z" fill="#7FBA00" />
+                  <path d="M10 11H0V21H10V11Z" fill="#00A4EF" />
+                  <path d="M21 11H11V21H21V11Z" fill="#FFB900" />
+                </svg>
+                Sign in with Microsoft
+              </>
+            )}
           </button>
 
-          {/* Register Link */}
-          <p style={{ textAlign: "center", marginTop: "24px", fontSize: "14px", color: "#64748b" }}>
-            Don't have an account?{" "}
-            <Link to="/register" style={{ color: "#0F0E47", fontWeight: 600, textDecoration: "none" }}>
-              Sign up
-            </Link>
-          </p>
+          {/* Powered by CirrusLabs with i360 logo */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", paddingTop: "24px", borderTop: "1px solid #e2e8f0" }}>
+            <img src="/i360_logo.png" alt="i360" style={{ height: "19px", width: "auto", marginRight: "-2px" }} />
+            <span style={{ fontSize: "13px", color: "#94a3b8", fontWeight: 500 }}>Powered by</span>
+            <img src="/cl_logo.png" alt="CirrusLabs" style={{ height: "15px", width: "auto" }} />
+          </div>
+        </div>
+
+        {/* Right Character */}
+        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center" }}>
+          <Character mouseX={mouseX} mouseY={mouseY} position="right" />
         </div>
       </div>
-
-      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Reset your password</DialogTitle>
-            <DialogDescription>
-              Enter your email to receive a reset link from interns360@cirruslabs.io.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleForgotSubmit}>
-            <div className="space-y-3">
-              <label className="text-sm font-semibold text-slate-700">Email</label>
-              <input
-                type="email"
-                value={forgotEmail}
-                onChange={(e) => {
-                  setForgotEmail(e.target.value);
-                  setForgotError(null);
-                }}
-                placeholder="you@company.com"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#0F0E47]"
-              />
-              {forgotError && (
-                <p className="text-xs text-red-500">{forgotError}</p>
-              )}
-            </div>
-            <DialogFooter className="mt-6">
-              <button
-                type="submit"
-                disabled={forgotLoading}
-                className="inline-flex items-center justify-center rounded-lg bg-[#1e1145] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {forgotLoading ? "Sending..." : "Send password reset"}
-              </button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

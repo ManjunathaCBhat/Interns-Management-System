@@ -53,7 +53,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const scrumMasterLinks = [
     { to: '/scrum-master', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/scrum-master/dsu-board', icon: ClipboardList, label: 'DSU Board' },
-    { to: '/scrum-master/daily-updates', icon: Calendar, label: 'Daily Updates' },
     { to: '/scrum-master/tasks', icon: FolderKanban, label: 'Task Board' },
     { to: '/mentor', icon: User, label: 'Mentor' },
     { to: '/scrum-master/profile', icon: User, label: 'Profile' },
@@ -62,9 +61,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   // Navigation links for Intern role
   const internLinks = [
     { to: '/intern', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/intern/daily-updates', icon: Calendar, label: 'Daily Updates' },
     { to: '/intern/tasks', icon: FolderKanban, label: 'Task Board' },
-    { to: '/intern/pto-requests', icon: Calendar, label: 'PTO/WFH Requests' },
+    { to: '/intern/pto-requests', icon: Calendar, label: 'WFH Requests' },
     { to: '/mentor', icon: User, label: 'Mentor' },
     { to: '/intern/profile', icon: User, label: 'Profile' },
   ];
@@ -125,7 +123,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         to={to}
         onClick={() => setMobileOpen(false)}
         className={cn(
-          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+          'flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+          sidebarOpen ? 'gap-3' : 'justify-center',
           isActive
             ? 'bg-sidebar-primary text-sidebar-primary-foreground'
             : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
@@ -147,49 +146,52 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         )}
       >
         {/* Logo & Toggle */}
-        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          <Link to={getHomeRoute()} className="flex items-center gap-2 min-w-0">
-            {sidebarOpen ? (
-              /* Expanded: full logo */
-              <img
-                src={i360_logo}
-                alt="Interns360 Logo"
-                style={{
-                  height: 100,
-                  width: 100,
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.4))'
-                }}
-                
-              />
-            ) : (
-              /* Collapsed: logo in small square */
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
+        <div className="flex h-16 items-center border-b border-sidebar-border px-4 relative">
+          {sidebarOpen ? (
+            <>
+              <Link to={getHomeRoute()} className="flex items-center justify-center flex-1">
                 <img
-                  src={i360_logo}
+                  src="/interns360_logo.png"
                   alt="Interns360 Logo"
                   style={{
-                    width: '28px',
-                    height: '28px',
+                    height: 32,
+                    width: 'auto',
                     objectFit: 'contain',
-                    filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.4))'
                   }}
                 />
-              </div>
-            )}
-          </Link>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="rounded-lg p-1.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-          >
-            <ChevronLeft
-              className={cn(
-                'h-5 w-5 transition-transform duration-300',
-                !sidebarOpen && 'rotate-180'
-              )}
-            />
-          </button>
+              </Link>
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="rounded-lg p-1.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors flex-shrink-0"
+                title="Collapse sidebar"
+              >
+                <ChevronLeft className="h-5 w-5 transition-transform duration-300" />
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to={getHomeRoute()} className="flex items-center justify-center flex-1">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
+                  <img
+                    src={i360_logo}
+                    alt="Interns360 Logo"
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      objectFit: 'contain',
+                    }}
+                  />
+                </div>
+              </Link>
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="rounded-lg p-1.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors absolute right-4"
+                title="Expand sidebar"
+              >
+                <ChevronLeft className="h-5 w-5 rotate-180 transition-transform duration-300" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Nav Links */}
